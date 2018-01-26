@@ -7,6 +7,8 @@ add_executable(
     main
 
     src/main.cpp
+    src/ast_printer.cpp
+    src/expression.cpp
     src/scanner.cpp
     src/token.cpp
 )
@@ -23,7 +25,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 else()
     target_compile_options(main PRIVATE -Wall -Wextra)
 endif()
-
 
 # Disabling RTTI because I don't need it for this program, and it's probably a smell if I did.
 # CMake doesn't abstract RTTI options for us, so detect compiler.

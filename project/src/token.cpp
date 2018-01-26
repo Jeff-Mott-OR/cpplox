@@ -23,16 +23,16 @@ namespace motts { namespace lox {
 
     // class Token
 
-        Token::Token(Token_type type, const string& lexeme, int line)
-            : type_ {type},
-              lexeme_ {lexeme},
-              line_ {line}
+        Token::Token(Token_type type_, const string& lexeme_, int line_)
+            : type {type_},
+              lexeme {lexeme_},
+              line {line_}
         {}
 
         Token::~Token() = default;
 
         string Token::to_string() const {
-            return lexical_cast<string>(type_) + " " + lexeme_;
+            return lexical_cast<string>(type) + " " + lexeme;
         }
 
     ostream& operator<<(ostream& os, const Token& token) {

@@ -27,9 +27,9 @@ namespace motts { namespace lox {
             int line_ {1};
             std::vector<std::unique_ptr<Token>> tokens_;
 
-            void add_token(Token_type type);
+            void add_token(Token_type token_type);
             template<typename Literal_type>
-                void add_token(Token_type type, const Literal_type& literal_value);
+                void add_token(Token_type token_type, const Literal_type& literal_value);
 
             // I renamed `match` to `advance_if_match` to communicate the side-effect this function causes
             bool advance_if_match(char expected);

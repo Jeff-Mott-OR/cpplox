@@ -60,8 +60,7 @@ namespace motts { namespace lox {
             : source_ {source},
               token_begin_ {source_.cbegin()},
               token_end_ {source_.cbegin()}
-        {
-        }
+        {}
 
         const vector<unique_ptr<Token>>& Scanner::scan_tokens() {
             while (token_end_ != source_.end()) {
@@ -75,18 +74,18 @@ namespace motts { namespace lox {
             return tokens_;
         }
 
-        void Scanner::add_token(Token_type type) {
+        void Scanner::add_token(Token_type token_type) {
             tokens_.push_back(make_unique<Token>(
-                type,
+                token_type,
                 string{token_begin_, token_end_},
                 line_
             ));
         }
 
         template<typename Literal_type>
-            void Scanner::add_token(Token_type type, const Literal_type& literal_value) {
+            void Scanner::add_token(Token_type token_type, const Literal_type& literal_value) {
                 tokens_.push_back(make_unique<Token_literal<Literal_type>>(
-                    type,
+                    token_type,
                     string{token_begin_, token_end_},
                     literal_value,
                     line_

@@ -55,57 +55,53 @@ namespace motts { namespace lox {
     that don't contain any dummy or empty literal value.
     */
 
-    class Token {
-        public:
-            Token(Token_type type, const std::string& lexeme, int line);
-            virtual ~Token();
-            virtual std::string to_string() const;
+    struct Token {
+        Token_type type;
+        std::string lexeme;
 
-            // No slicing
-            Token(const Token&) = delete;
-            Token& operator=(const Token&) = delete;
-            Token(Token&&) = delete;
-            Token& operator=(Token&&) = delete;
+        // Warning! This field isn't used yet in the Scanning chapter and will emit a warning
+        int line;
 
-        private:
-            Token_type type_;
-            std::string lexeme_;
+        Token(Token_type type_, const std::string& lexeme_, int line_);
+        virtual std::string to_string() const;
 
-            // Warning! This field isn't used yet in the Scanning chapter and will emit a warning
-            int line_;
+        // Base class boilerplate
+        virtual ~Token();
+        Token(const Token&) = delete;
+        Token& operator=(const Token&) = delete;
+        Token(Token&&) = delete;
+        Token& operator=(Token&&) = delete;
     };
 
     template<typename Literal_type>
-        class Token_literal : public Token {
-            public:
-                Token_literal(
-                    Token_type type,
-                    const std::string& lexeme,
-                    const Literal_type& literal_value,
-                    int line
-                );
-                std::string to_string() const override;
+        struct Token_literal : Token {
+            Literal_type literal_value;
 
-            private:
-                Literal_type literal_value_;
+            Token_literal(
+                Token_type type_,
+                const std::string& lexeme_,
+                const Literal_type& literal_value_,
+                int line_
+            );
+            std::string to_string() const override;
         };
 
     // impl Token_literal
 
         template<typename Literal_type>
             Token_literal<Literal_type>::Token_literal(
-                Token_type type,
-                const std::string& lexeme,
-                const Literal_type& literal_value,
-                int line
+                Token_type type_,
+                const std::string& lexeme_,
+                const Literal_type& literal_value_,
+                int line_
             )
-                : Token {type, lexeme, line},
-                  literal_value_ {literal_value}
+                : Token {type_, lexeme_, line_},
+                  literal_value {literal_value_}
             {}
 
         template<typename Literal_type>
             std::string Token_literal<Literal_type>::to_string() const {
-                return Token::to_string() + " " + boost::lexical_cast<std::string>(literal_value_);
+                return Token::to_string() + " " + boost::lexical_cast<std::string>(literal_value);
             }
 
     std::ostream& operator<<(std::ostream& os, const Token& token);
