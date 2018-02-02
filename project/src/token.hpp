@@ -83,8 +83,6 @@ namespace motts { namespace lox {
         Token_type type;
         std::string lexeme;
         boost::optional<Literal_multi_type> literal;
-
-        // Warning! This field isn't used yet in the Scanning chapter and will emit a warning
         int line;
     };
 

@@ -11,6 +11,9 @@
 
 #include <gsl/span>
 
+#include "ast_printer.hpp"
+#include "parser.hpp"
+#include "token.hpp"
 #include "scanner.hpp"
 
 using std::cin;
@@ -27,15 +30,20 @@ using std::vector;
 
 using gsl::span;
 
+using motts::lox::Ast_printer;
+using motts::lox::Parser;
 using motts::lox::Scanner;
 using motts::lox::Scanner_error;
+using motts::lox::Token;
 
 auto run(string&& source) {
     Scanner scanner {move(source)};
-    const auto& tokens = scanner.scan_tokens();
-    for (const auto& token : tokens) {
-        cout << "Token: " << token << "\n";
-    }
+    Parser parser {vector<Token>{scanner.scan_tokens()}};
+    const auto expression = parser.parse();
+
+    Ast_printer ast_printer;
+    expression->accept(ast_printer);
+    cout << ast_printer.result() << "\n";
 }
 
 auto run_file(const string& path) {

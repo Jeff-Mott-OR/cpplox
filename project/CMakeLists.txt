@@ -9,6 +9,7 @@ add_executable(
     src/main.cpp
     src/ast_printer.cpp
     src/expression.cpp
+    src/parser.cpp
     src/scanner.cpp
     src/token.cpp
 )
