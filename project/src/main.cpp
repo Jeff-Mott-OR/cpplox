@@ -6,6 +6,8 @@
 #include <iostream>
 #include <iterator>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <gsl/span>
 
@@ -18,32 +20,34 @@ using std::exit;
 using std::getline;
 using std::ifstream;
 using std::istream_iterator;
+using std::move;
 using std::noskipws;
 using std::string;
+using std::vector;
 
 using gsl::span;
 
 using motts::lox::Scanner;
 using motts::lox::Scanner_error;
 
-auto run(const string& source) {
-    Scanner scanner {source};
+auto run(string&& source) {
+    Scanner scanner {move(source)};
     const auto& tokens = scanner.scan_tokens();
     for (const auto& token : tokens) {
-        cout << "Token: " << *token << "\n";
+        cout << "Token: " << token << "\n";
     }
 }
 
 auto run_file(const string& path) {
     // IIFE to limit scope of ifstream
-    const auto source = ([&] () {
+    auto source = ([&] () {
         ifstream in {path};
         in.exceptions(ifstream::failbit | ifstream::badbit);
         in >> noskipws;
 
         // Reaching eof will set the failbit (for some damn reason), and therefore also trigger an exception,
         // so temporarily disable exceptions, then check if we "failed" by eof before re-enabling exceptions.
-        in.exceptions(0);
+        in.exceptions(ifstream::goodbit);
         const string source {istream_iterator<char>{in}, istream_iterator<char>{}};
         if (in.fail() && in.eof()) {
             in.clear();
@@ -53,7 +57,7 @@ auto run_file(const string& path) {
         return source;
     })();
 
-    run(source);
+    run(move(source));
 }
 
 auto run_prompt() {
@@ -65,7 +69,7 @@ auto run_prompt() {
 
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
-            run(source_line);
+            run(move(source_line));
         } catch (const Scanner_error& e) {
             cout << e.what() << "\n";
         }
@@ -78,7 +82,7 @@ int main(int argc, const char* argv[]) {
         span<const char*> argv_span {argv, argc};
 
         if (argv_span.size() > 2) {
-            cout << "Usage: jlox [script]\n";
+            cout << "Usage: cpplox [script]\n";
         } else if (argv_span.size() == 2) {
             run_file(argv_span.at(1));
         } else {

@@ -5,8 +5,6 @@
 using std::move;
 using std::unique_ptr;
 
-using boost::any;
-
 namespace motts { namespace lox {
     // struct Expr
 
@@ -18,7 +16,7 @@ namespace motts { namespace lox {
 
         Binary_expr::Binary_expr(
             unique_ptr<Expr>&& left_,
-            unique_ptr<Token>&& op_,
+            Token&& op_,
             unique_ptr<Expr>&& right_
         )
             : left {move(left_)},
@@ -26,8 +24,8 @@ namespace motts { namespace lox {
               right {move(right_)}
         {}
 
-        any Binary_expr::accept(const Expr_visitor& visitor) const {
-            return visitor.visit_binary(*this);
+        void Binary_expr::accept(Expr_visitor& visitor) const {
+            visitor.visit(*this);
         }
 
     // struct Grouping_expr
@@ -36,27 +34,29 @@ namespace motts { namespace lox {
             : expr {move(expr_)}
         {}
 
-        any Grouping_expr::accept(const Expr_visitor& visitor) const {
-            return visitor.visit_grouping(*this);
+        void Grouping_expr::accept(Expr_visitor& visitor) const {
+            visitor.visit(*this);
         }
 
     // struct Literal_expr
 
-        Literal_expr::Literal_expr() = default;
+        Literal_expr::Literal_expr(Literal_multi_type&& value_)
+            : value {move(value_)}
+        {}
 
-        any Literal_expr::accept(const Expr_visitor& visitor) const {
-            return visitor.visit_literal(*this);
+        void Literal_expr::accept(Expr_visitor& visitor) const {
+            visitor.visit(*this);
         }
 
      // struct Unary_expr
 
-        Unary_expr::Unary_expr(unique_ptr<Token>&& op_, unique_ptr<Expr>&& right_)
+        Unary_expr::Unary_expr(Token&& op_, unique_ptr<Expr>&& right_)
             : op {move(op_)},
               right {move(right_)}
         {}
 
-        any Unary_expr::accept(const Expr_visitor& visitor) const {
-            return visitor.visit_unary(*this);
+        void Unary_expr::accept(Expr_visitor& visitor) const {
+            visitor.visit(*this);
         }
 
     // struct Expr_visitor

@@ -1,14 +1,13 @@
 #include "token.hpp"
 
-#include <boost/lexical_cast.hpp>
-
+using std::nullptr_t;
 using std::ostream;
-using std::string;
 
-using boost::lexical_cast;
+using boost::apply_visitor;
+using boost::static_visitor;
 
 namespace motts { namespace lox {
-    ostream& operator<<(ostream& os, Token_type token_type) {
+    ostream& operator<<(ostream& os, const Token_type& token_type) {
         switch (token_type) {
             #define X(name) \
                 case Token_type::name: \
@@ -21,22 +20,42 @@ namespace motts { namespace lox {
         return os;
     }
 
-    // class Token
+    struct Ostream_visitor : public static_visitor<void> {
+        ostream& os;
 
-        Token::Token(Token_type type_, const string& lexeme_, int line_)
-            : type {type_},
-              lexeme {lexeme_},
-              line {line_}
+        explicit Ostream_visitor(ostream& os_)
+            : os {os_}
         {}
 
-        Token::~Token() = default;
+        // Strings and numbers serialize the same way, so let templates do the duplication
+        template<typename Literal_type>
+            auto operator()(const Literal_type& value) {
+                os << value;
+            }
 
-        string Token::to_string() const {
-            return lexical_cast<string>(type) + " " + lexeme;
+        // By default, bools will serialize as "1" and "0", so specialize that case
+        auto operator()(const bool& value) {
+            os << (value ? "true" : "false");
         }
 
+        // The nullptr literal is spelled "nil" in lox, so specialize that case
+        auto operator()(const nullptr_t&) {
+            os << "nil";
+        }
+    };
+
+    ostream& operator<<(ostream& os, const Literal_multi_type& literal) {
+        Ostream_visitor ostream_visitor {os};
+        apply_visitor(ostream_visitor, literal.value);
+
+        return os;
+    }
+
     ostream& operator<<(ostream& os, const Token& token) {
-        os << token.to_string();
+        os << token.type << " " << token.lexeme;
+        if (token.literal) {
+            os << " " << *(token.literal);
+        }
 
         return os;
     }

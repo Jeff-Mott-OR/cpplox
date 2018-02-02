@@ -1,35 +1,37 @@
 #include "ast_printer.hpp"
 
-#include <string>
-
-#include <boost/any.hpp>
+#include <boost/lexical_cast.hpp>
 
 using std::string;
 
-using boost::any;
-using boost::any_cast;
+using boost::lexical_cast;
 
 namespace motts { namespace lox {
-    any Ast_printer::visit_binary(const Binary_expr& expr) const {
-        return "(" +
-            expr.op->lexeme + " " +
-            any_cast<string>(expr.left->accept(*this)) + " " +
-            any_cast<string>(expr.right->accept(*this)) +
-        ")";
+    void Ast_printer::visit(const Binary_expr& expr) {
+        result_ += "(" + expr.op.lexeme + " ";
+        expr.left->accept(*this);
+        result_ += " ";
+        expr.right->accept(*this);
+        result_ += ")";
     }
 
-    any Ast_printer::visit_grouping(const Grouping_expr& expr) const {
-        return "(group " + any_cast<string>(expr.expr->accept(*this)) + ")";
+    void Ast_printer::visit(const Grouping_expr& expr) {
+        result_ += "(group ";
+        expr.expr->accept(*this);
+        result_ += ")";
     }
 
-    any Ast_printer::visit_literal(const Literal_expr& expr) const {
-        return expr.to_string();
+    void Ast_printer::visit(const Literal_expr& expr) {
+        result_ += lexical_cast<string>(expr.value);
     }
 
-    any Ast_printer::visit_unary(const Unary_expr& expr) const {
-        return "(" +
-            expr.op->lexeme + " " +
-            any_cast<string>(expr.right->accept(*this)) +
-        ")";
+    void Ast_printer::visit(const Unary_expr& expr) {
+        result_ += "(" + expr.op.lexeme + " ";
+        expr.right->accept(*this);
+        result_ += ")";
+    }
+
+    const string& Ast_printer::result() const {
+        return result_;
     }
 }}
