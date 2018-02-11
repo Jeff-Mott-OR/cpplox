@@ -30,7 +30,7 @@ auto run(const string& source) {
     Scanner scanner {source};
     const auto& tokens = scanner.scan_tokens();
     for (const auto& token : tokens) {
-        cout << "Token: " << *token << "\n";
+        cout << *token << "\n";
     }
 }
 
