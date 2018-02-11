@@ -1,6 +1,5 @@
 #pragma once
 
-#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -10,26 +9,26 @@
 namespace motts { namespace lox {
     class Scanner {
         public:
-            explicit Scanner(const std::string& source);
-            const std::vector<std::unique_ptr<Token>>& scan_tokens();
+            explicit Scanner(std::string&& source);
+            const std::vector<Token>& scan_tokens();
 
         private:
-            std::string source_;
+            std::string source;
 
-            // Nystrom tracks the substring of a token with two indexes, named `start` and `current`.
-            // But in C++, it's considered better style to track positions with iterators.
-            // After I changed the type of `start` and `current` to `string::iterator`,
-            // it made sense to rename them based on iterator terminology,
-            // so I renamed `start` and `current` to `token_begin` and `token_end` respectively.
-            std::string::const_iterator token_begin_;
-            std::string::const_iterator token_end_;
+            // Nystrom tracks the substring of a token with two indexes, named `start` and
+            // `current`. But in C++, it's considered better style to track positions with
+            // iterators. After I changed the type of `start` and `current` to
+            // `string::iterator`, it made sense to rename them based on iterator terminology,
+            // so I renamed `start` and `current` to `token_begin` and `token_end`
+            // respectively.
+            std::string::const_iterator token_begin;
+            std::string::const_iterator token_end;
 
-            int line_ {1};
-            std::vector<std::unique_ptr<Token>> tokens_;
+            int line {1};
+            std::vector<Token> tokens;
 
-            void add_token(Token_type token_type);
-            template<typename Literal_type>
-                void add_token(Token_type token_type, const Literal_type& literal_value);
+            void add_token(Token_type);
+            void add_token(Token_type, Literal_multi_type&&);
 
             // I renamed `match` to `advance_if_match` to communicate the side-effect this function causes
             bool advance_if_match(char expected);

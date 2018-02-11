@@ -1,15 +1,18 @@
 #pragma once
 
+#include <cstddef>
+
 #include <ostream>
 #include <string>
 
-#include <boost/lexical_cast.hpp>
+#include <boost/optional.hpp>
+#include <boost/variant.hpp>
 
 namespace motts { namespace lox {
     /*
-    We want to serialize an enum's name, but C++ doesn't generate that for us.
-    This will get better when C++ gets reflection and injection (https://youtu.be/4AfRAVcThyA?t=21m33s).
-    But for now settle for x-macro technique (https://en.wikipedia.org/wiki/X_Macro).
+    We want to serialize an enum's name, but C++ doesn't generate that for us. This will get better when
+    C++ gets reflection and injection (https://youtu.be/4AfRAVcThyA?t=21m33s). But for now settle for
+    x-macro technique (https://en.wikipedia.org/wiki/X_Macro).
 
     The enum field names are intentionally lowercase rather than uppercase.
     Uppercase isn't meant to denote a constant; it's meant to denote a macro.
@@ -45,89 +48,53 @@ namespace motts { namespace lox {
         #undef X
     };
 
-    std::ostream& operator<<(std::ostream& os, Token_type token_type);
+    std::ostream& operator<<(std::ostream&, const Token_type&);
 
     /*
-    In Java, the `Token` field `Object literal` can be assigned any value of any type,
-    and we can implicitly convert it to a string without any extra work on our part.
-    This is possible because `Object` has an overridable `toString` method,
-    and the Java library comes with pre-defined derived types for strings, doubles, bools,
-    and more, whose overridden `toString` will do the right thing.
+    In Java, the `Token` field `Object literal` can be assigned any value of any
+    type, and we can implicitly convert it to a string without any extra work on our
+    part. This is possible because `Object` has an overridable `toString` method,
+    and the Java library comes with pre-defined derived types for strings, doubles,
+    bools, and more, whose overridden `toString` will do the right thing.
 
-    Not so in C++. In C++, there is no universal base class from which everything inherits,
-    and no pre-defined derived types with overridden `toString` methods.
+    Not so in C++. In C++, there is no universal base class from which everything
+    inherits, and no pre-defined derived types with overridden `toString` methods.
 
-    I considered Boost.Any and Boost.Variant, but I settled on templated types
-    that derive from `Token` with a virtual `to_string` function, which is pretty close
-    to how the Java implementation works. This lets me generate derived types automatically
-    for any literal type -- current and future -- each of which overrides `to_string`
-    to do the right thing for that type. This also let's me construct non literal-type tokens
-    that don't contain any dummy or empty literal value.
+    We have a few options to choose from, such as Boost.Any, Boost.Variant, and
+    derivation. In an earlier commit, I settled on templated types that derive from
+    `Token` with a virtual `to_string` function -- which is pretty close to how the
+    Java implementation works. This let me generate derived types automatically for
+    any literal type -- current and future -- each of which overrides `to_string` to
+    do the right thing for that type, and it let me construct non literal-type
+    tokens that don't contain any dummy or empty literal value.
+
+    But as the program progressed, the virtual `to_string` wasn't enough. I needed
+    access to the literal value itself, and to get that, I needed to downcast to the
+    concrete type. Functionally, that's easy to do; it's just a dynamic_cast. But
+    it's a code smell. It means my type wasn't really polymorphic, and derivation
+    was probably the wrong solution.
+
+    The new solution below instead uses Boost.Variant. The good part: `Token` can be
+    allocated on the stack now instead of the heap, no more base class boilerplate,
+    and no virtual functions. The bad part: It has to explicitly list every kind of
+    literal. If ever I want to support a new kind of literal, I'll have to update
+    this code. Also every token has to set aside storage for a literal value even if
+    it isn't a literal token.
     */
+
+    // Variant wrapped in struct to avoid ambiguous calls due to ADL
+    struct Literal_multi_type {
+        boost::variant<std::string, double, bool, std::nullptr_t> value;
+    };
+
+    std::ostream& operator<<(std::ostream&, const Literal_multi_type&);
 
     struct Token {
         Token_type type;
         std::string lexeme;
-
-        // Warning! This field isn't used yet in the Scanning chapter and will emit a warning
+        boost::optional<Literal_multi_type> literal;
         int line;
-
-        Token(Token_type type_, const std::string& lexeme_, int line_);
-        virtual std::string to_string() const;
-
-        // Base class boilerplate
-        virtual ~Token();
-        Token(const Token&) = delete;
-        Token& operator=(const Token&) = delete;
-        Token(Token&&) = delete;
-        Token& operator=(Token&&) = delete;
     };
 
-    template<typename Literal_type>
-        struct Token_literal : Token {
-            Literal_type literal_value;
-
-            Token_literal(
-                Token_type type_,
-                const std::string& lexeme_,
-                const Literal_type& literal_value_,
-                int line_
-            );
-            std::string to_string() const override;
-        };
-
-    // impl Token_literal
-
-        template<typename Literal_type>
-            Token_literal<Literal_type>::Token_literal(
-                Token_type type_,
-                const std::string& lexeme_,
-                const Literal_type& literal_value_,
-                int line_
-            )
-                : Token {type_, lexeme_, line_},
-                  literal_value {literal_value_}
-            {}
-
-        template<typename Literal_type>
-            std::string Token_literal<Literal_type>::to_string() const {
-                return (
-                    boost::lexical_cast<std::string>(type) + " " +
-                    lexeme + " " +
-                    boost::lexical_cast<std::string>(literal_value)
-                );
-            }
-
-        // Numbers are expected to always have a fractional part, so specialize that case
-        template<>
-            inline std::string Token_literal<double>::to_string() const {
-                const auto literal_value_str = boost::lexical_cast<std::string>(literal_value);
-                return (
-                    boost::lexical_cast<std::string>(type) + " " +
-                    lexeme + " " +
-                    literal_value_str + (literal_value_str.find(".") == std::string::npos ? ".0" : "")
-                );
-            }
-
-    std::ostream& operator<<(std::ostream& os, const Token& token);
+    std::ostream& operator<<(std::ostream&, const Token&);
 }}

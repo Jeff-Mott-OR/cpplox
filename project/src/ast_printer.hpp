@@ -1,12 +1,20 @@
 #pragma once
 
+#include <string>
+
 #include "expression.hpp"
 
 namespace motts { namespace lox {
-    struct Ast_printer : Expr_visitor {
-        boost::any visit_binary(const Binary_expr& expr) const override;
-        boost::any visit_grouping(const Grouping_expr& expr) const override;
-        boost::any visit_literal(const Literal_expr& expr) const override;
-        boost::any visit_unary(const Unary_expr& expr) const override;
+    class Ast_printer : public Expr_visitor {
+        public:
+            void visit(const Binary_expr&) override;
+            void visit(const Grouping_expr&) override;
+            void visit(const Literal_expr&) override;
+            void visit(const Unary_expr&) override;
+
+            const std::string& result() const;
+
+        private:
+            std::string result_;
     };
 }}
