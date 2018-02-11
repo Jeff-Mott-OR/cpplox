@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 
-find_package(Boost)
+set(Boost_USE_STATIC_LIBS TRUE)
+find_package(Boost COMPONENTS filesystem unit_test_framework)
+
 find_path(GSL_INCLUDE_DIR gsl/gsl)
 
 add_executable(
@@ -15,6 +17,9 @@ add_executable(
 set_property(TARGET main PROPERTY CXX_STANDARD 14)
 target_link_libraries(main PRIVATE Boost::boost)
 target_include_directories(main PRIVATE "${GSL_INCLUDE_DIR}")
+
+# Install into wherever CMAKE_INSTALL_PREFIX points to
+install(TARGETS main DESTINATION ./)
 
 # CMake doesn't abstract warning options for us, so detect compiler.
 # Assume anything that isn't MSVC is GNU or GNU-compatible.
@@ -33,4 +38,20 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(main PRIVATE /GR-)
 else()
     target_compile_options(main PRIVATE -fno-rtti)
+endif()
+
+option(ENABLE_TESTING "Whether to build the test harness and enable testing." FALSE)
+if(ENABLE_TESTING)
+    add_executable(test_harness test/main.cpp)
+    set_property(TARGET test_harness PROPERTY CXX_STANDARD 14)
+    target_link_libraries(test_harness PRIVATE Boost::boost Boost::filesystem Boost::unit_test_framework)
+    target_include_directories(test_harness PRIVATE "${GSL_INCLUDE_DIR}")
+
+    # Install into wherever CMAKE_INSTALL_PREFIX points to
+    install(TARGETS test_harness DESTINATION ./test)
+    install(DIRECTORY test/scripts DESTINATION ./test)
+
+    # Just one test to kick-off the test harness
+    enable_testing()
+    add_test(NAME test_harness COMMAND test_harness "$<TARGET_FILE:main>" WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/test")
 endif()
