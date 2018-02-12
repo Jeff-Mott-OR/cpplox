@@ -54,5 +54,5 @@ if(ENABLE_TESTING)
 
     # Just one test to kick-off the test harness
     enable_testing()
-    add_test(NAME test_harness COMMAND test_harness "$<TARGET_FILE:cpplox>" WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/test")
+    add_test(NAME test_harness COMMAND test_harness -- "$<TARGET_FILE:cpplox>" WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/test")
 endif()
