@@ -1,6 +1,5 @@
 #include "parser.hpp"
 
-#include <string>
 #include <utility>
 
 using std::make_unique;
@@ -9,133 +8,147 @@ using std::runtime_error;
 using std::string;
 using std::to_string;
 using std::unique_ptr;
-using std::vector;
 
-namespace motts { namespace lox {
-    Parser::Parser(vector<Token>&& tokens_)
-        : tokens {move(tokens_)},
-          token_iter {tokens.begin()}
-    {}
+using motts::lox::Expr;
+using motts::lox::Binary_expr;
+using motts::lox::Grouping_expr;
+using motts::lox::Literal_expr;
+using motts::lox::Unary_expr;
+using motts::lox::Literal_multi_type;
+using motts::lox::Parser_error;
+using motts::lox::Token_iterator;
+using motts::lox::Token_type;
 
-    std::unique_ptr<Expr> Parser::parse() {
-        return consume_expression();
-    }
+// Not exported (internal linkage)
+namespace {
+    unique_ptr<Expr> consume_expression(Token_iterator& token_iter);
 
-    bool Parser::advance_if_any_match(Token_type expected) {
-        if (token_iter->type != Token_type::eof && token_iter->type == expected) {
+    unique_ptr<Expr> consume_primary(Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::false_) {
             ++token_iter;
 
-            return true;
-        }
-
-        return false;
-    }
-
-    template<typename Token_type, typename... Token_types>
-        bool Parser::advance_if_any_match(Token_type token_type, Token_types... token_types) {
-            return advance_if_any_match(token_type) || advance_if_any_match(token_types...);
-        }
-
-    unique_ptr<Expr> Parser::consume_expression() {
-        return consume_equality();
-    }
-
-    unique_ptr<Expr> Parser::consume_equality() {
-        auto left_expr = consume_comparison();
-
-        while(advance_if_any_match(Token_type::bang_equal, Token_type::equal_equal)) {
-            auto operator_token = move(*(token_iter - 1));
-            auto right_expr = consume_comparison();
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> Parser::consume_comparison() {
-        auto left_expr = consume_addition();
-
-        while (advance_if_any_match(
-            Token_type::greater, Token_type::greater_equal,
-            Token_type::less, Token_type::less_equal
-        )) {
-            auto operator_token = move(*(token_iter - 1));
-            auto right_expr = consume_addition();
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> Parser::consume_addition() {
-        auto left_expr = consume_multiplication();
-
-        while (advance_if_any_match(Token_type::minus, Token_type::plus)) {
-            auto operator_token = move(*(token_iter - 1));
-            auto right_expr = consume_multiplication();
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> Parser::consume_multiplication() {
-        auto left_expr = consume_unary();
-
-        while (advance_if_any_match(Token_type::slash, Token_type::star)) {
-            auto operator_token = move(*(token_iter - 1));
-            auto right_expr = consume_unary();
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> Parser::consume_unary() {
-        if (advance_if_any_match(Token_type::bang, Token_type::minus)) {
-            auto operator_token = move(*(token_iter - 1));
-            auto right_expr = consume_unary();
-            return make_unique<Unary_expr>(move(operator_token), move(right_expr));
-        }
-
-        return consume_primary();
-    }
-
-    unique_ptr<Expr> Parser::consume_primary() {
-        if (advance_if_any_match(Token_type::false_)) {
             return make_unique<Literal_expr>(Literal_multi_type{false});
         }
-        if (advance_if_any_match(Token_type::true_)) {
+        if (token_iter->type == Token_type::true_) {
+            ++token_iter;
+
             return make_unique<Literal_expr>(Literal_multi_type{true});
         }
-        if (advance_if_any_match(Token_type::nil_)) {
+        if (token_iter->type == Token_type::nil_) {
+            ++token_iter;
+
             return make_unique<Literal_expr>(Literal_multi_type{nullptr});
         }
 
-        if (advance_if_any_match(Token_type::number, Token_type::string)) {
-            return make_unique<Literal_expr>(move(*((token_iter - 1)->literal)));
+        if (token_iter->type == Token_type::number || token_iter->type == Token_type::string) {
+            auto expr = make_unique<Literal_expr>(*((*move(token_iter)).literal));
+            ++token_iter;
+
+            return move(expr);
         }
 
-        if (advance_if_any_match(Token_type::left_paren)) {
-            auto expr = consume_expression();
-            if (!advance_if_any_match(Token_type::right_paren)) {
-                throw Parser_error{"Expect ')' after expression.", *token_iter};
+        if (token_iter->type == Token_type::left_paren) {
+            ++token_iter;
+
+            auto expr = consume_expression(token_iter);
+            if (token_iter->type != Token_type::right_paren) {
+                throw Parser_error{"Expected ')' after expression.", *token_iter};
             }
             return make_unique<Grouping_expr>(move(expr));
         }
 
-        throw Parser_error{"Expect expression.", *token_iter};
+        throw Parser_error{"Expected expression.", *token_iter};
     }
 
-    void Parser::recover_to_synchronization_point() {
-        // Consume the offending token
-        ++token_iter;
+    unique_ptr<Expr> consume_unary(Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::bang || token_iter->type == Token_type::minus) {
+            auto operator_token = *move(token_iter);
+            ++token_iter;
 
+            auto right_expr = consume_unary(token_iter);
+            return make_unique<Unary_expr>(move(operator_token), move(right_expr));
+        }
+
+        return consume_primary(token_iter);
+    }
+
+    unique_ptr<Expr> consume_multiplication(Token_iterator& token_iter) {
+        auto left_expr = consume_unary(token_iter);
+
+        while (token_iter->type == Token_type::slash || token_iter->type == Token_type::star) {
+            auto operator_token = *move(token_iter);
+            ++token_iter;
+
+            auto right_expr = consume_unary(token_iter);
+            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
+        }
+
+        return left_expr;
+    }
+
+    unique_ptr<Expr> consume_addition(Token_iterator& token_iter) {
+        auto left_expr = consume_multiplication(token_iter);
+
+        while (token_iter->type == Token_type::minus || token_iter->type == Token_type::plus) {
+            auto operator_token = *move(token_iter);
+            ++token_iter;
+
+            auto right_expr = consume_multiplication(token_iter);
+            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
+        }
+
+        return left_expr;
+    }
+
+    unique_ptr<Expr> consume_comparison(Token_iterator& token_iter) {
+        auto left_expr = consume_addition(token_iter);
+
+        while (
+            token_iter->type == Token_type::greater ||
+            token_iter->type == Token_type::greater_equal ||
+            token_iter->type == Token_type::less ||
+            token_iter->type == Token_type::less_equal
+        ) {
+            auto operator_token = *move(token_iter);
+            ++token_iter;
+
+            auto right_expr = consume_addition(token_iter);
+            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
+        }
+
+        return left_expr;
+    }
+
+    unique_ptr<Expr> consume_equality(Token_iterator& token_iter) {
+        auto left_expr = consume_comparison(token_iter);
+
+        while(token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
+            auto operator_token = *move(token_iter);
+            ++token_iter;
+
+            auto right_expr = consume_comparison(token_iter);
+            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
+        }
+
+        return left_expr;
+    }
+
+    unique_ptr<Expr> consume_expression(Token_iterator& token_iter) {
+        return consume_equality(token_iter);
+    }
+
+    void recover_to_synchronization_point(Token_iterator& token_iter) {
         while (token_iter->type != Token_type::eof) {
-            if ((token_iter - 1)->type == Token_type::semicolon) {
+            // After a semicolon, we're probably finished with a statement. Use it as a
+            // synchronization point.
+            if (token_iter->type == Token_type::semicolon) {
+                ++token_iter;
+
                 return;
             }
 
+            // Most statements start with a keyword -- for, if, return, var, etc. Use them as
+            // synchronization points.
             // Warning! This switch doesn't handle every enumeration value and will emit a warning
             switch (token_iter->type) {
                 case Token_type::class_:
@@ -149,11 +162,19 @@ namespace motts { namespace lox {
                     return;
             }
 
+            // Discard tokens until we find a statement boundary
             ++token_iter;
         }
     }
+}
 
-    Parser_error::Parser_error(const std::string& what, const Token& token)
+// Exported (external linkage)
+namespace motts { namespace lox {
+    unique_ptr<Expr> parse(Token_iterator&& begin) {
+        return consume_expression(begin);
+    }
+
+    Parser_error::Parser_error(const string& what, const Token& token)
       : runtime_error{
             "[Line " + to_string(token.line) + "] Error at " + (
                 token.type != Token_type::eof ?

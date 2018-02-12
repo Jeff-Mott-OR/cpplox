@@ -31,15 +31,13 @@ using std::vector;
 using gsl::span;
 
 using motts::lox::Ast_printer;
-using motts::lox::Parser;
-using motts::lox::Scanner;
+using motts::lox::parse;
 using motts::lox::Scanner_error;
 using motts::lox::Token;
+using motts::lox::Token_iterator;
 
 auto run(string&& source) {
-    Scanner scanner {move(source)};
-    Parser parser {vector<Token>{scanner.scan_tokens()}};
-    const auto expression = parser.parse();
+    const auto expression = parse(Token_iterator{source});
 
     Ast_printer ast_printer;
     expression->accept(ast_printer);

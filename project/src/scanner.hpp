@@ -1,19 +1,48 @@
 #pragma once
 
+#include <iterator>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 #include "token.hpp"
 
 namespace motts { namespace lox {
-    class Scanner {
+    /*
+    Nystrom's Java code uses a `Scanner` class with a `scan_tokens` method that
+    returns an array of tokens. In earlier commits, I mirrored that implementation,
+    but I didn't like any of the choices for return type. If I returned an array
+    value, then I'd be making an unnecessary copy.  If I returned a mutable array
+    reference, then the class would lose all control over its private data. And if
+    I returned a const array reference, then I'd again be making an unnecessary copy
+    for calling code that needs a mutable array.
+
+    The new solution below instead uses the iterator pattern. Rather than return a
+    complete list of tokens, instead I provide an interface to iterate through the
+    tokens. The call site can then populate an array or any other data structure
+    with the begin and end iterators.
+    */
+
+    class Token_iterator : public std::iterator<std::forward_iterator_tag, Token> {
         public:
-            explicit Scanner(std::string&& source);
-            const std::vector<Token>& scan_tokens();
+            // Begin
+            explicit Token_iterator(const std::string& source);
+
+            // End
+            explicit Token_iterator();
+
+            Token_iterator& operator++();
+            Token_iterator operator++(int);
+
+            bool operator==(const Token_iterator& rhs) const;
+            bool operator!=(const Token_iterator& rhs) const;
+
+            const Token& operator*() const &;
+            Token&& operator*() &&;
+
+            const Token* operator->() const;
 
         private:
-            std::string source;
+            const std::string* source {};
 
             // Nystrom tracks the substring of a token with two indexes, named `start` and
             // `current`. But in C++, it's considered better style to track positions with
@@ -25,18 +54,18 @@ namespace motts { namespace lox {
             std::string::const_iterator token_end;
 
             int line {1};
-            std::vector<Token> tokens;
+            Token token;
 
-            void add_token(Token_type);
-            void add_token(Token_type, Literal_multi_type&&);
+            Token make_token(Token_type);
+            Token make_token(Token_type, Literal_multi_type&&);
 
             // I renamed `match` to `advance_if_match` to communicate the side-effect this function causes
             bool advance_if_match(char expected);
 
-            void consume_string();
-            void consume_number();
-            void consume_identifier();
-            void consume_token();
+            Token consume_string();
+            Token consume_number();
+            Token consume_identifier();
+            Token consume_token();
     };
 
     class Scanner_error : public std::runtime_error {

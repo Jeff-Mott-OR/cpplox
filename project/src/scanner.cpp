@@ -16,7 +16,6 @@ using std::runtime_error;
 using std::string;
 using std::to_string;
 using std::unordered_map;
-using std::vector;
 
 using boost::lexical_cast;
 
@@ -49,39 +48,72 @@ namespace {
 
 // Exported (external linkage)
 namespace motts { namespace lox {
-    Scanner::Scanner(string&& source_)
-        : source {move(source_)},
-          token_begin {source.cbegin()},
-          token_end {source.cbegin()}
+    Token_iterator::Token_iterator(const string& source_)
+        : source {&source_},
+          token_begin {source->cbegin()},
+          token_end {source->cbegin()},
+          token {consume_token()}
     {}
 
-    const vector<Token>& Scanner::scan_tokens() {
-        while (token_end != source.end()) {
+    Token_iterator::Token_iterator() = default;
+
+    Token_iterator& Token_iterator::operator++() {
+        if (token_begin != source->end()) {
             // We are at the beginning of the next lexeme
             token_begin = token_end;
-            consume_token();
+            token = consume_token();
+        } else {
+            source = nullptr;
         }
 
-        tokens.push_back(Token{Token_type::eof, "", {}, line});
-
-        return tokens;
+        return *this;
     }
 
-    void Scanner::add_token(Token_type token_type) {
-        tokens.push_back(Token{token_type, string{token_begin, token_end}, {}, line});
+    Token_iterator Token_iterator::operator++(int) {
+        Token_iterator copy {*this};
+        operator++();
+
+        return copy;
     }
 
-    void Scanner::add_token(Token_type token_type, Literal_multi_type&& literal_value) {
-        tokens.push_back(Token{
+    bool Token_iterator::operator==(const Token_iterator& rhs) const {
+        return (
+            (!source && !rhs.source) ||
+            (source == rhs.source && token_begin == rhs.token_begin)
+        );
+    }
+
+    bool Token_iterator::operator!=(const Token_iterator& rhs) const {
+        return !(*this == rhs);
+    }
+
+    const Token& Token_iterator::operator*() const & {
+        return token;
+    }
+
+    Token&& Token_iterator::operator*() && {
+        return move(token);
+    }
+
+    const Token* Token_iterator::operator->() const {
+        return &token;
+    }
+
+    Token Token_iterator::make_token(Token_type token_type) {
+        return Token{token_type, string{token_begin, token_end}, {}, line};
+    }
+
+    Token Token_iterator::make_token(Token_type token_type, Literal_multi_type&& literal_value) {
+        return Token{
             token_type,
             string{token_begin, token_end},
             move(literal_value),
             line
-        });
+        };
     }
 
-    bool Scanner::advance_if_match(char expected) {
-        if (token_end != source.end() && *token_end == expected) {
+    bool Token_iterator::advance_if_match(char expected) {
+        if (token_end != source->end() && *token_end == expected) {
             ++token_end;
 
             return true;
@@ -90,8 +122,8 @@ namespace motts { namespace lox {
         return false;
     }
 
-    void Scanner::consume_string() {
-        while (token_end != source.end() && *token_end != '"') {
+    Token Token_iterator::consume_string() {
+        while (token_end != source->end() && *token_end != '"') {
             if (*token_end == '\n') {
                 ++line;
             }
@@ -100,7 +132,7 @@ namespace motts { namespace lox {
         }
 
         // Check unterminated string
-        if (token_end == source.end()) {
+        if (token_end == source->end()) {
             throw Scanner_error{"Unterminated string.", line};
         }
 
@@ -108,131 +140,129 @@ namespace motts { namespace lox {
         ++token_end;
 
         // Trim the surrounding quotes for literal value
-        add_token(Token_type::string, Literal_multi_type{string{token_begin + 1, token_end - 1}});
+        return make_token(Token_type::string, Literal_multi_type{string{token_begin + 1, token_end - 1}});
     }
 
-    void Scanner::consume_number() {
-        while (token_end != source.end() && isdigit(*token_end)) {
+    Token Token_iterator::consume_number() {
+        while (token_end != source->end() && isdigit(*token_end)) {
             ++token_end;
         }
 
         // Look for a fractional part
         if (
-            token_end != source.end() && *token_end ==  '.' &&
-            (token_end + 1) != source.end() && isdigit(*(token_end + 1))
+            token_end != source->end() && *token_end ==  '.' &&
+            (token_end + 1) != source->end() && isdigit(*(token_end + 1))
         ) {
             // Consume the "."
             ++token_end;
 
-            while (token_end != source.end() && isdigit(*token_end)) {
+            while (token_end != source->end() && isdigit(*token_end)) {
                 ++token_end;
             }
         }
 
-        add_token(Token_type::number, Literal_multi_type{lexical_cast<double>(string{token_begin, token_end})});
+        return make_token(Token_type::number, Literal_multi_type{lexical_cast<double>(string{token_begin, token_end})});
     }
 
-    void Scanner::consume_identifier() {
-        while (token_end != source.end() && (isalnum(*token_end) || *token_end == '_')) {
+    Token Token_iterator::consume_identifier() {
+        while (token_end != source->end() && (isalnum(*token_end) || *token_end == '_')) {
             ++token_end;
         }
 
         const auto found = reserved_words.find(string{token_begin, token_end});
-        add_token(
+        return make_token(
             found != reserved_words.end() ?
                 found->second :
                 Token_type::identifier
         );
     }
 
-    void Scanner::consume_token() {
-        auto c = *token_end;
-        ++token_end;
+    Token Token_iterator::consume_token() {
+        // Loop because we might skip some tokens
+        for (; token_begin != source->end(); operator++()) {
+            auto c = *token_end;
+            ++token_end;
 
-        switch (c) {
-            // Single char tokens
-            case '(': add_token(Token_type::left_paren); break;
-            case ')': add_token(Token_type::right_paren); break;
-            case '{': add_token(Token_type::left_brace); break;
-            case '}': add_token(Token_type::right_brace); break;
-            case ',': add_token(Token_type::comma); break;
-            case '.': add_token(Token_type::dot); break;
-            case '-': add_token(Token_type::minus); break;
-            case '+': add_token(Token_type::plus); break;
-            case ';': add_token(Token_type::semicolon); break;
-            case '*': add_token(Token_type::star); break;
+            switch (c) {
+                // Single char tokens
+                case '(': return make_token(Token_type::left_paren);
+                case ')': return make_token(Token_type::right_paren);
+                case '{': return make_token(Token_type::left_brace);
+                case '}': return make_token(Token_type::right_brace);
+                case ',': return make_token(Token_type::comma);
+                case '.': return make_token(Token_type::dot);
+                case '-': return make_token(Token_type::minus);
+                case '+': return make_token(Token_type::plus);
+                case ';': return make_token(Token_type::semicolon);
+                case '*': return make_token(Token_type::star);
 
-            // One or two char tokens
-            case '/':
-                if (advance_if_match('/')) {
-                    // A comment goes until the end of the line
-                    while (token_end != source.end() && *token_end != '\n') {
-                        ++token_end;
+                // One or two char tokens
+                case '/':
+                    if (advance_if_match('/')) {
+                        // A comment goes until the end of the line
+                        while (token_end != source->end() && *token_end != '\n') {
+                            ++token_end;
+                        }
+
+                        continue;
+                    } else {
+                        return make_token(Token_type::slash);
                     }
-                } else {
-                    add_token(Token_type::slash);
-                }
 
-                break;
+                case '!':
+                    return make_token(
+                        advance_if_match('=') ?
+                            Token_type::bang_equal :
+                            Token_type::bang
+                    );
 
-            case '!':
-                add_token(
-                    advance_if_match('=') ?
-                        Token_type::bang_equal :
-                        Token_type::bang
-                );
+                case '=':
+                    return make_token(
+                        advance_if_match('=') ?
+                            Token_type::equal_equal :
+                            Token_type::equal
+                    );
 
-                break;
+                case '>':
+                    return make_token(
+                        advance_if_match('=') ?
+                            Token_type::greater_equal :
+                            Token_type::greater
+                    );
 
-            case '=':
-                add_token(
-                    advance_if_match('=') ?
-                        Token_type::equal_equal :
-                        Token_type::equal
-                );
+                case '<':
+                    return make_token(
+                        advance_if_match('=') ?
+                            Token_type::less_equal :
+                            Token_type::less
+                    );
 
-                break;
+                // Whitespace
+                case '\n':
+                    ++line;
 
-            case '>':
-                add_token(
-                    advance_if_match('=') ?
-                        Token_type::greater_equal :
-                        Token_type::greater
-                );
+                    continue;
 
-                break;
+                case ' ':
+                case '\r':
+                case '\t':
+                    continue;
 
-            case '<':
-                add_token(
-                    advance_if_match('=') ?
-                        Token_type::less_equal :
-                        Token_type::less
-                );
-
-                break;
-
-            // Whitespace
-            case '\n':
-                ++line;
-
-                break;
-
-            case ' ':
-            case '\r':
-            case '\t':
-                break;
-
-            // Literals and Keywords
-            case '"': consume_string(); break;
-            default:
-                if (isdigit(c)) {
-                    consume_number();
-                } else if (isalpha(c) || c == '_') {
-                    consume_identifier();
-                } else {
-                    throw Scanner_error{"Unexpected character.", line};
-                }
+                // Literals and Keywords
+                case '"': return consume_string();
+                default:
+                    if (isdigit(c)) {
+                        return consume_number();
+                    } else if (isalpha(c) || c == '_') {
+                        return consume_identifier();
+                    } else {
+                        throw Scanner_error{"Unexpected character.", line};
+                    }
+            }
         }
+
+        // The final token is always EOF
+        return Token{Token_type::eof, "", {}, line};
     }
 
     Scanner_error::Scanner_error(const string& what, int line)
