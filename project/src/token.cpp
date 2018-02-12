@@ -1,50 +1,77 @@
 #include "token.hpp"
 
+#include <stdexcept>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
+
+using std::logic_error;
 using std::nullptr_t;
 using std::ostream;
+using std::string;
 
 using boost::apply_visitor;
+using boost::is_any_of;
+using boost::lexical_cast;
 using boost::static_visitor;
+using boost::to_upper;
+using boost::trim_right_if;
 
 namespace motts { namespace lox {
     ostream& operator<<(ostream& os, const Token_type& token_type) {
-        switch (token_type) {
-            #define X(name) \
-                case Token_type::name: \
-                    os << #name; \
-                    break;
-            MOTTS_LOX_TOKEN_TYPE_NAMES
-            #undef X
-        }
+        string name {([&] () {
+            switch (token_type) {
+                #define X(name) \
+                    case Token_type::name: \
+                        return #name;
+                MOTTS_LOX_TOKEN_TYPE_NAMES
+                #undef X
+
+                default:
+                    throw logic_error{"Unexpected token type."};
+            }
+        })()};
+
+        // Field names should print as uppercase without trailing underscores
+        trim_right_if(name, is_any_of("_"));
+        to_upper(name);
+
+        os << name;
 
         return os;
     }
 
-    struct Ostream_visitor : public static_visitor<void> {
-        ostream& os;
+    ostream& operator<<(ostream& os, const Literal_multi_type& literal) {
+        struct Ostream_visitor : public static_visitor<void> {
+            ostream& os;
 
-        explicit Ostream_visitor(ostream& os_)
-            : os {os_}
-        {}
+            explicit Ostream_visitor(ostream& os_)
+                : os {os_}
+            {}
 
-        // Strings and numbers serialize the same way, so let templates do the duplication
-        template<typename Literal_type>
-            auto operator()(const Literal_type& value) {
+            auto operator()(const string& value) {
                 os << value;
             }
 
-        // By default, bools will serialize as "1" and "0", so specialize that case
-        auto operator()(const bool& value) {
-            os << (value ? "true" : "false");
-        }
+            auto operator()(double value) {
+                const auto value_str = lexical_cast<string>(value);
+                os << value_str;
+                if (value_str.find(".") == string::npos) {
+                    os << ".0";
+                }
+            }
 
-        // The nullptr literal is spelled "nil" in lox, so specialize that case
-        auto operator()(const nullptr_t&) {
-            os << "nil";
-        }
-    };
+            // By default, bools will serialize as "1" and "0", so specialize that case
+            auto operator()(bool value) {
+                os << (value ? "true" : "false");
+            }
 
-    ostream& operator<<(ostream& os, const Literal_multi_type& literal) {
+            // The nullptr literal is spelled "nil" in lox, so specialize that case
+            auto operator()(nullptr_t) {
+                os << "nil";
+            }
+        };
+
         Ostream_visitor ostream_visitor {os};
         apply_visitor(ostream_visitor, literal.value);
 
@@ -52,9 +79,11 @@ namespace motts { namespace lox {
     }
 
     ostream& operator<<(ostream& os, const Token& token) {
-        os << token.type << " " << token.lexeme;
+        os << token.type << " " << token.lexeme << " ";
         if (token.literal) {
-            os << " " << *(token.literal);
+            os << *(token.literal);
+        } else {
+            os << "null";
         }
 
         return os;

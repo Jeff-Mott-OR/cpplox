@@ -24,17 +24,17 @@ namespace {
     unique_ptr<Expr> consume_expression(Token_iterator& token_iter);
 
     unique_ptr<Expr> consume_primary(Token_iterator& token_iter) {
-        if (token_iter->type == Token_type::t_false) {
+        if (token_iter->type == Token_type::false_) {
             ++token_iter;
 
             return make_unique<Literal_expr>(Literal_multi_type{false});
         }
-        if (token_iter->type == Token_type::t_true) {
+        if (token_iter->type == Token_type::true_) {
             ++token_iter;
 
             return make_unique<Literal_expr>(Literal_multi_type{true});
         }
-        if (token_iter->type == Token_type::t_nil) {
+        if (token_iter->type == Token_type::nil_) {
             ++token_iter;
 
             return make_unique<Literal_expr>(Literal_multi_type{nullptr});
@@ -54,6 +54,8 @@ namespace {
             if (token_iter->type != Token_type::right_paren) {
                 throw Parser_error{"Expected ')' after expression.", *token_iter};
             }
+            ++token_iter;
+
             return make_unique<Grouping_expr>(move(expr));
         }
 
@@ -122,7 +124,7 @@ namespace {
     unique_ptr<Expr> consume_equality(Token_iterator& token_iter) {
         auto left_expr = consume_comparison(token_iter);
 
-        while(token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
+        while (token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
             auto operator_token = *move(token_iter);
             ++token_iter;
 
@@ -151,14 +153,14 @@ namespace {
             // synchronization points.
             // Warning! This switch doesn't handle every enumeration value and will emit a warning
             switch (token_iter->type) {
-                case Token_type::t_class:
-                case Token_type::t_fun:
-                case Token_type::t_var:
-                case Token_type::t_for:
-                case Token_type::t_if:
-                case Token_type::t_while:
-                case Token_type::t_print:
-                case Token_type::t_return:
+                case Token_type::class_:
+                case Token_type::fun_:
+                case Token_type::var_:
+                case Token_type::for_:
+                case Token_type::if_:
+                case Token_type::while_:
+                case Token_type::print_:
+                case Token_type::return_:
                     return;
             }
 

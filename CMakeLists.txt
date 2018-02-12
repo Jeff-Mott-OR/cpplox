@@ -6,16 +6,26 @@ include(ExternalProject)
 set_property(DIRECTORY PROPERTY EP_BASE "${CMAKE_CURRENT_BINARY_DIR}/ExternalProjects")
 
 # Boost
+if(CMAKE_HOST_UNIX)
+    set(BOOST_CONFIGURE_COMMAND ./bootstrap.sh)
+else()
+    set(BOOST_CONFIGURE_COMMAND bootstrap.bat)
+endif()
 ExternalProject_Add(
     boost
-    URL https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.gz
+    URL https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz
 
     # Don't build unless a project depends on it
-    EXCLUDE_FROM_ALL 1
+    EXCLUDE_FROM_ALL TRUE
 
-    # Header-only library; nothing to configure, build, or install
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
+    # Set the working directory to the source dir
+    BUILD_IN_SOURCE TRUE
+
+    CONFIGURE_COMMAND "${BOOST_CONFIGURE_COMMAND}"
+
+    # An out-of-source install would be ideal, but that involves copying all the
+    # header files, which is super slow on windows
+    BUILD_COMMAND ./b2 "--stagedir=<SOURCE_DIR>" --with-filesystem --with-test variant=release link=static stage
     INSTALL_COMMAND ""
 )
 ExternalProject_Get_Property(boost SOURCE_DIR)
@@ -27,7 +37,7 @@ ExternalProject_Add(
     URL https://github.com/Microsoft/GSL/archive/1f82596e1dada0067712527262a3d561ad51ddac.zip
 
     # Don't build unless a project depends on it
-    EXCLUDE_FROM_ALL 1
+    EXCLUDE_FROM_ALL TRUE
 
     # Header-only library; nothing to configure, build, or install
     CONFIGURE_COMMAND ""
@@ -48,8 +58,16 @@ ExternalProject_Add(
     DOWNLOAD_COMMAND ""
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/project"
 
-    # Tell the project where to find the dependencies
-    CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${INSTALLATION_PREFIXES}"
+    CMAKE_ARGS
+        # Tell the project where to find the dependencies
+        "-DCMAKE_PREFIX_PATH=${INSTALLATION_PREFIXES}"
 
-    INSTALL_COMMAND ""
+        # Also build the test harness
+        -DENABLE_TESTING=TRUE
+
+        # Force install into ExternalProjects directory, otherwise it will try to install
+        # into global system default location.
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+
+    TEST_AFTER_INSTALL TRUE
 )

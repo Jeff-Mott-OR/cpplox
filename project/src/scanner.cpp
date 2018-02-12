@@ -27,22 +27,22 @@ namespace {
     // this data structure to an array of tuples. The data is small enough that an
     // array may be faster.
     const unordered_map<string, Token_type> reserved_words {
-        {"and", Token_type::t_and},
-        {"class", Token_type::t_class},
-        {"else", Token_type::t_else},
-        {"false", Token_type::t_false},
-        {"for", Token_type::t_for},
-        {"fun", Token_type::t_fun},
-        {"if", Token_type::t_if},
-        {"nil", Token_type::t_nil},
-        {"or", Token_type::t_or},
-        {"print", Token_type::t_print},
-        {"return", Token_type::t_return},
-        {"super", Token_type::t_super},
-        {"this", Token_type::t_this},
-        {"true", Token_type::t_true},
-        {"var", Token_type::t_var},
-        {"while", Token_type::t_while},
+        {"and", Token_type::and_},
+        {"class", Token_type::class_},
+        {"else", Token_type::else_},
+        {"false", Token_type::false_},
+        {"for", Token_type::for_},
+        {"fun", Token_type::fun_},
+        {"if", Token_type::if_},
+        {"nil", Token_type::nil_},
+        {"or", Token_type::or_},
+        {"print", Token_type::print_},
+        {"return", Token_type::return_},
+        {"super", Token_type::super_},
+        {"this", Token_type::this_},
+        {"true", Token_type::true_},
+        {"var", Token_type::var_},
+        {"while", Token_type::while_},
     };
 }
 
@@ -179,7 +179,7 @@ namespace motts { namespace lox {
 
     Token Token_iterator::consume_token() {
         // Loop because we might skip some tokens
-        for (; token_begin != source->end(); operator++()) {
+        for (; token_begin != source->end(); token_begin = token_end) {
             auto c = *token_end;
             ++token_end;
 
