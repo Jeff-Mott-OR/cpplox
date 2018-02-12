@@ -54,6 +54,8 @@ namespace {
             if (token_iter->type != Token_type::right_paren) {
                 throw Parser_error{"Expected ')' after expression.", *token_iter};
             }
+            ++token_iter;
+
             return make_unique<Grouping_expr>(move(expr));
         }
 
@@ -122,7 +124,7 @@ namespace {
     unique_ptr<Expr> consume_equality(Token_iterator& token_iter) {
         auto left_expr = consume_comparison(token_iter);
 
-        while(token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
+        while (token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
             auto operator_token = *move(token_iter);
             ++token_iter;
 

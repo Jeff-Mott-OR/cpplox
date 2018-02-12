@@ -36,7 +36,7 @@ using motts::lox::Scanner_error;
 using motts::lox::Token;
 using motts::lox::Token_iterator;
 
-auto run(string&& source) {
+auto run(const string& source) {
     const auto expression = parse(Token_iterator{source});
 
     Ast_printer ast_printer;
@@ -46,7 +46,7 @@ auto run(string&& source) {
 
 auto run_file(const string& path) {
     // IIFE to limit scope of ifstream
-    auto source = ([&] () {
+    const auto source = ([&] () {
         ifstream in {path};
         in.exceptions(ifstream::failbit | ifstream::badbit);
         in >> noskipws;
@@ -63,7 +63,7 @@ auto run_file(const string& path) {
         return source;
     })();
 
-    run(move(source));
+    run(source);
 }
 
 auto run_prompt() {
@@ -75,7 +75,7 @@ auto run_prompt() {
 
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
-            run(move(source_line));
+            run(source_line);
         } catch (const Scanner_error& e) {
             cout << e.what() << "\n";
         }

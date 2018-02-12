@@ -179,7 +179,7 @@ namespace motts { namespace lox {
 
     Token Token_iterator::consume_token() {
         // Loop because we might skip some tokens
-        for (; token_begin != source->end(); operator++()) {
+        for (; token_begin != source->end(); token_begin = token_end) {
             auto c = *token_end;
             ++token_end;
 
