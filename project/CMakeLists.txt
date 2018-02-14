@@ -48,10 +48,26 @@ if(ENABLE_TESTING)
     set_property(TARGET test_harness PROPERTY CXX_STANDARD 14)
     target_link_libraries(test_harness PRIVATE Boost::boost Boost::filesystem Boost::program_options Boost::unit_test_framework)
 
-    # Just one test to kick-off the test harness
     enable_testing()
+
+    # One test to kick-off the test harness
     add_test(
         NAME test_harness
         COMMAND test_harness -- --cpplox-file "$<TARGET_FILE:cpplox>" --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
     )
+
+    # Test for memory bugs with valgrind if it happens to be available
+    find_program(VALGRIND_COMMAND valgrind)
+    if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
+        add_test(
+            NAME valgrind
+            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/evaluate.lox"
+        )
+        set_tests_properties(
+            valgrind PROPERTIES
+            PASS_REGULAR_EXPRESSION "All heap blocks were freed -- no leaks are possible"
+        )
+    else()
+        message(STATUS "Valgrind not found. It will be skipped during testing.")
+    endif()
 endif()
