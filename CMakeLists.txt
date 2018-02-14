@@ -25,7 +25,7 @@ ExternalProject_Add(
 
     # An out-of-source install would be ideal, but that involves copying all the
     # header files, which is super slow on windows
-    BUILD_COMMAND ./b2 "--stagedir=<SOURCE_DIR>" --with-filesystem --with-test variant=release link=static stage
+    BUILD_COMMAND ./b2 "--stagedir=<SOURCE_DIR>" --with-filesystem --with-program_options --with-test variant=release link=static stage
     INSTALL_COMMAND ""
 )
 ExternalProject_Get_Property(boost SOURCE_DIR)

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(Boost_USE_STATIC_LIBS TRUE)
-find_package(Boost COMPONENTS filesystem unit_test_framework)
+find_package(Boost COMPONENTS filesystem program_options unit_test_framework)
 
 find_path(GSL_INCLUDE_DIR gsl/gsl)
 
@@ -46,14 +46,12 @@ option(ENABLE_TESTING "Whether to build the test harness and enable testing." FA
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     set_property(TARGET test_harness PROPERTY CXX_STANDARD 14)
-    target_link_libraries(test_harness PRIVATE Boost::boost Boost::filesystem Boost::unit_test_framework)
-    target_include_directories(test_harness PRIVATE "${GSL_INCLUDE_DIR}")
-
-    # Install into wherever CMAKE_INSTALL_PREFIX points to
-    install(TARGETS test_harness DESTINATION ./test)
-    install(DIRECTORY test/scripts DESTINATION ./test)
+    target_link_libraries(test_harness PRIVATE Boost::boost Boost::filesystem Boost::program_options Boost::unit_test_framework)
 
     # Just one test to kick-off the test harness
     enable_testing()
-    add_test(NAME test_harness COMMAND test_harness -- "$<TARGET_FILE:cpplox>" WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/test")
+    add_test(
+        NAME test_harness
+        COMMAND test_harness -- --cpplox-file "$<TARGET_FILE:cpplox>" --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+    )
 endif()
