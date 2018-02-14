@@ -158,7 +158,7 @@ namespace motts { namespace lox {
     }
 
     Interpreter_error::Interpreter_error(const string& what, const Token& token)
-      : runtime_error {
+      : Runtime_error {
             "[Line " + to_string(token.line) + "] Error " + token.lexeme + ": " + what
         }
     {}

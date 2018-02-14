@@ -12,7 +12,6 @@ using std::isalpha;
 using std::isdigit;
 
 using std::move;
-using std::runtime_error;
 using std::string;
 using std::to_string;
 using std::unordered_map;
@@ -23,9 +22,8 @@ using motts::lox::Token_type;
 
 // Not exported (internal linkage)
 namespace {
-    // TODO: Under the microscope of profile and benchmarking tools, consider changing
-    // this data structure to an array of tuples. The data is small enough that an
-    // array may be faster.
+    // TODO: Under the microscope of profile and benchmarking tools, consider changing this data structure
+    // to an array of tuples. The data is small enough that an array may be faster.
     const unordered_map<string, Token_type> reserved_words {
         {"and", Token_type::and_},
         {"class", Token_type::class_},
@@ -266,6 +264,6 @@ namespace motts { namespace lox {
     }
 
     Scanner_error::Scanner_error(const string& what, int line)
-        : runtime_error {"[Line " + to_string(line) + "] Error: " + what}
+        : Runtime_error {"[Line " + to_string(line) + "] Error: " + what}
     {}
 }}

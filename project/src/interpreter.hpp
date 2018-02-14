@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdexcept>
-
+#include "exception.hpp"
 #include "expression.hpp"
 #include "token.hpp"
 
@@ -19,10 +18,9 @@ namespace motts { namespace lox {
             Literal_multi_type result_;
     };
 
-    class Interpreter_error : public std::runtime_error {
-        public:
-            using std::runtime_error::runtime_error;
+    struct Interpreter_error : Runtime_error {
+        using Runtime_error::Runtime_error;
 
-            Interpreter_error(const std::string& what, const Token&);
+        explicit Interpreter_error(const std::string& what, const Token&);
     };
 }}

@@ -1,27 +1,24 @@
 #pragma once
 
 #include <iterator>
-#include <stdexcept>
 #include <string>
 
+#include "exception.hpp"
 #include "token.hpp"
 
 namespace motts { namespace lox {
     /*
-    Nystrom's Java code uses a `Scanner` class with a `scan_tokens` method that
-    returns an array of tokens. In earlier commits, I mirrored that implementation,
-    but I didn't like any of the choices for return type. If I returned an array
-    value, then I'd be making an unnecessary copy.  If I returned a mutable array
-    reference, then the class would lose all control over its private data. And if
-    I returned a const array reference, then I'd again be making an unnecessary copy
-    for calling code that needs a mutable array.
+    Nystrom's Java code uses a `Scanner` class with a `scan_tokens` method that returns an array of
+    tokens. In earlier commits, I mirrored that implementation, but I didn't like any of the choices for
+    return type. If I returned an array value, then I'd be making an unnecessary copy.  If I returned a
+    mutable array reference, then the class would lose all control over its private data. And if I
+    returned a const array reference, then I'd again be making an unnecessary copy for calling code that
+    needs a mutable array.
 
-    The new solution below instead uses the iterator pattern. Rather than return a
-    complete list of tokens, instead I provide an interface to iterate through the
-    tokens. The call site can then populate an array or any other data structure
-    with the begin and end iterators.
+    The new solution below instead uses the iterator pattern. Rather than return a complete list of
+    tokens, instead I provide an interface to iterate through the tokens. The call site can then
+    populate an array or any other data structure with the begin and end iterators.
     */
-
     class Token_iterator : public std::iterator<std::forward_iterator_tag, Token> {
         public:
             // Begin
@@ -44,12 +41,10 @@ namespace motts { namespace lox {
         private:
             const std::string* source {};
 
-            // Nystrom tracks the substring of a token with two indexes, named `start` and
-            // `current`. But in C++, it's considered better style to track positions with
-            // iterators. After I changed the type of `start` and `current` to
-            // `string::iterator`, it made sense to rename them based on iterator terminology,
-            // so I renamed `start` and `current` to `token_begin` and `token_end`
-            // respectively.
+            // Nystrom tracks the substring of a token with two indexes, named `start` and `current`. But in C++,
+            // it's considered better style to track positions with iterators. After I changed the type of `start`
+            // and `current` to `string::iterator`, it made sense to rename them based on iterator terminology, so
+            // I renamed `start` and `current` to `token_begin` and `token_end` respectively.
             std::string::const_iterator token_begin;
             std::string::const_iterator token_end;
 
@@ -68,8 +63,7 @@ namespace motts { namespace lox {
             Token consume_token();
     };
 
-    class Scanner_error : public std::runtime_error {
-        public:
-            Scanner_error(const std::string& what, int line);
+    struct Scanner_error : Runtime_error {
+        explicit Scanner_error(const std::string& what, int line);
     };
 }}

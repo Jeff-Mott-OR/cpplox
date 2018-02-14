@@ -1,10 +1,11 @@
 #include "token.hpp"
 
+#include <ios>
 #include <stdexcept>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 
+using std::boolalpha;
 using std::logic_error;
 using std::nullptr_t;
 using std::ostream;
@@ -12,13 +13,13 @@ using std::string;
 
 using boost::apply_visitor;
 using boost::is_any_of;
-using boost::lexical_cast;
 using boost::static_visitor;
 using boost::to_upper;
 using boost::trim_right_if;
 
 namespace motts { namespace lox {
     ostream& operator<<(ostream& os, const Token_type& token_type) {
+        // IIFE so I can use return rather than assign-and-break
         string name {([&] () {
             switch (token_type) {
                 #define X(name) \
@@ -42,7 +43,7 @@ namespace motts { namespace lox {
     }
 
     ostream& operator<<(ostream& os, const Literal_multi_type& literal) {
-        struct Ostream_visitor : public static_visitor<void> {
+        struct Ostream_visitor : static_visitor<void> {
             ostream& os;
 
             explicit Ostream_visitor(ostream& os_)
@@ -57,12 +58,10 @@ namespace motts { namespace lox {
                 os << value;
             }
 
-            // By default, bools will serialize as "1" and "0", so specialize that case
             auto operator()(bool value) {
-                os << (value ? "true" : "false");
+                os << boolalpha << value;
             }
 
-            // The nullptr literal is spelled "nil" in lox, so specialize that case
             auto operator()(nullptr_t) {
                 os << "nil";
             }

@@ -4,7 +4,6 @@
 
 using std::make_unique;
 using std::move;
-using std::runtime_error;
 using std::string;
 using std::to_string;
 using std::unique_ptr;
@@ -26,25 +25,21 @@ namespace {
     unique_ptr<Expr> consume_primary(Token_iterator& token_iter) {
         if (token_iter->type == Token_type::false_) {
             ++token_iter;
-
             return make_unique<Literal_expr>(Literal_multi_type{false});
         }
         if (token_iter->type == Token_type::true_) {
             ++token_iter;
-
             return make_unique<Literal_expr>(Literal_multi_type{true});
         }
         if (token_iter->type == Token_type::nil_) {
             ++token_iter;
-
             return make_unique<Literal_expr>(Literal_multi_type{nullptr});
         }
 
         if (token_iter->type == Token_type::number || token_iter->type == Token_type::string) {
             auto expr = make_unique<Literal_expr>(*((*move(token_iter)).literal));
             ++token_iter;
-
-            return move(expr);
+            return expr;
         }
 
         if (token_iter->type == Token_type::left_paren) {
@@ -66,8 +61,8 @@ namespace {
         if (token_iter->type == Token_type::bang || token_iter->type == Token_type::minus) {
             auto operator_token = *move(token_iter);
             ++token_iter;
-
             auto right_expr = consume_unary(token_iter);
+
             return make_unique<Unary_expr>(move(operator_token), move(right_expr));
         }
 
@@ -80,8 +75,8 @@ namespace {
         while (token_iter->type == Token_type::slash || token_iter->type == Token_type::star) {
             auto operator_token = *move(token_iter);
             ++token_iter;
-
             auto right_expr = consume_unary(token_iter);
+
             left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
         }
 
@@ -94,8 +89,8 @@ namespace {
         while (token_iter->type == Token_type::minus || token_iter->type == Token_type::plus) {
             auto operator_token = *move(token_iter);
             ++token_iter;
-
             auto right_expr = consume_multiplication(token_iter);
+
             left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
         }
 
@@ -113,8 +108,8 @@ namespace {
         ) {
             auto operator_token = *move(token_iter);
             ++token_iter;
-
             auto right_expr = consume_addition(token_iter);
+
             left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
         }
 
@@ -127,8 +122,8 @@ namespace {
         while (token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
             auto operator_token = *move(token_iter);
             ++token_iter;
-
             auto right_expr = consume_comparison(token_iter);
+
             left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
         }
 
@@ -141,17 +136,15 @@ namespace {
 
     void recover_to_synchronization_point(Token_iterator& token_iter) {
         while (token_iter->type != Token_type::eof) {
-            // After a semicolon, we're probably finished with a statement. Use it as a
-            // synchronization point.
+            // After a semicolon, we're probably finished with a statement. Use it as a synchronization point
             if (token_iter->type == Token_type::semicolon) {
                 ++token_iter;
 
                 return;
             }
 
-            // Most statements start with a keyword -- for, if, return, var, etc. Use them as
-            // synchronization points.
-            // Warning! This switch doesn't handle every enumeration value and will emit a warning
+            // Most statements start with a keyword -- for, if, return, var, etc. Use them as synchronization points.
+            // Warning! This switch doesn't handle every enumeration value and will emit a warning.
             switch (token_iter->type) {
                 case Token_type::class_:
                 case Token_type::fun_:
@@ -177,7 +170,7 @@ namespace motts { namespace lox {
     }
 
     Parser_error::Parser_error(const string& what, const Token& token)
-      : runtime_error{
+      : Runtime_error {
             "[Line " + to_string(token.line) + "] Error at " + (
                 token.type != Token_type::eof ?
                     "'" + token.lexeme + "'" :

@@ -2,19 +2,15 @@
 
 #include <exception>
 #include <fstream>
-#include <ios>
 #include <iostream>
 #include <iterator>
 #include <string>
-#include <utility>
-#include <vector>
 
 #include <gsl/span>
 
-#include "ast_printer.hpp"
+#include "exception.hpp"
 #include "interpreter.hpp"
 #include "parser.hpp"
-#include "token.hpp"
 #include "scanner.hpp"
 
 using std::cin;
@@ -23,19 +19,14 @@ using std::exception;
 using std::exit;
 using std::getline;
 using std::ifstream;
-using std::istream_iterator;
-using std::move;
-using std::noskipws;
+using std::istreambuf_iterator;
 using std::string;
-using std::vector;
 
 using gsl::span;
 
-using motts::lox::Ast_printer;
 using motts::lox::Interpreter;
 using motts::lox::parse;
-using motts::lox::Scanner_error;
-using motts::lox::Token;
+using motts::lox::Runtime_error;
 using motts::lox::Token_iterator;
 
 auto run(const string& source) {
@@ -51,16 +42,7 @@ auto run_file(const string& path) {
     const auto source = ([&] () {
         ifstream in {path};
         in.exceptions(ifstream::failbit | ifstream::badbit);
-        in >> noskipws;
-
-        // Reaching eof will set the failbit (for some damn reason), and therefore also trigger an exception,
-        // so temporarily disable exceptions, then check if we "failed" by eof before re-enabling exceptions.
-        in.exceptions(ifstream::goodbit);
-        const string source {istream_iterator<char>{in}, istream_iterator<char>{}};
-        if (in.fail() && in.eof()) {
-            in.clear();
-        }
-        in.exceptions(ifstream::failbit | ifstream::badbit);
+        const string source {istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
 
         return source;
     })();
@@ -78,7 +60,7 @@ auto run_prompt() {
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
             run(source_line);
-        } catch (const Scanner_error& e) {
+        } catch (const Runtime_error& e) {
             cout << e.what() << "\n";
         }
     }
