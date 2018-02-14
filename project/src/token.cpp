@@ -54,11 +54,7 @@ namespace motts { namespace lox {
             }
 
             auto operator()(double value) {
-                const auto value_str = lexical_cast<string>(value);
-                os << value_str;
-                if (value_str.find(".") == string::npos) {
-                    os << ".0";
-                }
+                os << value;
             }
 
             // By default, bools will serialize as "1" and "0", so specialize that case

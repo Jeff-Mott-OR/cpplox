@@ -12,6 +12,7 @@
 #include <gsl/span>
 
 #include "ast_printer.hpp"
+#include "interpreter.hpp"
 #include "parser.hpp"
 #include "token.hpp"
 #include "scanner.hpp"
@@ -31,6 +32,7 @@ using std::vector;
 using gsl::span;
 
 using motts::lox::Ast_printer;
+using motts::lox::Interpreter;
 using motts::lox::parse;
 using motts::lox::Scanner_error;
 using motts::lox::Token;
@@ -39,9 +41,9 @@ using motts::lox::Token_iterator;
 auto run(const string& source) {
     const auto expression = parse(Token_iterator{source});
 
-    Ast_printer ast_printer;
-    expression->accept(ast_printer);
-    cout << ast_printer.result() << "\n";
+    Interpreter interpreter;
+    expression->accept(interpreter);
+    cout << interpreter.result() << "\n";
 }
 
 auto run_file(const string& path) {
