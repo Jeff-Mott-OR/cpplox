@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 
+find_package(benchmark)
 set(Boost_USE_STATIC_LIBS TRUE)
 find_package(Boost COMPONENTS filesystem program_options unit_test_framework)
-
 find_path(GSL_INCLUDE_DIR gsl/gsl)
 
 add_executable(
@@ -70,4 +70,14 @@ if(ENABLE_TESTING)
     else()
         message(STATUS "Valgrind not found. It will be skipped during testing.")
     endif()
+
+    # Benchmarking harness and target
+    add_executable(bench_harness bench/main.cpp)
+    set_property(TARGET bench_harness PROPERTY CXX_STANDARD 14)
+    target_link_libraries(bench_harness PRIVATE benchmark::benchmark Boost::boost Boost::filesystem Boost::program_options)
+    add_custom_target(
+        bench
+        bench_harness --cpplox-file "$<TARGET_FILE:cpplox>" --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+        DEPENDS bench_harness cpplox
+    )
 endif()
