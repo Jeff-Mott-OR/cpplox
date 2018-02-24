@@ -12,7 +12,8 @@ namespace motts { namespace lox {
             void visit(const Literal_expr&) override;
             void visit(const Unary_expr&) override;
 
-            const std::string& result() const;
+            const std::string& result() const &;
+            std::string&& result() &&;
 
         private:
             std::string result_;

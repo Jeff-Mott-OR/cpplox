@@ -8,15 +8,8 @@ using std::string;
 using std::to_string;
 using std::unique_ptr;
 
-using motts::lox::Expr;
-using motts::lox::Binary_expr;
-using motts::lox::Grouping_expr;
-using motts::lox::Literal_expr;
-using motts::lox::Unary_expr;
-using motts::lox::Literal_multi_type;
-using motts::lox::Parser_error;
-using motts::lox::Token_iterator;
-using motts::lox::Token_type;
+// Allow the internal linkage section to access names
+using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
@@ -101,10 +94,8 @@ namespace {
         auto left_expr = consume_addition(token_iter);
 
         while (
-            token_iter->type == Token_type::greater ||
-            token_iter->type == Token_type::greater_equal ||
-            token_iter->type == Token_type::less ||
-            token_iter->type == Token_type::less_equal
+            token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal ||
+            token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal
         ) {
             auto operator_token = *move(token_iter);
             ++token_iter;
@@ -139,7 +130,6 @@ namespace {
             // After a semicolon, we're probably finished with a statement. Use it as a synchronization point
             if (token_iter->type == Token_type::semicolon) {
                 ++token_iter;
-
                 return;
             }
 
@@ -170,11 +160,9 @@ namespace motts { namespace lox {
     }
 
     Parser_error::Parser_error(const string& what, const Token& token)
-      : Runtime_error {
+        : Runtime_error {
             "[Line " + to_string(token.line) + "] Error at " + (
-                token.type != Token_type::eof ?
-                    "'" + token.lexeme + "'" :
-                    "end"
+                token.type != Token_type::eof ? "'" + token.lexeme + "'" : "end"
             ) + ": " + what
         }
     {}

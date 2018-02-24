@@ -46,8 +46,8 @@ namespace motts { namespace lox {
         struct Ostream_visitor : static_visitor<void> {
             ostream& os;
 
-            explicit Ostream_visitor(ostream& os_)
-                : os {os_}
+            explicit Ostream_visitor(ostream& os_arg)
+                : os {os_arg}
             {}
 
             auto operator()(const string& value) {

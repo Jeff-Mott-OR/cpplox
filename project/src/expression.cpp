@@ -6,62 +6,74 @@ using std::move;
 using std::unique_ptr;
 
 namespace motts { namespace lox {
-    // struct Expr
+    /*
+        struct Expr
+    */
 
-        Expr::Expr() = default;
+    Expr::Expr() = default;
 
-        Expr::~Expr() = default;
+    Expr::~Expr() = default;
 
-    // struct Binary_expr
+    /*
+        struct Binary_expr
+    */
 
-        Binary_expr::Binary_expr(
-            unique_ptr<Expr>&& left_,
-            Token&& op_,
-            unique_ptr<Expr>&& right_
-        )
-            : left {move(left_)},
-              op {move(op_)},
-              right {move(right_)}
-        {}
+    Binary_expr::Binary_expr(
+        unique_ptr<Expr>&& left_arg,
+        Token&& op_arg,
+        unique_ptr<Expr>&& right_arg
+    )
+        : left {move(left_arg)},
+          op {move(op_arg)},
+          right {move(right_arg)}
+    {}
 
-        void Binary_expr::accept(Expr_visitor& visitor) const {
-            visitor.visit(*this);
-        }
+    void Binary_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
 
-    // struct Grouping_expr
+    /*
+        struct Grouping_expr
+    */
 
-        Grouping_expr::Grouping_expr(unique_ptr<Expr>&& expr_)
-            : expr {move(expr_)}
-        {}
+    Grouping_expr::Grouping_expr(unique_ptr<Expr>&& expr_arg)
+        : expr {move(expr_arg)}
+    {}
 
-        void Grouping_expr::accept(Expr_visitor& visitor) const {
-            visitor.visit(*this);
-        }
+    void Grouping_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
 
-    // struct Literal_expr
+    /*
+        struct Literal_expr
+    */
 
-        Literal_expr::Literal_expr(Literal_multi_type&& value_)
-            : value {move(value_)}
-        {}
+    Literal_expr::Literal_expr(Literal_multi_type&& value_arg)
+        : value {move(value_arg)}
+    {}
 
-        void Literal_expr::accept(Expr_visitor& visitor) const {
-            visitor.visit(*this);
-        }
+    void Literal_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
 
-     // struct Unary_expr
+    /*
+        struct Unary_expr
+    */
 
-        Unary_expr::Unary_expr(Token&& op_, unique_ptr<Expr>&& right_)
-            : op {move(op_)},
-              right {move(right_)}
-        {}
+    Unary_expr::Unary_expr(Token&& op_arg, unique_ptr<Expr>&& right_arg)
+        : op {move(op_arg)},
+          right {move(right_arg)}
+    {}
 
-        void Unary_expr::accept(Expr_visitor& visitor) const {
-            visitor.visit(*this);
-        }
+    void Unary_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
 
-    // struct Expr_visitor
+    /*
+        struct Expr_visitor
+    */
 
-        Expr_visitor::Expr_visitor() = default;
+    Expr_visitor::Expr_visitor() = default;
 
-        Expr_visitor::~Expr_visitor() = default;
+    Expr_visitor::~Expr_visitor() = default;
 }}

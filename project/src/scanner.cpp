@@ -18,12 +18,13 @@ using std::unordered_map;
 
 using boost::lexical_cast;
 
-using motts::lox::Token_type;
+// Allow the internal linkage section to access names
+using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
-    // TODO: Under the microscope of profile and benchmarking tools, consider changing this data structure
-    // to an array of tuples. The data is small enough that an array may be faster.
+    // TODO: Under the microscope of profile and benchmarking tools, consider changing this data structure to an array of tuples. The data
+    // is small enough that an array may be faster.
     const unordered_map<string, Token_type> reserved_words {
         {"and", Token_type::and_},
         {"class", Token_type::class_},
@@ -46,22 +47,22 @@ namespace {
 
 // Exported (external linkage)
 namespace motts { namespace lox {
-    Token_iterator::Token_iterator(const string& source_)
-        : source {&source_},
-          token_begin {source->cbegin()},
-          token_end {source->cbegin()},
-          token {consume_token()}
+    Token_iterator::Token_iterator(const string& source_arg)
+        : source_ {&source_arg},
+          token_begin_ {source_->cbegin()},
+          token_end_ {source_->cbegin()},
+          token_ {consume_token()}
     {}
 
     Token_iterator::Token_iterator() = default;
 
     Token_iterator& Token_iterator::operator++() {
-        if (token_begin != source->end()) {
+        if (token_begin_ != source_->end()) {
             // We are at the beginning of the next lexeme
-            token_begin = token_end;
-            token = consume_token();
+            token_begin_ = token_end_;
+            token_ = consume_token();
         } else {
-            source = nullptr;
+            source_ = nullptr;
         }
 
         return *this;
@@ -76,8 +77,8 @@ namespace motts { namespace lox {
 
     bool Token_iterator::operator==(const Token_iterator& rhs) const {
         return (
-            (!source && !rhs.source) ||
-            (source == rhs.source && token_begin == rhs.token_begin)
+            (!source_ && !rhs.source_) ||
+            (source_ == rhs.source_ && token_begin_ == rhs.token_begin_)
         );
     }
 
@@ -86,34 +87,28 @@ namespace motts { namespace lox {
     }
 
     const Token& Token_iterator::operator*() const & {
-        return token;
+        return token_;
     }
 
     Token&& Token_iterator::operator*() && {
-        return move(token);
+        return move(token_);
     }
 
     const Token* Token_iterator::operator->() const {
-        return &token;
+        return &token_;
     }
 
     Token Token_iterator::make_token(Token_type token_type) {
-        return Token{token_type, string{token_begin, token_end}, {}, line};
+        return Token{token_type, string{token_begin_, token_end_}, {}, line_};
     }
 
     Token Token_iterator::make_token(Token_type token_type, Literal_multi_type&& literal_value) {
-        return Token{
-            token_type,
-            string{token_begin, token_end},
-            move(literal_value),
-            line
-        };
+        return Token{token_type, string{token_begin_, token_end_}, move(literal_value), line_};
     }
 
     bool Token_iterator::advance_if_match(char expected) {
-        if (token_end != source->end() && *token_end == expected) {
-            ++token_end;
-
+        if (token_end_ != source_->end() && *token_end_ == expected) {
+            ++token_end_;
             return true;
         }
 
@@ -121,65 +116,61 @@ namespace motts { namespace lox {
     }
 
     Token Token_iterator::consume_string() {
-        while (token_end != source->end() && *token_end != '"') {
-            if (*token_end == '\n') {
-                ++line;
+        while (token_end_ != source_->end() && *token_end_ != '"') {
+            if (*token_end_ == '\n') {
+                ++line_;
             }
 
-            ++token_end;
+            ++token_end_;
         }
 
         // Check unterminated string
-        if (token_end == source->end()) {
-            throw Scanner_error{"Unterminated string.", line};
+        if (token_end_ == source_->end()) {
+            throw Scanner_error{"Unterminated string.", line_};
         }
 
         // The closing "
-        ++token_end;
+        ++token_end_;
 
         // Trim the surrounding quotes for literal value
-        return make_token(Token_type::string, Literal_multi_type{string{token_begin + 1, token_end - 1}});
+        return make_token(Token_type::string, Literal_multi_type{string{token_begin_ + 1, token_end_ - 1}});
     }
 
     Token Token_iterator::consume_number() {
-        while (token_end != source->end() && isdigit(*token_end)) {
-            ++token_end;
+        while (token_end_ != source_->end() && isdigit(*token_end_)) {
+            ++token_end_;
         }
 
         // Look for a fractional part
         if (
-            token_end != source->end() && *token_end ==  '.' &&
-            (token_end + 1) != source->end() && isdigit(*(token_end + 1))
+            token_end_ != source_->end() && *token_end_ ==  '.' &&
+            (token_end_ + 1) != source_->end() && isdigit(*(token_end_ + 1))
         ) {
             // Consume the "."
-            ++token_end;
+            ++token_end_;
 
-            while (token_end != source->end() && isdigit(*token_end)) {
-                ++token_end;
+            while (token_end_ != source_->end() && isdigit(*token_end_)) {
+                ++token_end_;
             }
         }
 
-        return make_token(Token_type::number, Literal_multi_type{lexical_cast<double>(string{token_begin, token_end})});
+        return make_token(Token_type::number, Literal_multi_type{lexical_cast<double>(string{token_begin_, token_end_})});
     }
 
     Token Token_iterator::consume_identifier() {
-        while (token_end != source->end() && (isalnum(*token_end) || *token_end == '_')) {
-            ++token_end;
+        while (token_end_ != source_->end() && (isalnum(*token_end_) || *token_end_ == '_')) {
+            ++token_end_;
         }
 
-        const auto found = reserved_words.find(string{token_begin, token_end});
-        return make_token(
-            found != reserved_words.end() ?
-                found->second :
-                Token_type::identifier
-        );
+        const auto found = reserved_words.find(string{token_begin_, token_end_});
+        return make_token(found != reserved_words.end() ? found->second : Token_type::identifier);
     }
 
     Token Token_iterator::consume_token() {
         // Loop because we might skip some tokens
-        for (; token_begin != source->end(); token_begin = token_end) {
-            auto c = *token_end;
-            ++token_end;
+        for (; token_begin_ != source_->end(); token_begin_ = token_end_) {
+            auto c = *token_end_;
+            ++token_end_;
 
             switch (c) {
                 // Single char tokens
@@ -198,8 +189,8 @@ namespace motts { namespace lox {
                 case '/':
                     if (advance_if_match('/')) {
                         // A comment goes until the end of the line
-                        while (token_end != source->end() && *token_end != '\n') {
-                            ++token_end;
+                        while (token_end_ != source_->end() && *token_end_ != '\n') {
+                            ++token_end_;
                         }
 
                         continue;
@@ -208,37 +199,20 @@ namespace motts { namespace lox {
                     }
 
                 case '!':
-                    return make_token(
-                        advance_if_match('=') ?
-                            Token_type::bang_equal :
-                            Token_type::bang
-                    );
+                    return make_token(advance_if_match('=') ? Token_type::bang_equal : Token_type::bang);
 
                 case '=':
-                    return make_token(
-                        advance_if_match('=') ?
-                            Token_type::equal_equal :
-                            Token_type::equal
-                    );
+                    return make_token(advance_if_match('=') ? Token_type::equal_equal : Token_type::equal);
 
                 case '>':
-                    return make_token(
-                        advance_if_match('=') ?
-                            Token_type::greater_equal :
-                            Token_type::greater
-                    );
+                    return make_token(advance_if_match('=') ? Token_type::greater_equal : Token_type::greater);
 
                 case '<':
-                    return make_token(
-                        advance_if_match('=') ?
-                            Token_type::less_equal :
-                            Token_type::less
-                    );
+                    return make_token(advance_if_match('=') ? Token_type::less_equal : Token_type::less);
 
                 // Whitespace
                 case '\n':
-                    ++line;
-
+                    ++line_;
                     continue;
 
                 case ' ':
@@ -254,13 +228,13 @@ namespace motts { namespace lox {
                     } else if (isalpha(c) || c == '_') {
                         return consume_identifier();
                     } else {
-                        throw Scanner_error{"Unexpected character.", line};
+                        throw Scanner_error{"Unexpected character.", line_};
                     }
             }
         }
 
         // The final token is always EOF
-        return Token{Token_type::eof, "", {}, line};
+        return Token{Token_type::eof, "", {}, line_};
     }
 
     Scanner_error::Scanner_error(const string& what, int line)

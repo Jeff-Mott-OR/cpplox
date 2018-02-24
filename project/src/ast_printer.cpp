@@ -1,7 +1,10 @@
 #include "ast_printer.hpp"
 
+#include <utility>
+
 #include <boost/lexical_cast.hpp>
 
+using std::move;
 using std::string;
 
 using boost::lexical_cast;
@@ -31,7 +34,11 @@ namespace motts { namespace lox {
         result_ += ")";
     }
 
-    const string& Ast_printer::result() const {
+    const string& Ast_printer::result() const & {
         return result_;
+    }
+
+    string&& Ast_printer::result() && {
+        return move(result_);
     }
 }}

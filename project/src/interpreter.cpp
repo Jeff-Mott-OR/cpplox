@@ -3,14 +3,15 @@
 #include <cstddef>
 
 #include <string>
+#include <utility>
 
 #include <boost/variant.hpp>
 
+using std::move;
 using std::nullptr_t;
 using std::string;
 using std::to_string;
 
-using boost::apply_visitor;
 using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
@@ -21,9 +22,7 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const Grouping_expr& expr) {
-        Interpreter interpreter;
-        expr.expr->accept(interpreter);
-        result_ = interpreter.result();
+        expr.expr->accept(*this);
     }
 
     // False and nil are falsey, everything else is truthy
@@ -43,17 +42,16 @@ namespace motts { namespace lox {
     };
 
     void Interpreter::visit(const Unary_expr& expr) {
-        Interpreter interpreter;
-        expr.right->accept(interpreter);
+        const auto unary_result = apply_visitor(*this, *(expr.right));
 
         try {
             switch (expr.op.type) {
                 case Token_type::minus:
-                    result_ = Literal_multi_type{ - get<double>(interpreter.result().value)};
+                    result_ = Literal_multi_type{ - get<double>(unary_result.value)};
                     break;
 
                 case Token_type::bang:
-                    result_ = Literal_multi_type{ ! apply_visitor(Is_truthy_visitor{}, interpreter.result().value)};
+                    result_ = Literal_multi_type{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
                     break;
 
                 default:
@@ -96,52 +94,49 @@ namespace motts { namespace lox {
     };
 
     void Interpreter::visit(const Binary_expr& expr) {
-        Interpreter left;
-        expr.left->accept(left);
-
-        Interpreter right;
-        expr.right->accept(right);
+        const auto left_result = apply_visitor(*this, *(expr.left));
+        const auto right_result = apply_visitor(*this, *(expr.right));
 
         try {
             switch (expr.op.type) {
                 case Token_type::greater:
-                    result_ = Literal_multi_type{get<double>(left.result().value) > get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) > get<double>(right_result.value)};
                     break;
 
                 case Token_type::greater_equal:
-                    result_ = Literal_multi_type{get<double>(left.result().value) >= get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) >= get<double>(right_result.value)};
                     break;
 
                 case Token_type::less:
-                    result_ = Literal_multi_type{get<double>(left.result().value) < get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) < get<double>(right_result.value)};
                     break;
 
                 case Token_type::less_equal:
-                    result_ = Literal_multi_type{get<double>(left.result().value) <= get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) <= get<double>(right_result.value)};
                     break;
 
                 case Token_type::bang_equal:
-                    result_ = Literal_multi_type{ ! apply_visitor(Is_equal_visitor{}, left.result().value, right.result().value)};
+                    result_ = Literal_multi_type{ ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
                     break;
 
                 case Token_type::equal_equal:
-                    result_ = Literal_multi_type{apply_visitor(Is_equal_visitor{}, left.result().value, right.result().value)};
+                    result_ = Literal_multi_type{boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
                     break;
 
                 case Token_type::minus:
-                    result_ = Literal_multi_type{get<double>(left.result().value) - get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) - get<double>(right_result.value)};
                     break;
 
                 case Token_type::plus:
-                    result_ = apply_visitor(Plus_visitor{}, left.result().value, right.result().value);
+                    result_ = boost::apply_visitor(Plus_visitor{}, left_result.value, right_result.value);
                     break;
 
                 case Token_type::slash:
-                    result_ = Literal_multi_type{get<double>(left.result().value) / get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) / get<double>(right_result.value)};
                     break;
 
                 case Token_type::star:
-                    result_ = Literal_multi_type{get<double>(left.result().value) * get<double>(right.result().value)};
+                    result_ = Literal_multi_type{get<double>(left_result.value) * get<double>(right_result.value)};
                     break;
 
                 default:
@@ -153,12 +148,16 @@ namespace motts { namespace lox {
         }
     }
 
-    const Literal_multi_type& Interpreter::result() const {
+    const Literal_multi_type& Interpreter::result() const & {
         return result_;
     }
 
+    Literal_multi_type&& Interpreter::result() && {
+        return move(result_);
+    }
+
     Interpreter_error::Interpreter_error(const string& what, const Token& token)
-      : Runtime_error {
+        : Runtime_error {
             "[Line " + to_string(token.line) + "] Error " + token.lexeme + ": " + what
         }
     {}

@@ -24,17 +24,10 @@ using std::string;
 
 using gsl::span;
 
-using motts::lox::Interpreter;
-using motts::lox::parse;
-using motts::lox::Runtime_error;
-using motts::lox::Token_iterator;
+namespace lox = motts::lox;
 
 auto run(const string& source) {
-    const auto expression = parse(Token_iterator{source});
-
-    Interpreter interpreter;
-    expression->accept(interpreter);
-    cout << interpreter.result() << "\n";
+    cout << lox::apply_visitor<lox::Interpreter>(*lox::parse(lox::Token_iterator{source})) << "\n";
 }
 
 auto run_file(const string& path) {
@@ -42,9 +35,7 @@ auto run_file(const string& path) {
     const auto source = ([&] () {
         ifstream in {path};
         in.exceptions(ifstream::failbit | ifstream::badbit);
-        const string source {istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
-
-        return source;
+        return string{istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
     })();
 
     run(source);
@@ -60,7 +51,7 @@ auto run_prompt() {
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
             run(source_line);
-        } catch (const Runtime_error& e) {
+        } catch (const lox::Runtime_error& e) {
             cout << e.what() << "\n";
         }
     }
@@ -80,11 +71,9 @@ int main(int argc, const char* argv[]) {
         }
     } catch (const exception& e) {
         cout << "Something went wrong: " << e.what() << "\n";
-
         exit(EXIT_FAILURE);
     } catch (...) {
         cout << "Something went wrong.\n";
-
         exit(EXIT_FAILURE);
     }
 }

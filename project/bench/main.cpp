@@ -29,8 +29,12 @@ int main(int argc, /*const*/ char* argv[]) {
     program_options::store(program_options::parse_command_line(argc, argv, options_description), variables_map);
     program_options::notify(variables_map);
 
-    // Asking for help trumps all else
-    if (variables_map.count("help")) {
+    // Check required options or respond to help
+    if (
+        variables_map.count("help") ||
+        !variables_map.count("cpplox-file") ||
+        !variables_map.count("test-scripts-path")
+    ) {
         cout << options_description << "\n";
         return 0;
     }
@@ -42,9 +46,9 @@ int main(int argc, /*const*/ char* argv[]) {
         for (auto _ : state) {
             process::ipstream cpplox_out;
 
-            // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
-            // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
-            // quotes, then I'd get "syntax is incorrect errors".
+            // Using boost system rather than std system due to errors on Windows. If the command was unquoted with spaces in the path, then
+            // of course I'd get "not a command" errors. But if I wrapped the command in quotes, then I'd get "syntax is incorrect errors".
+            // But boost system works just fine either way.
             process::system(cpplox, test_script, process::std_out > cpplox_out);
         }
     };

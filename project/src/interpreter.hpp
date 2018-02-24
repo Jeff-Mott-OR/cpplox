@@ -12,7 +12,8 @@ namespace motts { namespace lox {
             void visit(const Literal_expr&) override;
             void visit(const Unary_expr&) override;
 
-            const Literal_multi_type& result() const;
+            const Literal_multi_type& result() const &;
+            Literal_multi_type&& result() &&;
 
         private:
             Literal_multi_type result_;
