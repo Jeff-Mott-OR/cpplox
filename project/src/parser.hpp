@@ -2,10 +2,11 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "exception.hpp"
-#include "expression.hpp"
 #include "scanner.hpp"
+#include "statement.hpp"
 #include "token.hpp"
 
 namespace motts { namespace lox {
@@ -17,7 +18,7 @@ namespace motts { namespace lox {
     Also, now that the scanner has been refactored into a token iterator, the parser can accept and operate on a token iterator directly
     rather than on a vector of tokens. This way I was able to eliminate the intermediate data structure altogether.
     */
-    std::unique_ptr<Expr> parse(Token_iterator&&);
+    std::vector<std::unique_ptr<Stmt>> parse(Token_iterator&&);
 
     struct Parser_error : Runtime_error {
         explicit Parser_error(const std::string& what, const Token&);

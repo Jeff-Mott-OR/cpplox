@@ -26,8 +26,16 @@ using gsl::span;
 
 namespace lox = motts::lox;
 
+auto run(const string& source, lox::Interpreter& interpreter) {
+    const auto statements = lox::parse(lox::Token_iterator{source});
+    for (const auto& statement : statements) {
+        statement->accept(interpreter);
+    }
+}
+
 auto run(const string& source) {
-    cout << lox::apply_visitor<lox::Interpreter>(*lox::parse(lox::Token_iterator{source})) << "\n";
+    lox::Interpreter interpreter;
+    run(source, interpreter);
 }
 
 auto run_file(const string& path) {
@@ -42,6 +50,8 @@ auto run_file(const string& path) {
 }
 
 auto run_prompt() {
+    lox::Interpreter interpreter;
+
     while (true) {
         cout << "> ";
 
@@ -50,7 +60,7 @@ auto run_prompt() {
 
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
-            run(source_line);
+            run(source_line, interpreter);
         } catch (const lox::Runtime_error& e) {
             cout << e.what() << "\n";
         }

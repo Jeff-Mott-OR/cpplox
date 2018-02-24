@@ -2,21 +2,49 @@
 
 #include <cstddef>
 
+#include <iostream>
 #include <string>
 #include <utility>
 
 #include <boost/variant.hpp>
+#include <gsl/gsl_util>
 
+using std::cout;
+using std::make_unique;
 using std::move;
 using std::nullptr_t;
 using std::string;
 using std::to_string;
+using std::unique_ptr;
 
 using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
+using gsl::finally;
 
 namespace motts { namespace lox {
+    Environment::Environment() = default;
+
+    Environment::Environment(Environment& enclosing, Environment::Construct_with_enclosing)
+        : enclosing_ {&enclosing}
+    {}
+
+    Environment::super_::iterator Environment::find(const std::string& var_name) {
+        const auto found_own = super_::find(var_name);
+        if (found_own != end()) {
+            return found_own;
+        }
+
+        if (enclosing_) {
+            const auto found_enclosing = enclosing_->find(var_name);
+            if (found_enclosing != enclosing_->end()) {
+                return found_enclosing;
+            }
+        }
+
+        return end();
+    }
+
     void Interpreter::visit(const Literal_expr& expr) {
         result_ = expr.value;
     }
@@ -145,6 +173,48 @@ namespace motts { namespace lox {
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
             throw Interpreter_error{"Unsupported operand type.", expr.op};
+        }
+    }
+
+    void Interpreter::visit(const Var_expr& expr) {
+        const auto found = environment_->find(expr.name.lexeme);
+        if (found == environment_->end()) {
+            throw Interpreter_error{"Undefined variable '" + expr.name.lexeme + "'."};
+        }
+
+        result_ = found->second;
+    }
+
+    void Interpreter::visit(const Assign_expr& expr) {
+        const auto found = environment_->find(expr.name.lexeme);
+        if (found == environment_->end()) {
+            throw Interpreter_error{"Undefined variable '" + expr.name.lexeme + "'."};
+        }
+
+        result_ = found->second = apply_visitor(*this, *(expr.value));
+    }
+
+    void Interpreter::visit(const Expr_stmt& stmt) {
+        stmt.expr->accept(*this);
+    }
+
+    void Interpreter::visit(const Print_stmt& stmt) {
+        cout << apply_visitor(*this, *(stmt.expr)) << "\n";
+    }
+
+    void Interpreter::visit(const Var_stmt& stmt) {
+        (*environment_)[stmt.name.lexeme] = stmt.initializer ? apply_visitor(*this, *(stmt.initializer)) : Literal_multi_type{nullptr};
+    }
+
+    void Interpreter::visit(const Block_stmt& stmt) {
+        auto enclosed = move(environment_);
+        const auto _ = finally([&] () {
+            environment_ = move(enclosed);
+        });
+        environment_ = make_unique<Environment>(*enclosed, Environment::Construct_with_enclosing{});
+
+        for (const auto& statement : stmt.statements) {
+            statement->accept(*this);
         }
     }
 

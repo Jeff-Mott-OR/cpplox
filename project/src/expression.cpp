@@ -70,6 +70,31 @@ namespace motts { namespace lox {
     }
 
     /*
+        struct Var_expr
+    */
+
+    Var_expr::Var_expr(Token&& name_arg)
+        : name {move(name_arg)}
+    {}
+
+    void Var_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
+        struct Assign_expr
+    */
+
+    Assign_expr::Assign_expr(Token&& name_arg, std::unique_ptr<Expr>&& value_arg)
+        : name {move(name_arg)},
+          value {move(value_arg)}
+    {}
+
+    void Assign_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
         struct Expr_visitor
     */
 

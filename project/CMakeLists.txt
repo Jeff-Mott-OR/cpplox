@@ -20,6 +20,7 @@ add_executable(
     src/interpreter.cpp
     src/parser.cpp
     src/scanner.cpp
+    src/statement.cpp
     src/token.cpp
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
@@ -38,11 +39,11 @@ endif()
 
 # Disabling RTTI because I don't need it for this program, and it's probably a smell if I did.
 # CMake doesn't abstract RTTI options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-compatible.
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(cpplox PRIVATE /GR-)
-else()
-    target_compile_options(cpplox PRIVATE -fno-rtti)
-endif()
+# if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+#     target_compile_options(cpplox PRIVATE /GR-)
+# else()
+#     target_compile_options(cpplox PRIVATE -fno-rtti)
+# endif()
 
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
@@ -69,7 +70,7 @@ if(ENABLE_TESTING)
     if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
         add_test(
             NAME valgrind
-            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/evaluate.lox"
+            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/statements.lox"
         )
         set_tests_properties(
             valgrind PROPERTIES

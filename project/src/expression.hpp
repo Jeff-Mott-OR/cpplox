@@ -72,6 +72,21 @@ namespace motts { namespace lox {
         void accept(Expr_visitor&) const override;
     };
 
+    struct Var_expr : Expr {
+        Token name;
+
+        explicit Var_expr(Token&& name);
+        void accept(Expr_visitor&) const override;
+    };
+
+    struct Assign_expr : Expr {
+        Token name;
+        std::unique_ptr<Expr> value;
+
+        explicit Assign_expr(Token&& name, std::unique_ptr<Expr>&& value);
+        void accept(Expr_visitor&) const override;
+    };
+
     struct Expr_visitor {
         explicit Expr_visitor();
 
@@ -79,6 +94,8 @@ namespace motts { namespace lox {
         virtual void visit(const Grouping_expr&) = 0;
         virtual void visit(const Literal_expr&) = 0;
         virtual void visit(const Unary_expr&) = 0;
+        virtual void visit(const Var_expr&) = 0;
+        virtual void visit(const Assign_expr&) = 0;
 
         // Base class boilerplate
         virtual ~Expr_visitor();
@@ -99,15 +116,15 @@ namespace motts { namespace lox {
 
         apply_visitor<Visitor>(expr)
     */
-    template<typename Visitor>
-        auto apply_visitor(Visitor& visitor, const Expr& expr) {
-            expr.accept(visitor);
+    template<typename Visitor, typename Operand>
+        auto apply_visitor(Visitor& visitor, const Operand& operand) {
+            operand.accept(visitor);
             return std::move(visitor).result();
         }
 
-    template<typename Visitor>
-        auto apply_visitor(const Expr& expr) {
+    template<typename Visitor, typename Operand>
+        auto apply_visitor(const Operand& operand) {
             Visitor visitor;
-            return apply_visitor(visitor, expr);
+            return apply_visitor(visitor, operand);
         }
 }}

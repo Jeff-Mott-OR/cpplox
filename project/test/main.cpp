@@ -74,12 +74,22 @@ const auto& program_options_map() {
 }
 
 BOOST_AUTO_TEST_CASE(evaluate_test) {
-    const auto expected = "2\n";
+    const auto expected = (
+        "inner a\n"
+        "outer b\n"
+        "global c\n"
+        "outer a\n"
+        "outer b\n"
+        "global c\n"
+        "global a\n"
+        "global b\n"
+        "global c\n"
+    );
 
     process::ipstream cpplox_out;
     const auto exit_code = process::system(
         program_options_map().at("cpplox-file").as<string>(),
-        program_options_map().at("test-scripts-path").as<string>() + "/evaluate.lox",
+        program_options_map().at("test-scripts-path").as<string>() + "/statements.lox",
         process::std_out > cpplox_out
     );
     string actual {istreambuf_iterator<char>{cpplox_out}, istreambuf_iterator<char>{}};
