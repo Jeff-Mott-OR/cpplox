@@ -1,0 +1,71 @@
+language: cpp
+
+matrix:
+  include:
+    - os: linux
+      env:
+        - NAME="gcc linux"
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-7
+      before_install:
+        - CC=gcc-7 && CXX=g++-7
+        - wget https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
+        - tar -xf cmake-3.10.2-Linux-x86_64.tar.gz
+        - PATH="$PWD/cmake-3.10.2-Linux-x86_64/bin:$PATH"
+        - sudo apt-get install valgrind -qq
+
+    - os: linux
+      env:
+        - NAME="clang linux"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-trusty-5.0
+            - ubuntu-toolchain-r-test
+          packages:
+            - clang-5.0
+            # TODO This is a clang build; remove dependence on g++. A stdlib issue?
+            - g++-7
+      before_install:
+        - CC=clang-5.0 && CXX=clang++-5.0
+        - wget https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
+        - tar -xf cmake-3.10.2-Linux-x86_64.tar.gz
+        - PATH="$PWD/cmake-3.10.2-Linux-x86_64/bin:$PATH"
+        - sudo apt-get install valgrind -qq
+
+    - os: osx
+      env:
+        # TODO This fails. Boost's program_options won't link with main program because "Undefined symbols for architecture x86_64"
+        - NAME="gcc osx"
+      osx_image: xcode8
+      before_install:
+        - brew update && brew install gcc
+        - CC=gcc-7 && CXX=g++-7
+        - wget https://cmake.org/files/v3.10/cmake-3.10.2-Darwin-x86_64.tar.gz
+        - tar -xf cmake-3.10.2-Darwin-x86_64.tar.gz
+        - PATH="$PWD/cmake-3.10.2-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+
+    - os: osx
+      env:
+        - NAME="clang osx"
+      osx_image: xcode9
+      before_install:
+        - brew update && brew install llvm
+        - CC=clang && CXX=clang++
+        - wget https://cmake.org/files/v3.10/cmake-3.10.2-Darwin-x86_64.tar.gz
+        - tar -xf cmake-3.10.2-Darwin-x86_64.tar.gz
+        - PATH="$PWD/cmake-3.10.2-Darwin-x86_64/CMake.app/Contents/bin:$PATH"
+
+script:
+  - mkdir build
+  - cd build
+
+  - cmake ..
+  - cmake --build .
+
+  - cmake .. -DENABLE_TESTING=TRUE
+  - cmake --build .

@@ -74,7 +74,7 @@ if(ENABLE_TESTING)
         )
         set_tests_properties(
             valgrind PROPERTIES
-            PASS_REGULAR_EXPRESSION "All heap blocks were freed -- no leaks are possible"
+            PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
         )
     endif()
 endif()

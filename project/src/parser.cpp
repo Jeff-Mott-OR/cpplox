@@ -234,17 +234,17 @@ namespace {
             }
 
             // Most statements start with a keyword -- for, if, return, var, etc. Use them as synchronization points.
-            // Warning! This switch doesn't handle every enumeration value and will emit a warning.
-            switch (token_iter->type) {
-                case Token_type::class_:
-                case Token_type::fun_:
-                case Token_type::var_:
-                case Token_type::for_:
-                case Token_type::if_:
-                case Token_type::while_:
-                case Token_type::print_:
-                case Token_type::return_:
-                    return;
+            if (
+                token_iter->type == Token_type::class_ ||
+                token_iter->type == Token_type::fun_ ||
+                token_iter->type == Token_type::var_ ||
+                token_iter->type == Token_type::for_ ||
+                token_iter->type == Token_type::if_ ||
+                token_iter->type == Token_type::while_ ||
+                token_iter->type == Token_type::print_ ||
+                token_iter->type == Token_type::return_
+            ) {
+                return;
             }
 
             // Discard tokens until we find a statement boundary
