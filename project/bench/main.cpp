@@ -41,14 +41,14 @@ int main(int argc, /*const*/ char* argv[]) {
 
     const auto benchmark_cpplox = [&] (benchmark::State& state) {
         const auto cpplox = variables_map.at("cpplox-file").as<string>();
-        const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/statements.lox";
+        const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/control_flow.lox";
 
         for (auto _ : state) {
             process::ipstream cpplox_out;
 
-            // Using boost system rather than std system due to errors on Windows. If the command was unquoted with spaces in the path, then
-            // of course I'd get "not a command" errors. But if I wrapped the command in quotes, then I'd get "syntax is incorrect errors".
-            // But boost system works just fine either way.
+            // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
+            // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
+            // quotes, then I'd get "syntax is incorrect errors". But boost system works just fine either way.
             process::system(cpplox, test_script, process::std_out > cpplox_out);
         }
     };

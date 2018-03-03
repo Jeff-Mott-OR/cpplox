@@ -28,7 +28,8 @@ target_link_libraries(cpplox PRIVATE Boost::boost)
 target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}")
 install(TARGETS cpplox DESTINATION ./)
 
-# CMake doesn't abstract warning options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-compatible.
+# CMake doesn't abstract warning options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-
+# compatible.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     # /Wall is broken in MSVC 2017, so use /W4 instead
     # (https://social.msdn.microsoft.com/Forums/en-US/vcgeneral/thread/891a02d2-d0cf-495a-bcea-41001cf599de/)
@@ -38,7 +39,8 @@ else()
 endif()
 
 # Disabling RTTI because I don't need it for this program, and it's probably a smell if I did.
-# CMake doesn't abstract RTTI options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-compatible.
+# CMake doesn't abstract RTTI options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-
+# compatible.
 # if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 #     target_compile_options(cpplox PRIVATE /GR-)
 # else()
@@ -48,20 +50,38 @@ endif()
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     target_compile_features(test_harness PRIVATE cxx_std_14)
-    target_link_libraries(test_harness PRIVATE Boost::boost Boost::filesystem Boost::program_options Boost::unit_test_framework)
+    target_link_libraries(
+        test_harness
+        PRIVATE
+            Boost::boost
+            Boost::filesystem
+            Boost::program_options
+            Boost::unit_test_framework
+    )
 
     add_executable(bench_harness bench/main.cpp)
     target_compile_features(bench_harness PRIVATE cxx_std_14)
-    target_link_libraries(bench_harness PRIVATE benchmark::benchmark Boost::boost Boost::filesystem Boost::program_options)
+    target_link_libraries(
+        bench_harness
+        PRIVATE
+            benchmark::benchmark
+            Boost::boost
+            Boost::filesystem
+            Boost::program_options
+    )
 
     enable_testing()
     add_test(
         NAME test_harness
-        COMMAND test_harness -- --cpplox-file "$<TARGET_FILE:cpplox>" --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+        COMMAND test_harness --
+            --cpplox-file "$<TARGET_FILE:cpplox>"
+            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
     )
     add_custom_target(
         bench
-        bench_harness --cpplox-file "$<TARGET_FILE:cpplox>" --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+        bench_harness
+            --cpplox-file "$<TARGET_FILE:cpplox>"
+            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
         DEPENDS bench_harness cpplox
     )
 
@@ -70,7 +90,9 @@ if(ENABLE_TESTING)
     if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
         add_test(
             NAME valgrind
-            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/statements.lox"
+            COMMAND "${VALGRIND_COMMAND}"
+                "$<TARGET_FILE:cpplox>"
+                "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/control_flow.lox"
         )
         set_tests_properties(
             valgrind PROPERTIES

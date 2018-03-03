@@ -25,7 +25,8 @@ namespace program_options = boost::program_options;
 using boost::replace_all;
 namespace unit_test = boost::unit_test::framework;
 
-// Boost.Test defines main for us, so all variables related to program options need to be either global or static inside accessors
+// Boost.Test defines main for us, so all variables related to program options need to be either global or static inside
+// accessors.
 const auto& program_options_description() {
     static unique_ptr<program_options::options_description> options_description;
 
@@ -75,21 +76,55 @@ const auto& program_options_map() {
 
 BOOST_AUTO_TEST_CASE(evaluate_test) {
     const auto expected = (
-        "inner a\n"
-        "outer b\n"
-        "global c\n"
-        "outer a\n"
-        "outer b\n"
-        "global c\n"
-        "global a\n"
-        "global b\n"
-        "global c\n"
+        "good\n"
+        "block\n"
+        "true\n"
+        "ok\n"
+        "good\n"
+        "good\n"
+        "block\n"
+        "good\n"
+        "false\n"
+        "nil\n"
+        "true\n"
+        "0\n"
+        "empty\n"
+        "false\n"
+        "1\n"
+        "false\n"
+        "true\n"
+        "3\n"
+        "true\n"
+        "false\n"
+        "1\n"
+        "1\n"
+        "true\n"
+        "false\n"
+        "false\n"
+        "false\n"
+        "true\n"
+        "1\n"
+        "2\n"
+        "3\n"
+        "0\n"
+        "1\n"
+        "2\n"
+        "1\n"
+        "2\n"
+        "3\n"
+        "0\n"
+        "1\n"
+        "2\n"
+        "0\n"
+        "1\n"
+        "0\n"
+        "1\n"
     );
 
     process::ipstream cpplox_out;
     const auto exit_code = process::system(
         program_options_map().at("cpplox-file").as<string>(),
-        program_options_map().at("test-scripts-path").as<string>() + "/statements.lox",
+        program_options_map().at("test-scripts-path").as<string>() + "/control_flow.lox",
         process::std_out > cpplox_out
     );
     string actual {istreambuf_iterator<char>{cpplox_out}, istreambuf_iterator<char>{}};

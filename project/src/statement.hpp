@@ -43,10 +43,31 @@ namespace motts { namespace lox {
         void accept(Stmt_visitor&) const override;
     };
 
+    struct While_stmt : Stmt {
+        std::unique_ptr<Expr> condition;
+        std::unique_ptr<Stmt> body;
+
+        While_stmt(std::unique_ptr<Expr>&& condition, std::unique_ptr<Stmt>&& body);
+        void accept(Stmt_visitor&) const override;
+    };
+
     struct Block_stmt : Stmt {
         std::vector<std::unique_ptr<Stmt>> statements;
 
         Block_stmt(std::vector<std::unique_ptr<Stmt>>&& statements);
+        void accept(Stmt_visitor&) const override;
+    };
+
+    struct If_stmt : Stmt {
+        std::unique_ptr<Expr> condition;
+        std::unique_ptr<Stmt> then_branch;
+        std::unique_ptr<Stmt> else_branch;
+
+        If_stmt(
+            std::unique_ptr<Expr>&& condition,
+            std::unique_ptr<Stmt>&& then_branch,
+            std::unique_ptr<Stmt>&& else_branch
+        );
         void accept(Stmt_visitor&) const override;
     };
 
@@ -56,7 +77,9 @@ namespace motts { namespace lox {
         virtual void visit(const Expr_stmt&) = 0;
         virtual void visit(const Print_stmt&) = 0;
         virtual void visit(const Var_stmt&) = 0;
+        virtual void visit(const While_stmt&) = 0;
         virtual void visit(const Block_stmt&) = 0;
+        virtual void visit(const If_stmt&) = 0;
 
         // Base class boilerplate
         virtual ~Stmt_visitor();

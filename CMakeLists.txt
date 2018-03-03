@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
 
-# This "outer" CMake file works as a dependency fetcher, and it consists almost exclusively of ExternalProject commands. Meanwhile, the
-# "inner" CMake file under project/ is a more traditional CMake file. It uses the find_* commands to locate dependencies without any
-# knowledge or assumptions about where those dependencies live or how they got there. This separation into two CMake files was necessary
-# because the find_* commands run when we configure the project, but the ExternalProject commands don't run until we build the project. That
-# order is the opposite of what we need. It means CMake will try to find dependencies _before_ it downloads and builds those dependencies.
-# By splitting the process into two CMake files, we can ensure the ExternalProject commands run first, then configure (run cmake on) the
+# This "outer" CMake file works as a dependency fetcher, and it consists almost exclusively of ExternalProject commands.
+# Meanwhile, the "inner" CMake file under project/ is a more traditional CMake file. It uses the find_* commands to
+# locate dependencies without any knowledge or assumptions about where those dependencies live or how they got there.
+# This separation into two CMake files was necessary because the find_* commands run when we configure the project, but
+# the ExternalProject commands don't run until we build the project. That order is the opposite of what we need. It
+# means CMake will try to find dependencies _before_ it downloads and builds those dependencies. By splitting the
+# process into two CMake files, we can ensure the ExternalProject commands run first, then configure (run cmake on) the
 # real project only after the dependencies are ready.
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -21,8 +22,8 @@ include(ExternalProject)
 # Setting EP_BASE gets us a better directory structure than the legacy default
 set_property(DIRECTORY PROPERTY EP_BASE "${CMAKE_CURRENT_BINARY_DIR}/ExternalProjects")
 
-# If testing is enabled, then we need to configure and build several boost libraries. But if testing is not enabled, then we only depend on
-# the header files.
+# If testing is enabled, then we need to configure and build several boost libraries. But if testing is not enabled,
+# then we only depend on the header files.
 if(ENABLE_TESTING)
     if(CMAKE_HOST_UNIX)
         set(BOOST_CONFIGURE_COMMAND ./bootstrap.sh)
@@ -52,7 +53,8 @@ if(ENABLE_TESTING)
         DEPENDEES build DEPENDERS install
         WORKING_DIRECTORY "<SOURCE_DIR>"
 
-        # An out-of-source install would be ideal, but that involves copying all the header files, which is super slow on windows
+        # An out-of-source install would be ideal, but that involves copying all the header files, which is super slow
+        # on windows.
         COMMAND
             ./b2 "--stagedir=<SOURCE_DIR>"
             --with-filesystem --with-program_options --with-test

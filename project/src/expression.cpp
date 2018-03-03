@@ -95,6 +95,20 @@ namespace motts { namespace lox {
     }
 
     /*
+        struct Logical_expr
+    */
+
+    Logical_expr::Logical_expr(unique_ptr<Expr>&& left_arg, Token&& op_arg, unique_ptr<Expr>&& right_arg)
+        : left {move(left_arg)},
+          op {move(op_arg)},
+          right {move(right_arg)}
+    {}
+
+    void Logical_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
         struct Expr_visitor
     */
 

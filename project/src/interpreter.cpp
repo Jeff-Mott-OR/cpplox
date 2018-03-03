@@ -22,6 +22,9 @@ using boost::get;
 using boost::static_visitor;
 using gsl::finally;
 
+// For the occasional explicit qualification, mostly just to aid us human readers
+namespace lox = motts::lox;
+
 namespace motts { namespace lox {
     Environment::Environment() = default;
 
@@ -70,7 +73,7 @@ namespace motts { namespace lox {
     };
 
     void Interpreter::visit(const Unary_expr& expr) {
-        const auto unary_result = apply_visitor(*this, *(expr.right));
+        const auto unary_result = lox::apply_visitor(*this, *(expr.right));
 
         try {
             switch (expr.op.type) {
@@ -122,8 +125,8 @@ namespace motts { namespace lox {
     };
 
     void Interpreter::visit(const Binary_expr& expr) {
-        const auto left_result = apply_visitor(*this, *(expr.left));
-        const auto right_result = apply_visitor(*this, *(expr.right));
+        const auto left_result = lox::apply_visitor(*this, *(expr.left));
+        const auto right_result = lox::apply_visitor(*this, *(expr.right));
 
         try {
             switch (expr.op.type) {
@@ -144,11 +147,15 @@ namespace motts { namespace lox {
                     break;
 
                 case Token_type::bang_equal:
-                    result_ = Literal_multi_type{ ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
+                    result_ = Literal_multi_type{
+                        !boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
+                    };
                     break;
 
                 case Token_type::equal_equal:
-                    result_ = Literal_multi_type{boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
+                    result_ = Literal_multi_type{
+                        boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
+                    };
                     break;
 
                 case Token_type::minus:
@@ -191,19 +198,63 @@ namespace motts { namespace lox {
             throw Interpreter_error{"Undefined variable '" + expr.name.lexeme + "'."};
         }
 
-        result_ = found->second = apply_visitor(*this, *(expr.value));
+        result_ = found->second = lox::apply_visitor(*this, *(expr.value));
+    }
+
+    void Interpreter::visit(const Logical_expr& expr) {
+        auto left_result = lox::apply_visitor(*this, *(expr.left));
+
+        // Short circuit if possible
+        if (expr.op.type == Token_type::or_) {
+            if (boost::apply_visitor(Is_truthy_visitor{}, left_result.value)) {
+                result_ = move(left_result);
+                return;
+            }
+        } else /* expr.op.type == Token_type::and_ */ {
+            if ( ! boost::apply_visitor(Is_truthy_visitor{}, left_result.value)) {
+                result_ = move(left_result);
+                return;
+            }
+        }
+
+        expr.right->accept(*this);
     }
 
     void Interpreter::visit(const Expr_stmt& stmt) {
         stmt.expr->accept(*this);
     }
 
+    void Interpreter::visit(const If_stmt& if_stmt) {
+        const auto condition_result = lox::apply_visitor(*this, *(if_stmt.condition));
+        if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
+            if_stmt.then_branch->accept(*this);
+        } else if (if_stmt.else_branch) {
+            if_stmt.else_branch->accept(*this);
+        }
+    }
+
+    void Interpreter::visit(const While_stmt& stmt) {
+        while (
+            // IIFE so I can execute multiple statements inside while condition
+            ([&] () {
+                const auto condition_result = lox::apply_visitor(*this, *(stmt.condition));
+                return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
+            })()
+        ) {
+            stmt.body->accept(*this);
+        }
+    }
+
     void Interpreter::visit(const Print_stmt& stmt) {
-        cout << apply_visitor(*this, *(stmt.expr)) << "\n";
+        cout << lox::apply_visitor(*this, *(stmt.expr)) << "\n";
     }
 
     void Interpreter::visit(const Var_stmt& stmt) {
-        (*environment_)[stmt.name.lexeme] = stmt.initializer ? apply_visitor(*this, *(stmt.initializer)) : Literal_multi_type{nullptr};
+        (*environment_)[stmt.name.lexeme] = (
+            stmt.initializer ?
+                lox::apply_visitor(*this, *(stmt.initializer)) :
+                Literal_multi_type{nullptr}
+        );
     }
 
     void Interpreter::visit(const Block_stmt& stmt) {

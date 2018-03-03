@@ -15,8 +15,8 @@ namespace motts { namespace lox {
             using super_ = std::unordered_map<std::string, Literal_multi_type>;
 
         public:
-            // The constructor that takes an enclosing environment would otherwise look like a copy constructor, but it doesn't implement
-            // copy semantics, so distinguish it with tag dispatch.
+            // The constructor that takes an enclosing environment would otherwise look like a copy constructor, but it
+            // doesn't implement copy semantics, so distinguish it with tag dispatch.
             struct Construct_with_enclosing {};
 
             Environment();
@@ -40,9 +40,12 @@ namespace motts { namespace lox {
             void visit(const Unary_expr&) override;
             void visit(const Var_expr&) override;
             void visit(const Assign_expr&) override;
+            void visit(const Logical_expr&) override;
 
             void visit(const Expr_stmt&) override;
+            void visit(const If_stmt&) override;
             void visit(const Print_stmt&) override;
+            void visit(const While_stmt&) override;
             void visit(const Var_stmt&) override;
             void visit(const Block_stmt&) override;
 

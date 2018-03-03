@@ -53,6 +53,19 @@ namespace motts { namespace lox {
     }
 
     /*
+        struct While_stmt
+    */
+
+    While_stmt::While_stmt(unique_ptr<Expr>&& condition_arg, unique_ptr<Stmt>&& body_arg)
+        : condition {move(condition_arg)},
+          body {move(body_arg)}
+    {}
+
+    void While_stmt::accept(Stmt_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
         struct Block_stmt
     */
 
@@ -61,6 +74,24 @@ namespace motts { namespace lox {
     {}
 
     void Block_stmt::accept(Stmt_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
+        struct If_stmt
+    */
+
+    If_stmt::If_stmt(
+        unique_ptr<Expr>&& condition_arg,
+        unique_ptr<Stmt>&& then_branch_arg,
+        unique_ptr<Stmt>&& else_branch_arg
+    )
+        : condition {move(condition_arg)},
+          then_branch {move(then_branch_arg)},
+          else_branch {move(else_branch_arg)}
+    {}
+
+    void If_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
