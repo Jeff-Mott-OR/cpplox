@@ -4,6 +4,7 @@
 // C standard headers
 // C++ standard headers
 #include <memory>
+#include <vector>
 // Third-party headers
 // This project's headers
 #include "expression.hpp"
@@ -63,6 +64,19 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> right;
 
         explicit Logical_expr(std::unique_ptr<Expr>&& left, Token&& op, std::unique_ptr<Expr>&& right);
+        void accept(Expr_visitor&) const override;
+    };
+
+    struct Call_expr : Expr {
+        std::unique_ptr<Expr> callee;
+        Token closing_paren;
+        std::vector<std::unique_ptr<Expr>> arguments;
+
+        explicit Call_expr(
+            std::unique_ptr<Expr>&& callee,
+            Token&& closing_paren,
+            std::vector<std::unique_ptr<Expr>>&& arguments
+        );
         void accept(Expr_visitor&) const override;
     };
 }}

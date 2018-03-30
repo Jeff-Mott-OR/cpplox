@@ -20,7 +20,7 @@ namespace motts { namespace lox {
         expr {move(expr_arg)}
     {}
 
-    void Expr_stmt::accept(Stmt_visitor& visitor) const {
+    void Expr_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 
@@ -32,7 +32,7 @@ namespace motts { namespace lox {
         expr {move(expr_arg)}
     {}
 
-    void Print_stmt::accept(Stmt_visitor& visitor) const {
+    void Print_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 
@@ -45,7 +45,7 @@ namespace motts { namespace lox {
         initializer {move(initializer_arg)}
     {}
 
-    void Var_stmt::accept(Stmt_visitor& visitor) const {
+    void Var_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 
@@ -58,7 +58,7 @@ namespace motts { namespace lox {
         body {move(body_arg)}
     {}
 
-    void While_stmt::accept(Stmt_visitor& visitor) const {
+    void While_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 
@@ -70,7 +70,7 @@ namespace motts { namespace lox {
         statements {move(statements_arg)}
     {}
 
-    void Block_stmt::accept(Stmt_visitor& visitor) const {
+    void Block_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 
@@ -88,7 +88,45 @@ namespace motts { namespace lox {
         else_branch {move(else_branch_arg)}
     {}
 
-    void If_stmt::accept(Stmt_visitor& visitor) const {
+    void If_stmt::accept(Stmt_visitor& visitor) {
+        visitor.visit(*this);
+    }
+
+    /*
+        struct Function_stmt
+    */
+
+    Function_stmt::Function_stmt(
+        Token&& name_arg,
+        vector<Token>&& parameters_arg,
+        vector<unique_ptr<Stmt>>&& body_arg
+    ) :
+        name {move(name_arg)},
+        parameters {move(parameters_arg)},
+        body {move(body_arg)}
+    {}
+
+    // Move constructor not written as =default because the base class's move constructor is deleted to avoid slicing
+    Function_stmt::Function_stmt(Function_stmt&& rhs) :
+        name {move(rhs.name)},
+        parameters {move(rhs.parameters)},
+        body {move(rhs.body)}
+    {}
+
+    void Function_stmt::accept(Stmt_visitor& visitor) {
+        visitor.visit(*this);
+    }
+
+    /*
+        struct Return_stmt
+    */
+
+    Return_stmt::Return_stmt(Token&& keyword_arg, unique_ptr<Expr>&& value_arg) :
+        keyword {move(keyword_arg)},
+        value {move(value_arg)}
+    {}
+
+    void Return_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
     }
 }}

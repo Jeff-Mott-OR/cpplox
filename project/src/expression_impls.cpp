@@ -9,6 +9,7 @@
 
 using std::move;
 using std::unique_ptr;
+using std::vector;
 
 namespace motts { namespace lox {
     /*
@@ -98,6 +99,24 @@ namespace motts { namespace lox {
     {}
 
     void Logical_expr::accept(Expr_visitor& visitor) const {
+        visitor.visit(*this);
+    }
+
+    /*
+        struct Call_expr
+    */
+
+    Call_expr::Call_expr(
+        unique_ptr<Expr>&& callee_arg,
+        Token&& closing_paren_arg,
+        vector<unique_ptr<Expr>>&& arguments_arg
+    ) :
+        callee {move(callee_arg)},
+        closing_paren {move(closing_paren_arg)},
+        arguments {move(arguments_arg)}
+    {}
+
+    void Call_expr::accept(Expr_visitor& visitor) const {
         visitor.visit(*this);
     }
 }}

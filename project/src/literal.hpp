@@ -8,6 +8,11 @@
 #include <string>
 // Third-party headers
 #include <boost/variant.hpp>
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
+// This project's headers
+#include "callable_fwd.hpp"
 
 namespace motts { namespace lox {
     /*
@@ -38,7 +43,7 @@ namespace motts { namespace lox {
 
     // Variant wrapped in struct to avoid ambiguous calls due to ADL
     struct Literal {
-        boost::variant<std::nullptr_t, std::string, double, bool> value;
+        boost::variant<std::nullptr_t, std::string, double, bool, gcpp::deferred_ptr<Callable>> value;
     };
 
     std::ostream& operator<<(std::ostream&, const Literal&);

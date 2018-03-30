@@ -1,13 +1,17 @@
 #pragma once
 
 // Related header
+#include "interpreter_fwd.hpp"
 // C standard headers
 // C++ standard headers
-#include <memory>
 #include <string>
 #include <unordered_map>
 // Third-party headers
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
 // This project's headers
+#include "callable.hpp"
 #include "exception.hpp"
 #include "expression_visitor.hpp"
 #include "statement_visitor.hpp"
@@ -35,8 +39,22 @@ namespace motts { namespace lox {
             Environment* enclosing_ {};
     };
 
+    class Function : public Callable {
+        public:
+            explicit Function(gcpp::deferred_ptr<Function_stmt> declaration, gcpp::deferred_ptr<Environment> enclosed);
+            Literal call(Interpreter&, const std::vector<Literal>& arguments) override;
+            int arity() const override;
+            std::string to_string() const override;
+
+        private:
+            gcpp::deferred_ptr<Function_stmt> declaration_;
+            gcpp::deferred_ptr<Environment> enclosed_;
+    };
+
     class Interpreter : public Expr_visitor, public Stmt_visitor {
         public:
+            explicit Interpreter();
+
             void visit(const Binary_expr&) override;
             void visit(const Grouping_expr&) override;
             void visit(const Literal_expr&) override;
@@ -44,6 +62,7 @@ namespace motts { namespace lox {
             void visit(const Var_expr&) override;
             void visit(const Assign_expr&) override;
             void visit(const Logical_expr&) override;
+            void visit(const Call_expr&) override;
 
             void visit(const Expr_stmt&) override;
             void visit(const If_stmt&) override;
@@ -51,18 +70,29 @@ namespace motts { namespace lox {
             void visit(const While_stmt&) override;
             void visit(const Var_stmt&) override;
             void visit(const Block_stmt&) override;
+            void visit(Function_stmt&) override;
+            void visit(const Return_stmt&) override;
 
             const Literal& result() const &;
             Literal&& result() &&;
 
         private:
             Literal result_;
-            std::unique_ptr<Environment> environment_ {new Environment{}};
+
+            gcpp::deferred_heap deferred_heap_;
+            gcpp::deferred_ptr<Environment> environment_ {deferred_heap_.make<Environment>()};
+            gcpp::deferred_ptr<Environment> globals_ {environment_};
+
+            friend class Function;
     };
 
     struct Interpreter_error : Runtime_error {
         using Runtime_error::Runtime_error;
 
         explicit Interpreter_error(const std::string& what, const Token&);
+    };
+
+    struct Return {
+        Literal value;
     };
 }}

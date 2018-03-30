@@ -76,6 +76,33 @@ namespace {
         throw Parser_error{"Expected expression.", *token_iter};
     }
 
+    unique_ptr<Expr> consume_finish_call(Token_iterator& token_iter, unique_ptr<Expr>&& callee) {
+        vector<unique_ptr<Expr>> arguments;
+        if (token_iter->type != Token_type::right_paren) {
+            do {
+                if (arguments.size() >= 8) {
+                    // TODO Convert to non-fatal error
+                    throw Parser_error{"Cannot have more than 8 arguments.", *token_iter};
+                }
+
+                arguments.push_back(consume_expression(token_iter));
+            } while (advance_if_match(token_iter, Token_type::comma));
+        }
+        auto paren = consume(token_iter, Token_type::right_paren, "Expected ')' after arguments.");
+
+        return make_unique<Call_expr>(move(callee), move(paren), move(arguments));
+    }
+
+    unique_ptr<Expr> consume_call(Token_iterator& token_iter) {
+        auto expr = consume_primary(token_iter);
+
+        while (advance_if_match(token_iter, Token_type::left_paren)) {
+            expr = consume_finish_call(token_iter, move(expr));
+        }
+
+        return expr;
+    }
+
     unique_ptr<Expr> consume_unary(Token_iterator& token_iter) {
         if (token_iter->type == Token_type::bang || token_iter->type == Token_type::minus) {
             auto operator_token = *move(token_iter);
@@ -85,7 +112,7 @@ namespace {
             return make_unique<Unary_expr>(move(operator_token), move(right_expr));
         }
 
-        return consume_primary(token_iter);
+        return consume_call(token_iter);
     }
 
     unique_ptr<Expr> consume_multiplication(Token_iterator& token_iter) {
@@ -226,6 +253,16 @@ namespace {
         return make_unique<Print_stmt>(move(value));
     }
 
+    unique_ptr<Stmt> consume_return_statement(Token_iterator& token_iter, Token&& keyword) {
+        unique_ptr<Expr> value;
+        if (token_iter->type != Token_type::semicolon) {
+            value = consume_expression(token_iter);
+        }
+        consume(token_iter, Token_type::semicolon, "Expected ';' after return value.");
+
+        return make_unique<Return_stmt>(move(keyword), move(value));
+    }
+
     unique_ptr<Stmt> consume_while_statement(Token_iterator& token_iter) {
         consume(token_iter, Token_type::left_paren, "Expected '(' after 'while'.");
         auto condition = consume_expression(token_iter);
@@ -251,6 +288,28 @@ namespace {
         consume(token_iter, Token_type::right_brace, "Expected '}' after block.");
 
         return statements;
+    }
+
+    unique_ptr<Stmt> consume_function_declaration(Token_iterator& token_iter) {
+        auto name = consume(token_iter, Token_type::identifier, "Expected function name.");
+
+        consume(token_iter, Token_type::left_paren, "Expected '(' after function name.");
+        vector<Token> parameters;
+        if (token_iter->type != Token_type::right_paren) {
+            do {
+                if (parameters.size() >= 8) {
+                    throw Parser_error{"Cannot have more than 8 parameters.", *token_iter};
+                }
+
+                parameters.push_back(consume(token_iter, Token_type::identifier, "Expected parameter name."));
+            } while (advance_if_match(token_iter, Token_type::comma));
+        }
+        consume(token_iter, Token_type::right_paren, "Expected ')' after parameters.");
+
+        consume(token_iter, Token_type::left_brace, "Expected '{' before function body.");
+        auto body = consume_block_statement(token_iter);
+
+        return make_unique<Function_stmt>(move(name), move(parameters), move(body));
     }
 
     unique_ptr<Stmt> consume_var_declaration(Token_iterator& token_iter) {
@@ -324,6 +383,12 @@ namespace {
         if (advance_if_match(token_iter, Token_type::print_)) {
             return consume_print_statement(token_iter);
         }
+        if (token_iter->type == Token_type::return_) {
+            auto keyword = *move(token_iter);
+            ++token_iter;
+
+            return consume_return_statement(token_iter, move(keyword));
+        }
         if (advance_if_match(token_iter, Token_type::while_)) {
             return consume_while_statement(token_iter);
         }
@@ -335,6 +400,9 @@ namespace {
     }
 
     unique_ptr<Stmt> consume_declaration(Token_iterator& token_iter) {
+        if (advance_if_match(token_iter, Token_type::fun_)) {
+            return consume_function_declaration(token_iter);
+        }
         if (advance_if_match(token_iter, Token_type::var_)) {
             return consume_var_declaration(token_iter);
         }

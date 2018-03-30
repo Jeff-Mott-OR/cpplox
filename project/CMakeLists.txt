@@ -10,6 +10,7 @@ else()
     find_package(Boost)
 endif()
 find_path(GSL_INCLUDE_DIR gsl/gsl)
+find_path(GCPP_INCLUDE_DIR deferred_heap.h)
 
 add_executable(
     cpplox
@@ -26,7 +27,7 @@ add_executable(
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
 target_link_libraries(cpplox PRIVATE Boost::boost)
-target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}")
+target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}" "${GCPP_INCLUDE_DIR}")
 install(TARGETS cpplox DESTINATION ./)
 
 # CMake doesn't abstract warning options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-
@@ -37,6 +38,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     target_compile_options(cpplox PRIVATE /W4)
 else()
     target_compile_options(cpplox PRIVATE -Wall -Wextra)
+
+    # We use some MSVC pragmas, which of course will be unknown to GCC and Clang
+    target_compile_options(cpplox PRIVATE -Wno-unknown-pragmas)
 endif()
 
 # Disabling RTTI because I don't need it for this program, and it's probably a smell if I did.
@@ -93,7 +97,7 @@ if(ENABLE_TESTING)
             NAME valgrind
             COMMAND "${VALGRIND_COMMAND}"
                 "$<TARGET_FILE:cpplox>"
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/control_flow.lox"
+                "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/function_closure.lox"
         )
         set_tests_properties(
             valgrind PROPERTIES

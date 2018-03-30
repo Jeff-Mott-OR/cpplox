@@ -15,6 +15,8 @@ namespace motts { namespace lox {
         virtual void visit(const While_stmt&) = 0;
         virtual void visit(const Block_stmt&) = 0;
         virtual void visit(const If_stmt&) = 0;
+        virtual void visit(Function_stmt&) = 0;
+        virtual void visit(const Return_stmt&) = 0;
 
         // Base class boilerplate
         explicit Stmt_visitor() = default;

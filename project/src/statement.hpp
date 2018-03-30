@@ -9,7 +9,7 @@
 
 namespace motts { namespace lox {
     struct Stmt {
-        virtual void accept(Stmt_visitor&) const = 0;
+        virtual void accept(Stmt_visitor&) = 0;
 
         // Base class boilerplate
         explicit Stmt() = default;

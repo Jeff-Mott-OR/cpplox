@@ -41,7 +41,7 @@ int main(int argc, /*const*/ char* argv[]) {
 
     const auto benchmark_cpplox = [&] (benchmark::State& state) {
         const auto cpplox = variables_map.at("cpplox-file").as<string>();
-        const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/control_flow.lox";
+        const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/function_closure.lox";
 
         for (auto _ : state) {
             process::ipstream cpplox_out;

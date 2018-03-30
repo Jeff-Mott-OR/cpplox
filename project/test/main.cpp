@@ -76,55 +76,36 @@ const auto& program_options_map() {
 
 BOOST_AUTO_TEST_CASE(evaluate_test) {
     const auto expected = (
-        "good\n"
-        "block\n"
-        "true\n"
-        "ok\n"
-        "good\n"
-        "good\n"
-        "block\n"
-        "good\n"
-        "false\n"
-        "nil\n"
-        "true\n"
         "0\n"
-        "empty\n"
-        "false\n"
         "1\n"
-        "false\n"
-        "true\n"
-        "3\n"
-        "true\n"
-        "false\n"
-        "1\n"
-        "1\n"
-        "true\n"
-        "false\n"
-        "false\n"
-        "false\n"
-        "true\n"
         "1\n"
         "2\n"
         "3\n"
-        "0\n"
+        "5\n"
+        "8\n"
+        "13\n"
+        "21\n"
+        "34\n"
+        "55\n"
+        "89\n"
+        "144\n"
+        "233\n"
+        "377\n"
+        "610\n"
+        "987\n"
+        "1597\n"
+        "2584\n"
+        "4181\n"
         "1\n"
         "2\n"
-        "1\n"
         "2\n"
         "3\n"
-        "0\n"
-        "1\n"
-        "2\n"
-        "0\n"
-        "1\n"
-        "0\n"
-        "1\n"
     );
 
     process::ipstream cpplox_out;
     const auto exit_code = process::system(
         program_options_map().at("cpplox-file").as<string>(),
-        program_options_map().at("test-scripts-path").as<string>() + "/control_flow.lox",
+        program_options_map().at("test-scripts-path").as<string>() + "/function_closure.lox",
         process::std_out > cpplox_out
     );
     string actual {istreambuf_iterator<char>{cpplox_out}, istreambuf_iterator<char>{}};

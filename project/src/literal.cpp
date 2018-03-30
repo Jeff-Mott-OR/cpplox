@@ -5,6 +5,7 @@
 #include <ios>
 // Third-party headers
 // This project's headers
+#include "callable.hpp"
 
 using std::boolalpha;
 using std::nullptr_t;
@@ -13,6 +14,7 @@ using std::string;
 
 using boost::apply_visitor;
 using boost::static_visitor;
+using gcpp::deferred_ptr;
 
 namespace motts { namespace lox {
     struct Ostream_visitor : static_visitor<void> {
@@ -36,6 +38,10 @@ namespace motts { namespace lox {
 
         auto operator()(nullptr_t) {
             os << "nil";
+        }
+
+        auto operator()(const deferred_ptr<Callable>& callable) {
+            os << callable->to_string();
         }
     };
 

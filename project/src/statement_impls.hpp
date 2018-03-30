@@ -16,14 +16,14 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> expr;
 
         explicit Expr_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
     };
 
     struct Print_stmt : Stmt {
         std::unique_ptr<Expr> expr;
 
         explicit Print_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
     };
 
     struct Var_stmt : Stmt {
@@ -31,7 +31,7 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> initializer;
 
         explicit Var_stmt(Token&& name, std::unique_ptr<Expr>&& initializer);
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
     };
 
     struct While_stmt : Stmt {
@@ -39,14 +39,14 @@ namespace motts { namespace lox {
         std::unique_ptr<Stmt> body;
 
         explicit While_stmt(std::unique_ptr<Expr>&& condition, std::unique_ptr<Stmt>&& body);
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
     };
 
     struct Block_stmt : Stmt {
         std::vector<std::unique_ptr<Stmt>> statements;
 
         explicit Block_stmt(std::vector<std::unique_ptr<Stmt>>&& statements);
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
     };
 
     struct If_stmt : Stmt {
@@ -59,6 +59,28 @@ namespace motts { namespace lox {
             std::unique_ptr<Stmt>&& then_branch,
             std::unique_ptr<Stmt>&& else_branch
         );
-        void accept(Stmt_visitor&) const override;
+        void accept(Stmt_visitor&) override;
+    };
+
+    struct Function_stmt : Stmt {
+        Token name;
+        std::vector<Token> parameters;
+        std::vector<std::unique_ptr<Stmt>> body;
+
+        explicit Function_stmt(
+            Token&& name,
+            std::vector<Token>&& parameters,
+            std::vector<std::unique_ptr<Stmt>>&& body
+        );
+        explicit Function_stmt(Function_stmt&&);
+        void accept(Stmt_visitor&) override;
+    };
+
+    struct Return_stmt : Stmt {
+        Token keyword;
+        std::unique_ptr<Expr> value;
+
+        explicit Return_stmt(Token&& keyword, std::unique_ptr<Expr>&& value);
+        void accept(Stmt_visitor&) override;
     };
 }}
