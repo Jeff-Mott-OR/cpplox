@@ -1,8 +1,12 @@
+// Related header
 #include "parser.hpp"
-
+// C standard headers
+// C++ standard headers
 #include <utility>
-
-#include "expression.hpp"
+// Third-party headers
+// This project's headers
+#include "expression_impls.hpp"
+#include "statement_impls.hpp"
 
 using std::make_unique;
 using std::move;
@@ -41,13 +45,13 @@ namespace {
 
     unique_ptr<Expr> consume_primary(Token_iterator& token_iter) {
         if (advance_if_match(token_iter, Token_type::false_)) {
-            return make_unique<Literal_expr>(Literal_multi_type{false});
+            return make_unique<Literal_expr>(Literal{false});
         }
         if (advance_if_match(token_iter, Token_type::true_)) {
-            return make_unique<Literal_expr>(Literal_multi_type{true});
+            return make_unique<Literal_expr>(Literal{true});
         }
         if (advance_if_match(token_iter, Token_type::nil_)) {
-            return make_unique<Literal_expr>(Literal_multi_type{nullptr});
+            return make_unique<Literal_expr>(Literal{nullptr});
         }
 
         if (token_iter->type == Token_type::number || token_iter->type == Token_type::string) {
@@ -296,7 +300,7 @@ namespace {
         }
 
         if (!condition) {
-            condition = make_unique<Literal_expr>(Literal_multi_type{true});
+            condition = make_unique<Literal_expr>(Literal{true});
         }
         body = make_unique<While_stmt>(move(condition), move(body));
 
@@ -381,8 +385,8 @@ namespace motts { namespace lox {
         return statements;
     }
 
-    Parser_error::Parser_error(const string& what, const Token& token)
-        : Runtime_error {
+    Parser_error::Parser_error(const string& what, const Token& token) :
+        Runtime_error {
             "[Line " + to_string(token.line) + "] Error at " + (
                 token.type != Token_type::eof ? "'" + token.lexeme + "'" : "end"
             ) + ": " + what

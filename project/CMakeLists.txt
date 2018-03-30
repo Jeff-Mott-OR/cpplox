@@ -16,11 +16,12 @@ add_executable(
 
     src/main.cpp
     src/ast_printer.cpp
-    src/expression.cpp
+    src/expression_impls.cpp
     src/interpreter.cpp
+    src/literal.cpp
     src/parser.cpp
     src/scanner.cpp
-    src/statement.cpp
+    src/statement_impls.cpp
     src/token.cpp
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)

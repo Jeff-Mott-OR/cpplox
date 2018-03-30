@@ -1,13 +1,16 @@
+// Related header
 #include "interpreter.hpp"
-
+// C standard headers
 #include <cstddef>
-
+// C++ standard headers
 #include <iostream>
 #include <string>
 #include <utility>
-
+// Third-party headers
 #include <boost/variant.hpp>
 #include <gsl/gsl_util>
+// This project's headers
+#include "utility.hpp"
 
 using std::cout;
 using std::make_unique;
@@ -28,8 +31,8 @@ namespace lox = motts::lox;
 namespace motts { namespace lox {
     Environment::Environment() = default;
 
-    Environment::Environment(Environment& enclosing, Environment::Construct_with_enclosing)
-        : enclosing_ {&enclosing}
+    Environment::Environment(Environment& enclosing, Environment::Enclosing_tag) :
+        enclosing_ {&enclosing}
     {}
 
     Environment::super_::iterator Environment::find(const std::string& var_name) {
@@ -78,11 +81,11 @@ namespace motts { namespace lox {
         try {
             switch (expr.op.type) {
                 case Token_type::minus:
-                    result_ = Literal_multi_type{ - get<double>(unary_result.value)};
+                    result_ = Literal{ - get<double>(unary_result.value)};
                     break;
 
                 case Token_type::bang:
-                    result_ = Literal_multi_type{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
+                    result_ = Literal{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
                     break;
 
                 default:
@@ -94,18 +97,18 @@ namespace motts { namespace lox {
         }
     }
 
-    struct Plus_visitor : static_visitor<Literal_multi_type> {
+    struct Plus_visitor : static_visitor<Literal> {
         auto operator()(const string& lhs, const string& rhs) const {
-            return Literal_multi_type{lhs + rhs};
+            return Literal{lhs + rhs};
         }
 
         auto operator()(double lhs, double rhs) const {
-            return Literal_multi_type{lhs + rhs};
+            return Literal{lhs + rhs};
         }
 
         // All other type combinations can't be '+'-ed together
         template<typename T, typename U>
-            Literal_multi_type operator()(const T&, const U&) const {
+            Literal operator()(const T&, const U&) const {
                 throw Interpreter_error{"Unsupported operand types for '+'."};
             }
     };
@@ -131,35 +134,35 @@ namespace motts { namespace lox {
         try {
             switch (expr.op.type) {
                 case Token_type::greater:
-                    result_ = Literal_multi_type{get<double>(left_result.value) > get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) > get<double>(right_result.value)};
                     break;
 
                 case Token_type::greater_equal:
-                    result_ = Literal_multi_type{get<double>(left_result.value) >= get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) >= get<double>(right_result.value)};
                     break;
 
                 case Token_type::less:
-                    result_ = Literal_multi_type{get<double>(left_result.value) < get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) < get<double>(right_result.value)};
                     break;
 
                 case Token_type::less_equal:
-                    result_ = Literal_multi_type{get<double>(left_result.value) <= get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) <= get<double>(right_result.value)};
                     break;
 
                 case Token_type::bang_equal:
-                    result_ = Literal_multi_type{
+                    result_ = Literal{
                         !boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
                     };
                     break;
 
                 case Token_type::equal_equal:
-                    result_ = Literal_multi_type{
+                    result_ = Literal{
                         boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
                     };
                     break;
 
                 case Token_type::minus:
-                    result_ = Literal_multi_type{get<double>(left_result.value) - get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) - get<double>(right_result.value)};
                     break;
 
                 case Token_type::plus:
@@ -167,11 +170,11 @@ namespace motts { namespace lox {
                     break;
 
                 case Token_type::slash:
-                    result_ = Literal_multi_type{get<double>(left_result.value) / get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) / get<double>(right_result.value)};
                     break;
 
                 case Token_type::star:
-                    result_ = Literal_multi_type{get<double>(left_result.value) * get<double>(right_result.value)};
+                    result_ = Literal{get<double>(left_result.value) * get<double>(right_result.value)};
                     break;
 
                 default:
@@ -253,7 +256,7 @@ namespace motts { namespace lox {
         (*environment_)[stmt.name.lexeme] = (
             stmt.initializer ?
                 lox::apply_visitor(*this, *(stmt.initializer)) :
-                Literal_multi_type{nullptr}
+                Literal{nullptr}
         );
     }
 
@@ -269,16 +272,16 @@ namespace motts { namespace lox {
         }
     }
 
-    const Literal_multi_type& Interpreter::result() const & {
+    const Literal& Interpreter::result() const & {
         return result_;
     }
 
-    Literal_multi_type&& Interpreter::result() && {
+    Literal&& Interpreter::result() && {
         return move(result_);
     }
 
-    Interpreter_error::Interpreter_error(const string& what, const Token& token)
-        : Runtime_error {
+    Interpreter_error::Interpreter_error(const string& what, const Token& token) :
+        Runtime_error {
             "[Line " + to_string(token.line) + "] Error " + token.lexeme + ": " + what
         }
     {}

@@ -1,11 +1,13 @@
+// Related header
 #include "scanner.hpp"
-
+// C standard headers
 #include <cctype>
-
+// C++ standard headers
 #include <unordered_map>
 #include <utility>
-
+// Third-party headers
 #include <boost/lexical_cast.hpp>
+// This project's headers
 
 using std::isalnum;
 using std::isalpha;
@@ -47,11 +49,11 @@ namespace {
 
 // Exported (external linkage)
 namespace motts { namespace lox {
-    Token_iterator::Token_iterator(const string& source_arg)
-        : source_ {&source_arg},
-          token_begin_ {source_->cbegin()},
-          token_end_ {source_->cbegin()},
-          token_ {consume_token()}
+    Token_iterator::Token_iterator(const string& source) :
+        source_ {&source},
+        token_begin_ {source_->cbegin()},
+        token_end_ {source_->cbegin()},
+        token_ {consume_token()}
     {}
 
     Token_iterator::Token_iterator() = default;
@@ -102,7 +104,7 @@ namespace motts { namespace lox {
         return Token{token_type, string{token_begin_, token_end_}, {}, line_};
     }
 
-    Token Token_iterator::make_token(Token_type token_type, Literal_multi_type&& literal_value) {
+    Token Token_iterator::make_token(Token_type token_type, Literal&& literal_value) {
         return Token{token_type, string{token_begin_, token_end_}, move(literal_value), line_};
     }
 
@@ -133,7 +135,7 @@ namespace motts { namespace lox {
         ++token_end_;
 
         // Trim the surrounding quotes for literal value
-        return make_token(Token_type::string, Literal_multi_type{string{token_begin_ + 1, token_end_ - 1}});
+        return make_token(Token_type::string, Literal{string{token_begin_ + 1, token_end_ - 1}});
     }
 
     Token Token_iterator::consume_number() {
@@ -154,10 +156,7 @@ namespace motts { namespace lox {
             }
         }
 
-        return make_token(
-            Token_type::number,
-            Literal_multi_type{lexical_cast<double>(string{token_begin_, token_end_})}
-        );
+        return make_token(Token_type::number, Literal{lexical_cast<double>(string{token_begin_, token_end_})});
     }
 
     Token Token_iterator::consume_identifier() {
@@ -240,7 +239,7 @@ namespace motts { namespace lox {
         return Token{Token_type::eof, "", {}, line_};
     }
 
-    Scanner_error::Scanner_error(const string& what, int line)
-        : Runtime_error {"[Line " + to_string(line) + "] Error: " + what}
+    Scanner_error::Scanner_error(const string& what, int line) :
+        Runtime_error {"[Line " + to_string(line) + "] Error: " + what}
     {}
 }}

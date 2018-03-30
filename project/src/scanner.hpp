@@ -1,8 +1,12 @@
 #pragma once
 
+// Related header
+// C standard headers
+// C++ standard headers
 #include <iterator>
 #include <string>
-
+// Third-party headers
+// This project's headers
 #include "exception.hpp"
 #include "token.hpp"
 
@@ -51,7 +55,7 @@ namespace motts { namespace lox {
             Token token_;
 
             Token make_token(Token_type);
-            Token make_token(Token_type, Literal_multi_type&&);
+            Token make_token(Token_type, Literal&&);
 
             // I renamed `match` to `advance_if_match` to communicate the side-effect this function causes
             bool advance_if_match(char expected);

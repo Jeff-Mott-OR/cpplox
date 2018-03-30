@@ -1,26 +1,29 @@
 #pragma once
 
+// Related header
+// C standard headers
+// C++ standard headers
 #include <memory>
 #include <string>
 #include <unordered_map>
-
+// Third-party headers
+// This project's headers
 #include "exception.hpp"
-#include "expression.hpp"
-#include "statement.hpp"
+#include "expression_visitor.hpp"
+#include "statement_visitor.hpp"
 #include "token.hpp"
 
 namespace motts { namespace lox {
-    class Environment : std::unordered_map<std::string, Literal_multi_type> {
-        private:
-            using super_ = std::unordered_map<std::string, Literal_multi_type>;
+    class Environment : std::unordered_map<std::string, Literal> {
+        using super_ = std::unordered_map<std::string, Literal>;
 
         public:
-            // The constructor that takes an enclosing environment would otherwise look like a copy constructor, but it
-            // doesn't implement copy semantics, so distinguish it with tag dispatch.
-            struct Construct_with_enclosing {};
+            // The constructor that takes an enclosing environment would otherwise look like a copy constructor, so
+            // distinguish it with tag dispatch.
+            struct Enclosing_tag {};
 
             Environment();
-            Environment(Environment& enclosing, Construct_with_enclosing);
+            Environment(Environment& enclosing, Enclosing_tag);
 
             super_::iterator find(const std::string& var_name);
 
@@ -49,11 +52,11 @@ namespace motts { namespace lox {
             void visit(const Var_stmt&) override;
             void visit(const Block_stmt&) override;
 
-            const Literal_multi_type& result() const &;
-            Literal_multi_type&& result() &&;
+            const Literal& result() const &;
+            Literal&& result() &&;
 
         private:
-            Literal_multi_type result_;
+            Literal result_;
             std::unique_ptr<Environment> environment_ {new Environment{}};
     };
 

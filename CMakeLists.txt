@@ -4,9 +4,9 @@ cmake_minimum_required(VERSION 3.10)
 # Meanwhile, the "inner" CMake file under project/ is a more traditional CMake file. It uses the find_* commands to
 # locate dependencies without any knowledge or assumptions about where those dependencies live or how they got there.
 # This separation into two CMake files was necessary because the find_* commands run when we configure the project, but
-# the ExternalProject commands don't run until we build the project. That order is the opposite of what we need. It
+# the ExternalProject commands don't run until we build the project. That order is the opposite of what I needed. It
 # means CMake will try to find dependencies _before_ it downloads and builds those dependencies. By splitting the
-# process into two CMake files, we can ensure the ExternalProject commands run first, then configure (run cmake on) the
+# process into two CMake files, I can ensure the ExternalProject commands run first, then configure (run cmake on) the
 # real project only after the dependencies are ready.
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -39,7 +39,11 @@ ExternalProject_Add(
     EXCLUDE_FROM_ALL TRUE
     BUILD_IN_SOURCE TRUE
     CONFIGURE_COMMAND "${BOOST_CONFIGURE_COMMAND}"
+
+    # Conditional build command will come later. It had to be defined in a custom step rather than a variable so that
+    # special tokens such as <SOURCE_DIR> would work.
     BUILD_COMMAND ""
+
     INSTALL_COMMAND ""
 )
 if(ENABLE_TESTING)
@@ -68,11 +72,7 @@ ExternalProject_Add(
     gsl
     URL https://github.com/Microsoft/GSL/archive/1f82596e1dada0067712527262a3d561ad51ddac.zip
     EXCLUDE_FROM_ALL TRUE
-
-    # Header-only library; nothing to configure, build, or install
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
+    CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
 ExternalProject_Get_Property(gsl SOURCE_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
@@ -93,11 +93,9 @@ set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
 ExternalProject_Add(
     main
     DEPENDS boost gsl
-
-    # The main project is already on disk
     DOWNLOAD_COMMAND ""
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/project"
-
+    BUILD_ALWAYS TRUE
     CMAKE_ARGS
         "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
         "-DCMAKE_PREFIX_PATH=${INSTALLATION_PREFIXES}"

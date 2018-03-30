@@ -1,9 +1,13 @@
 #pragma once
 
+// Related header
+// C standard headers
+// C++ standard headers
 #include <memory>
 #include <string>
 #include <vector>
-
+// Third-party headers
+// This project's headers
 #include "exception.hpp"
 #include "scanner.hpp"
 #include "statement.hpp"

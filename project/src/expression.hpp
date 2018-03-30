@@ -1,16 +1,14 @@
 #pragma once
 
-#include <memory>
-#include <utility>
-
-#include "token.hpp"
+// Related header
+// C standard headers
+// C++ standard headers
+// Third-party headers
+// This project's headers
+#include "expression_visitor_fwd.hpp"
 
 namespace motts { namespace lox {
-    struct Expr_visitor;
-
     struct Expr {
-        explicit Expr();
-
         /*
         Here we run into another Java-to-C++ conundrum. We want the `accept` method to be able to return any type. After
         all, a printer visitor will want to return a string, a validator visitor may want to return a boolean, or a
@@ -37,107 +35,11 @@ namespace motts { namespace lox {
         virtual void accept(Expr_visitor&) const = 0;
 
         // Base class boilerplate
-        virtual ~Expr();
+        explicit Expr() = default;
+        virtual ~Expr() = default;
         Expr(const Expr&) = delete;
         Expr& operator=(const Expr&) = delete;
         Expr(Expr&&) = delete;
         Expr& operator=(Expr&&) = delete;
     };
-
-    struct Binary_expr : Expr {
-        std::unique_ptr<Expr> left;
-        Token op;
-        std::unique_ptr<Expr> right;
-
-        explicit Binary_expr(std::unique_ptr<Expr>&& left, Token&& op, std::unique_ptr<Expr>&& right);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Grouping_expr : Expr {
-        std::unique_ptr<Expr> expr;
-
-        explicit Grouping_expr(std::unique_ptr<Expr>&& expr);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Literal_expr : Expr {
-        Literal_multi_type value;
-
-        explicit Literal_expr(Literal_multi_type&& value);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Unary_expr : Expr {
-        Token op;
-        std::unique_ptr<Expr> right;
-
-        explicit Unary_expr(Token&& op, std::unique_ptr<Expr>&& right);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Var_expr : Expr {
-        Token name;
-
-        explicit Var_expr(Token&& name);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Assign_expr : Expr {
-        Token name;
-        std::unique_ptr<Expr> value;
-
-        explicit Assign_expr(Token&& name, std::unique_ptr<Expr>&& value);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Logical_expr : Expr {
-        std::unique_ptr<Expr> left;
-        Token op;
-        std::unique_ptr<Expr> right;
-
-        Logical_expr(std::unique_ptr<Expr>&& left, Token&& op, std::unique_ptr<Expr>&& right);
-        void accept(Expr_visitor&) const override;
-    };
-
-    struct Expr_visitor {
-        explicit Expr_visitor();
-
-        virtual void visit(const Binary_expr&) = 0;
-        virtual void visit(const Grouping_expr&) = 0;
-        virtual void visit(const Literal_expr&) = 0;
-        virtual void visit(const Unary_expr&) = 0;
-        virtual void visit(const Var_expr&) = 0;
-        virtual void visit(const Assign_expr&) = 0;
-        virtual void visit(const Logical_expr&) = 0;
-
-        // Base class boilerplate
-        virtual ~Expr_visitor();
-        Expr_visitor(const Expr_visitor&) = delete;
-        Expr_visitor& operator=(const Expr_visitor&) = delete;
-        Expr_visitor(Expr_visitor&&) = delete;
-        Expr_visitor& operator=(Expr_visitor&&) = delete;
-    };
-
-    /*
-    A helper function so that...
-
-        Visitor visitor;
-        expr.accept(visitor);
-        visitor.result()
-
-    ...can instead be written as...
-
-        apply_visitor<Visitor>(expr)
-    */
-    template<typename Visitor, typename Operand>
-        auto apply_visitor(Visitor& visitor, const Operand& operand) {
-            operand.accept(visitor);
-            return std::move(visitor).result();
-        }
-
-    template<typename Visitor, typename Operand>
-        auto apply_visitor(const Operand& operand) {
-            Visitor visitor;
-            return apply_visitor(visitor, operand);
-        }
 }}

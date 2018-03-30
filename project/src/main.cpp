@@ -1,13 +1,15 @@
+// Related header
+// C standard headers
 #include <cstdlib>
-
+// C++ standard headers
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <string>
-
+// Third-party headers
 #include <gsl/span>
-
+// This project's headers
 #include "exception.hpp"
 #include "interpreter.hpp"
 #include "parser.hpp"
@@ -61,8 +63,8 @@ auto run_prompt() {
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
             run(source_line, interpreter);
-        } catch (const lox::Runtime_error& e) {
-            cout << e.what() << "\n";
+        } catch (const lox::Runtime_error& error) {
+            cout << error.what() << "\n";
         }
     }
 }
@@ -79,8 +81,8 @@ int main(int argc, const char* argv[]) {
         } else {
             run_prompt();
         }
-    } catch (const exception& e) {
-        cout << "Something went wrong: " << e.what() << "\n";
+    } catch (const exception& error) {
+        cout << "Something went wrong: " << error.what() << "\n";
         exit(EXIT_FAILURE);
     } catch (...) {
         cout << "Something went wrong.\n";
