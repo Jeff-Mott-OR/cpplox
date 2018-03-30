@@ -52,6 +52,16 @@ if(ENABLE_TESTING)
     else()
         set(BOOST_BUILD_VARIANT release)
     endif()
+
+    # Boost doesn't seem to infer the appropriate address model from Visual Studio's platform name / architecture
+    if(CMAKE_GENERATOR_PLATFORM STREQUAL "x86")
+        set(BOOST_ADDRESS_MODEL address-model=32)
+    elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
+        set(BOOST_ADDRESS_MODEL address-model=64)
+    else()
+        set(BOOST_ADDRESS_MODEL "")
+    endif()
+
     ExternalProject_Add_Step(
         boost build_testing
         DEPENDEES build DEPENDERS install
@@ -62,7 +72,7 @@ if(ENABLE_TESTING)
         COMMAND
             ./b2 "--stagedir=<SOURCE_DIR>"
             --with-filesystem --with-program_options --with-test
-            "variant=${BOOST_BUILD_VARIANT}" link=static stage
+            "variant=${BOOST_BUILD_VARIANT}" ${BOOST_ADDRESS_MODEL} link=static stage
     )
 endif()
 ExternalProject_Get_Property(boost SOURCE_DIR)

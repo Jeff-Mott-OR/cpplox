@@ -1,12 +1,4 @@
-# Nystrom's Crafting Interpreters: An Implementation in C++
-
-[![Travis CI status](https://travis-ci.org/Jeff-Mott-OR/cpplox.svg?branch=master)](https://travis-ci.org/Jeff-Mott-OR/cpplox)
-
-I decided to work my way through Nystrom's book [Crafting Interpreters](http://www.craftinginterpreters.com/), but instead of Java or C that Nystrom used and will use, I decided to write my implementation in C++.
-
-If you, my only reader, try to compare my implementation to Nystrom's code samples, be aware that I didn't merely copy-paste Nystrom's code varbatim. I considered every line, and I often made changes. Sometimes the changes were mandatory and a consequence of writing in a different language. Sometimes the changes were optional but still a consequence of writing in a different language; each language has its own idea of good style. And sometimes the changes were optional and a reflection of my personal taste and opinions.
-
-For me, this isn't just an exercise in interpreters; it's an exercise in C++ and its ecosystem of libraries, platforms, tools, and practices. Feel free to offer suggestions where I can do better.
+# Nystrom's [Crafting Interpreters](http://www.craftinginterpreters.com/): An Implementation in C++
 
 ## Build
 
@@ -15,6 +7,59 @@ For me, this isn't just an exercise in interpreters; it's an exercise in C++ and
 
     cmake ..
     cmake --build .
+
+## Vagrant
+
+This project comes with vagrant files to make it easier to build on a variety of platforms with a variety of compilers.
+
+### Build with MSVC 2017
+
+    cd vagrant/w16s-vs17c
+    vagrant up
+
+#### First time boot manual steps
+
+1. If you're behind a proxy, you may need to change the VM's settings and set the network adapter to Bridged.
+2. Show the VM window, such as by selecting the VM in VirtualBox and clicking Show, then log in with user Vagrant, password vagrant. Or, alternatively, if you didn't need to change the network adapter, then you may be able to run `vagrant rdp`.
+3. Close or ignore the Docker windows that pop up. Optionally uninstall Docker.
+4. Install CMake. The installer will be on the desktop. Select the option to add cmake to the system PATH.
+5. Install Visual Studio's _Desktop Development with C++_. Navigate to _Control Panel_ > _Programs and Features_. Select Microsoft Visual Studio and press Change. Update the Visual Studio installer, then update Visual Studio itself. Finally, modify the installation and tick the box to install Desktop Development with C++.
+
+#### Build
+
+In the VM, open a command prompt and run:
+
+    pushd \\vboxsvr\cpplox
+
+    mkdir build
+    cd build
+
+    cmake .. -A x64
+    cmake --build . --config Release
+
+### Build with MSVC 2015
+
+    cd vagrant/w16s-vs15c
+    vagrant up
+
+#### First time boot manual steps
+
+1. If you're behind a proxy, you may need to change the VM's settings and set the network adapter to Bridged.
+2. Show the VM window, such as by selecting the VM in VirtualBox and clicking Show, then log in with user Vagrant, password vagrant. Or, alternatively, if you didn't need to change the network adapter, then you may be able to run `vagrant rdp`.
+3. Install CMake. The installer will be on the desktop. Select the option to add cmake to the system PATH.
+4. Install Visual C++. Navigate to _Control Panel_ > _Programs and Features_. Select Microsoft Visual Studio and press Change. Modify the installation and tick the box to install Visual C++.
+
+#### Build
+
+In the VM, open a command prompt and run:
+
+    pushd \\vboxsvr\cpplox
+
+    mkdir build
+    cd build
+
+    cmake .. -A x64
+    cmake --build . --config Release
 
 ## Copyright
 
