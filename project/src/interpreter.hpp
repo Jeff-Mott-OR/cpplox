@@ -6,7 +6,6 @@
 // C++ standard headers
 #include <memory>
 #include <string>
-#include <unordered_map>
 // Third-party headers
 // This project's headers
 #include "callable.hpp"
@@ -16,38 +15,7 @@
 #include "token.hpp"
 
 namespace motts { namespace lox {
-    class Environment : std::unordered_map<std::string, Literal> {
-        using super_ = std::unordered_map<std::string, Literal>;
-
-        public:
-            // The constructor that takes an enclosing environment would otherwise look like a copy constructor, so
-            // distinguish it with tag dispatch.
-            struct Enclosing_tag {};
-
-            Environment();
-            Environment(Environment& enclosing, Enclosing_tag);
-
-            super_::iterator find(const std::string& var_name);
-
-            // Borrow from base as needed
-            using super_::end;
-            using super_::operator[];
-
-        private:
-            Environment* enclosing_ {};
-    };
-
-    class Function : public Callable {
-        public:
-            explicit Function(std::shared_ptr<Function_stmt> declaration, std::shared_ptr<Environment> enclosed);
-            Literal call(Interpreter&, const std::vector<Literal>& arguments) override;
-            int arity() const override;
-            std::string to_string() const override;
-
-        private:
-            std::shared_ptr<Function_stmt> declaration_;
-            std::shared_ptr<Environment> enclosed_;
-    };
+    class Environment;
 
     class Interpreter : public Expr_visitor, public Stmt_visitor {
         public:
@@ -78,10 +46,10 @@ namespace motts { namespace lox {
             Literal result_;
             bool returning_ {false};
 
-            std::shared_ptr<Environment> environment_ {std::make_shared<Environment>()};
-            std::shared_ptr<Environment> globals_ {environment_};
+            std::shared_ptr<Environment> environment_;
+            std::shared_ptr<Environment> globals_;
 
-            friend class Function;
+            class Function;
     };
 
     struct Interpreter_error : Runtime_error {

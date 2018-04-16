@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-option(ENABLE_TESTING "Whether to build the test harness and enable testing." FALSE)
+option(ENABLE_TESTING "Whether to build the test and bench harness and enable testing." FALSE)
 
 if(ENABLE_TESTING)
     find_package(benchmark)
@@ -17,6 +17,7 @@ add_executable(
 
     src/main.cpp
     src/ast_printer.cpp
+    src/expression.cpp
     src/expression_impls.cpp
     src/interpreter.cpp
     src/literal.cpp
@@ -46,11 +47,11 @@ endif()
 # Disabling RTTI because I don't need it for this program, and it's probably a smell if I did.
 # CMake doesn't abstract RTTI options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-
 # compatible.
-# if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-#     target_compile_options(cpplox PRIVATE /GR-)
-# else()
-#     target_compile_options(cpplox PRIVATE -fno-rtti)
-# endif()
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(cpplox PRIVATE /GR-)
+else()
+    target_compile_options(cpplox PRIVATE -fno-rtti)
+endif()
 
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)

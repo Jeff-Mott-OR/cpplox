@@ -3,7 +3,8 @@
 // C standard headers
 #include <cctype>
 // C++ standard headers
-#include <unordered_map>
+#include <algorithm>
+#include <array>
 #include <utility>
 // Third-party headers
 #include <boost/lexical_cast.hpp>
@@ -13,10 +14,12 @@ using std::isalnum;
 using std::isalpha;
 using std::isdigit;
 
+using std::array;
+using std::find_if;
 using std::move;
+using std::pair;
 using std::string;
 using std::to_string;
-using std::unordered_map;
 
 using boost::lexical_cast;
 
@@ -25,9 +28,7 @@ using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
-    // TODO: Under the microscope of profile and benchmarking tools, consider changing this data structure to an array
-    // of tuples. The data is small enough that an array may be faster.
-    const unordered_map<string, Token_type> reserved_words {
+    const array<pair<const char*, Token_type>, 16> reserved_words {{
         {"and", Token_type::and_},
         {"class", Token_type::class_},
         {"else", Token_type::else_},
@@ -43,8 +44,8 @@ namespace {
         {"this", Token_type::this_},
         {"true", Token_type::true_},
         {"var", Token_type::var_},
-        {"while", Token_type::while_},
-    };
+        {"while", Token_type::while_}
+    }};
 }
 
 // Exported (external linkage)
@@ -164,8 +165,11 @@ namespace motts { namespace lox {
             ++token_end_;
         }
 
-        const auto found = reserved_words.find(string{token_begin_, token_end_});
-        return make_token(found != reserved_words.end() ? found->second : Token_type::identifier);
+        const auto identifier = string{token_begin_, token_end_};
+        const auto found = find_if(reserved_words.cbegin(), reserved_words.cend(), [&] (const auto& pair) {
+            return pair.first == identifier;
+        });
+        return make_token(found != reserved_words.cend() ? found->second : Token_type::identifier);
     }
 
     Token Token_iterator::consume_token() {

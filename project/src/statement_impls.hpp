@@ -16,7 +16,7 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> expr;
 
         explicit Expr_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -24,7 +24,7 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> expr;
 
         explicit Print_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -33,7 +33,7 @@ namespace motts { namespace lox {
         std::unique_ptr<Expr> initializer;
 
         explicit Var_stmt(Token&& name, std::unique_ptr<Expr>&& initializer);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -42,7 +42,7 @@ namespace motts { namespace lox {
         std::unique_ptr<Stmt> body;
 
         explicit While_stmt(std::unique_ptr<Expr>&& condition, std::unique_ptr<Stmt>&& body);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -50,7 +50,7 @@ namespace motts { namespace lox {
         std::vector<std::unique_ptr<Stmt>> statements;
 
         explicit Block_stmt(std::vector<std::unique_ptr<Stmt>>&& statements);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -64,7 +64,7 @@ namespace motts { namespace lox {
             std::unique_ptr<Stmt>&& then_branch,
             std::unique_ptr<Stmt>&& else_branch
         );
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
@@ -79,16 +79,15 @@ namespace motts { namespace lox {
             std::vector<std::unique_ptr<Stmt>>&& body
         );
         explicit Function_stmt(const Function_stmt&);
-        void accept(Stmt_visitor&) override;
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Return_stmt : Stmt {
-        Token keyword;
         std::unique_ptr<Expr> value;
 
-        explicit Return_stmt(Token&& keyword, std::unique_ptr<Expr>&& value);
-        void accept(Stmt_visitor&) override;
+        explicit Return_stmt(std::unique_ptr<Expr>&& value);
+        void accept(Stmt_visitor&) const override;
         std::unique_ptr<Stmt> clone() const override;
     };
 }}

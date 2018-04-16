@@ -25,7 +25,7 @@ namespace motts { namespace lox {
         expr {move(expr_arg)}
     {}
 
-    void Expr_stmt::accept(Stmt_visitor& visitor) {
+    void Expr_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -41,7 +41,7 @@ namespace motts { namespace lox {
         expr {move(expr_arg)}
     {}
 
-    void Print_stmt::accept(Stmt_visitor& visitor) {
+    void Print_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -58,7 +58,7 @@ namespace motts { namespace lox {
         initializer {move(initializer_arg)}
     {}
 
-    void Var_stmt::accept(Stmt_visitor& visitor) {
+    void Var_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -75,7 +75,7 @@ namespace motts { namespace lox {
         body {move(body_arg)}
     {}
 
-    void While_stmt::accept(Stmt_visitor& visitor) {
+    void While_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -91,7 +91,7 @@ namespace motts { namespace lox {
         statements {move(statements_arg)}
     {}
 
-    void Block_stmt::accept(Stmt_visitor& visitor) {
+    void Block_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -118,7 +118,7 @@ namespace motts { namespace lox {
         else_branch {move(else_branch_arg)}
     {}
 
-    void If_stmt::accept(Stmt_visitor& visitor) {
+    void If_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -145,6 +145,7 @@ namespace motts { namespace lox {
     {}
 
     Function_stmt::Function_stmt(const Function_stmt& rhs) :
+        Stmt {rhs},
         name {rhs.name},
         parameters {rhs.parameters}
     {
@@ -153,7 +154,7 @@ namespace motts { namespace lox {
         });
     }
 
-    void Function_stmt::accept(Stmt_visitor& visitor) {
+    void Function_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
@@ -165,16 +166,15 @@ namespace motts { namespace lox {
         struct Return_stmt
     */
 
-    Return_stmt::Return_stmt(Token&& keyword_arg, unique_ptr<Expr>&& value_arg) :
-        keyword {move(keyword_arg)},
+    Return_stmt::Return_stmt(unique_ptr<Expr>&& value_arg) :
         value {move(value_arg)}
     {}
 
-    void Return_stmt::accept(Stmt_visitor& visitor) {
+    void Return_stmt::accept(Stmt_visitor& visitor) const {
         visitor.visit(*this);
     }
 
     unique_ptr<Stmt> Return_stmt::clone() const {
-        return make_unique<Return_stmt>(Token{keyword}, value ? value->clone() : nullptr);
+        return make_unique<Return_stmt>(value ? value->clone() : nullptr);
     }
 }}

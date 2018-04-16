@@ -30,8 +30,8 @@ using gsl::span;
 namespace lox = motts::lox;
 
 auto run(const string& source, lox::Interpreter& interpreter) {
-    auto statements = lox::parse(lox::Token_iterator{source});
-    for (auto& statement : statements) {
+    const auto statements = lox::parse(lox::Token_iterator{source});
+    for (const auto& statement : statements) {
         statement->accept(interpreter);
     }
 }

@@ -13,7 +13,7 @@
 
 namespace motts { namespace lox {
     struct Callable {
-        virtual Literal call(Interpreter&, const std::vector<Literal>& arguments) = 0;
+        virtual Literal call(Interpreter&, const std::vector<Literal>& arguments) const = 0;
         virtual int arity() const = 0;
         virtual std::string to_string() const = 0;
 

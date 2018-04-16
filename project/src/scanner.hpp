@@ -12,10 +12,10 @@
 
 namespace motts { namespace lox {
     /*
-    Nystrom's Java code uses a `Scanner` class with a `scan_tokens` method that returns an array of tokens. In earlier
-    commits, I mirrored that implementation, but I didn't like any of the choices for return type. If I returned an
-    array value, then I'd be making an unnecessary copy.  If I returned a mutable array reference, then the class would
-    lose all control over its private data. And if I returned a const array reference, then I'd again be making an
+    Nystrom's Java code uses a `Scanner` class with a `scan_tokens` method that returns a member array of tokens. In
+    earlier commits, I mirrored that implementation, but I didn't like any of the choices for return type. If I returned
+    an array value, then I'd be making an unnecessary copy.  If I returned a mutable array reference, then the class
+    would lose all control over its private data. And if I returned a const array reference, then I'd again be making an
     unnecessary copy for calling code that needs a mutable array.
 
     The new solution below instead uses the iterator pattern. Rather than return a complete list of tokens, instead I

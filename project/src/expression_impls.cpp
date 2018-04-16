@@ -32,7 +32,7 @@ namespace motts { namespace lox {
     }
 
     unique_ptr<Expr> Binary_expr::clone() const {
-        return make_unique<Binary_expr>(left->clone(), Token{op}, right->clone());
+        return make_unique<Binary_expr>(left ? left->clone() : nullptr, Token{op}, right ? right->clone() : nullptr);
     }
 
     /*
@@ -48,7 +48,7 @@ namespace motts { namespace lox {
     }
 
     unique_ptr<Expr> Grouping_expr::clone() const {
-        return make_unique<Grouping_expr>(expr->clone());
+        return make_unique<Grouping_expr>(expr? expr->clone() : nullptr);
     }
 
     /*
@@ -81,7 +81,7 @@ namespace motts { namespace lox {
     }
 
     unique_ptr<Expr> Unary_expr::clone() const {
-        return make_unique<Unary_expr>(Token{op}, right->clone());
+        return make_unique<Unary_expr>(Token{op}, right ? right->clone() : nullptr);
     }
 
     /*
@@ -100,6 +100,10 @@ namespace motts { namespace lox {
         return make_unique<Var_expr>(Token{name});
     }
 
+    Token&& Var_expr::lvalue_name(const Runtime_error&) && {
+        return move(name);
+    }
+
     /*
         struct Assign_expr
     */
@@ -114,7 +118,7 @@ namespace motts { namespace lox {
     }
 
     unique_ptr<Expr> Assign_expr::clone() const {
-        return make_unique<Assign_expr>(Token{name}, value->clone());
+        return make_unique<Assign_expr>(Token{name}, value ? value->clone() : nullptr);
     }
 
     /*
@@ -132,7 +136,7 @@ namespace motts { namespace lox {
     }
 
     unique_ptr<Expr> Logical_expr::clone() const {
-        return make_unique<Logical_expr>(left->clone(), Token{op}, right->clone());
+        return make_unique<Logical_expr>(left ? left->clone() : nullptr, Token{op}, right ? right->clone() : nullptr);
     }
 
     /*
@@ -159,6 +163,6 @@ namespace motts { namespace lox {
             return expr->clone();
         });
 
-        return make_unique<Call_expr>(callee->clone(), Token{closing_paren}, move(arguments_copy));
+        return make_unique<Call_expr>(callee ? callee->clone() : nullptr, Token{closing_paren}, move(arguments_copy));
     }
 }}

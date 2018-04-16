@@ -53,6 +53,7 @@ namespace motts { namespace lox {
         explicit Var_expr(Token&& name);
         void accept(Expr_visitor&) const override;
         std::unique_ptr<Expr> clone() const override;
+        Token&& lvalue_name(const Runtime_error& throwable_if_not_lvalue) && override;
     };
 
     struct Assign_expr : Expr {

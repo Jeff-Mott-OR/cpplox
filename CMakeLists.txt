@@ -14,7 +14,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
-option(ENABLE_TESTING "Whether to build the test harness and perform testing." FALSE)
+option(ENABLE_TESTING "Whether to build the test and bench harness and perform testing." FALSE)
 message(STATUS "Enable testing: ${ENABLE_TESTING}")
 
 include(ExternalProject)
@@ -30,8 +30,6 @@ if(ENABLE_TESTING)
     else()
         set(BOOST_CONFIGURE_COMMAND bootstrap.bat)
     endif()
-else()
-    set(BOOST_CONFIGURE_COMMAND "")
 endif()
 ExternalProject_Add(
     boost
@@ -58,12 +56,10 @@ if(ENABLE_TESTING)
         set(BOOST_ADDRESS_MODEL address-model=32)
     elseif(CMAKE_GENERATOR_PLATFORM STREQUAL "x64")
         set(BOOST_ADDRESS_MODEL address-model=64)
-    else()
-        set(BOOST_ADDRESS_MODEL "")
     endif()
 
     ExternalProject_Add_Step(
-        boost build_testing
+        boost build_extra
         DEPENDEES build DEPENDERS install
         WORKING_DIRECTORY "<SOURCE_DIR>"
 

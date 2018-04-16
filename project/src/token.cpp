@@ -10,7 +10,7 @@ using std::logic_error;
 using std::ostream;
 
 namespace motts { namespace lox {
-    ostream& operator<<(ostream& os, const Token_type& token_type) {
+    ostream& operator<<(ostream& os, Token_type token_type) {
         switch (token_type) {
             #define X(name, name_str) \
                 case Token_type::name: \

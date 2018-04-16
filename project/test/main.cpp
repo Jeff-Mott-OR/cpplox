@@ -162,8 +162,8 @@ BOOST_AUTO_TEST_CASE(function_mutual_recursion_test) { expect_script_file_out_to
 BOOST_AUTO_TEST_CASE(function_parameters_test) { expect_script_file_out_to_be("function/parameters.lox", "0\n1\n3\n6\n10\n15\n21\n28\n36\n"); }
 BOOST_AUTO_TEST_CASE(function_print_test) { expect_script_file_out_to_be("function/print.lox", "<fn foo>\n"); }
 BOOST_AUTO_TEST_CASE(function_recursion_test) { expect_script_file_out_to_be("function/recursion.lox", "21\n"); }
-BOOST_AUTO_TEST_CASE(function_too_many_arguments_test) { expect_script_file_out_to_be("function/too_many_arguments.lox", "", "[Line 1] Error at '9': Cannot have more than 8 arguments.\n", EXIT_FAILURE); }
-BOOST_AUTO_TEST_CASE(function_too_many_parameters_test) { expect_script_file_out_to_be("function/too_many_parameters.lox", "", "[Line 2] Error at 'i': Cannot have more than 8 parameters.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(function_too_many_arguments_test) { expect_script_file_out_to_be("function/too_many_arguments.lox", "", "[Line 1] Error at ')': Cannot have more than 8 arguments.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(function_too_many_parameters_test) { expect_script_file_out_to_be("function/too_many_parameters.lox", "", "[Line 2] Error at ')': Cannot have more than 8 parameters.\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(if_dangling_else_test) { expect_script_file_out_to_be("if/dangling_else.lox", "good\n"); }
 BOOST_AUTO_TEST_CASE(if_else_test) { expect_script_file_out_to_be("if/else.lox", "good\ngood\nblock\n"); }

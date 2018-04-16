@@ -49,7 +49,7 @@ namespace motts { namespace lox {
         #undef X
     };
 
-    std::ostream& operator<<(std::ostream&, const Token_type&);
+    std::ostream& operator<<(std::ostream&, Token_type);
 
     struct Token {
         Token_type type;

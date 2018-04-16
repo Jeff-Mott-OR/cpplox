@@ -16,7 +16,7 @@ namespace motts { namespace lox {
     /*
     In Java, the `Token` field `Object literal` can be assigned any value of any type, and we can implicitly convert it
     to a string without any extra work on our part. This is possible because `Object` has an overridable `toString`
-    method, and the Java library comes with pre- defined derived types for strings, doubles, bools, and more, whose
+    method, and the Java library comes with pre-defined derived types for strings, doubles, bools, and more, whose
     overridden `toString` will do the right thing.
 
     Not so in C++. In C++, there is no universal base class from which everything inherits, and no pre-defined derived

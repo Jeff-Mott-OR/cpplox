@@ -23,421 +23,395 @@ using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
-    auto advance_if_match(Token_iterator& token_iter, const Token_type& token_type) {
-        if (token_iter->type == token_type) {
-            ++token_iter;
-            return true;
-        }
+    class Parser {
+        Token_iterator token_iter_;
 
-        return false;
-    }
+        public:
+            Parser(Token_iterator&& token_iter) :
+                token_iter_ {move(token_iter)}
+            {}
 
-    auto consume(Token_iterator& token_iter, const Token_type& token_type, const string& error_msg) {
-        if (token_iter->type != token_type) {
-            throw Parser_error{error_msg, *token_iter};
-        }
-        const auto token = *move(token_iter);
-        ++token_iter;
+            const Token_iterator& token_iter() {
+                return token_iter_;
+            }
 
-        return token;
-    }
+            unique_ptr<Stmt> consume_declaration() {
+                if (advance_if_match(Token_type::fun_)) return consume_function_declaration();
+                if (advance_if_match(Token_type::var_)) return consume_var_declaration();
 
-    unique_ptr<Expr> consume_expression(Token_iterator& token_iter);
-    unique_ptr<Stmt> consume_declaration(Token_iterator& token_iter);
-    unique_ptr<Stmt> consume_statement(Token_iterator& token_iter);
+                return consume_statement();
+            }
 
-    unique_ptr<Expr> consume_primary(Token_iterator& token_iter) {
-        if (advance_if_match(token_iter, Token_type::false_)) {
-            return make_unique<Literal_expr>(Literal{false});
-        }
-        if (advance_if_match(token_iter, Token_type::true_)) {
-            return make_unique<Literal_expr>(Literal{true});
-        }
-        if (advance_if_match(token_iter, Token_type::nil_)) {
-            return make_unique<Literal_expr>(Literal{nullptr});
-        }
+            unique_ptr<Stmt> consume_var_declaration() {
+                auto var_name = consume(Token_type::identifier, "Expected variable name.");
 
-        if (token_iter->type == Token_type::number || token_iter->type == Token_type::string) {
-            auto expr = make_unique<Literal_expr>(*((*move(token_iter)).literal));
-            ++token_iter;
-            return expr;
-        }
-
-        if (token_iter->type == Token_type::identifier) {
-            auto expr = make_unique<Var_expr>(*move(token_iter));
-            ++token_iter;
-            return expr;
-        }
-
-        if (advance_if_match(token_iter, Token_type::left_paren)) {
-            auto expr = consume_expression(token_iter);
-            consume(token_iter, Token_type::right_paren, "Expected ')' after expression.");
-
-            return make_unique<Grouping_expr>(move(expr));
-        }
-
-        throw Parser_error{"Expected expression.", *token_iter};
-    }
-
-    unique_ptr<Expr> consume_finish_call(Token_iterator& token_iter, unique_ptr<Expr>&& callee) {
-        vector<unique_ptr<Expr>> arguments;
-        if (token_iter->type != Token_type::right_paren) {
-            do {
-                if (arguments.size() >= 8) {
-                    // TODO Convert to non-fatal error
-                    throw Parser_error{"Cannot have more than 8 arguments.", *token_iter};
+                unique_ptr<Expr> initializer;
+                if (advance_if_match(Token_type::equal)) {
+                    initializer = consume_expression();
                 }
 
-                arguments.push_back(consume_expression(token_iter));
-            } while (advance_if_match(token_iter, Token_type::comma));
-        }
-        auto paren = consume(token_iter, Token_type::right_paren, "Expected ')' after arguments.");
+                consume(Token_type::semicolon, "Expected ';' after variable declaration.");
 
-        return make_unique<Call_expr>(move(callee), move(paren), move(arguments));
-    }
-
-    unique_ptr<Expr> consume_call(Token_iterator& token_iter) {
-        auto expr = consume_primary(token_iter);
-
-        while (advance_if_match(token_iter, Token_type::left_paren)) {
-            expr = consume_finish_call(token_iter, move(expr));
-        }
-
-        return expr;
-    }
-
-    unique_ptr<Expr> consume_unary(Token_iterator& token_iter) {
-        if (token_iter->type == Token_type::bang || token_iter->type == Token_type::minus) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_unary(token_iter);
-
-            return make_unique<Unary_expr>(move(operator_token), move(right_expr));
-        }
-
-        return consume_call(token_iter);
-    }
-
-    unique_ptr<Expr> consume_multiplication(Token_iterator& token_iter) {
-        auto left_expr = consume_unary(token_iter);
-
-        while (token_iter->type == Token_type::slash || token_iter->type == Token_type::star) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_unary(token_iter);
-
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_addition(Token_iterator& token_iter) {
-        auto left_expr = consume_multiplication(token_iter);
-
-        while (token_iter->type == Token_type::minus || token_iter->type == Token_type::plus) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_multiplication(token_iter);
-
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_comparison(Token_iterator& token_iter) {
-        auto left_expr = consume_addition(token_iter);
-
-        while (
-            token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal ||
-            token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal
-        ) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_addition(token_iter);
-
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_equality(Token_iterator& token_iter) {
-        auto left_expr = consume_comparison(token_iter);
-
-        while (token_iter->type == Token_type::bang_equal || token_iter->type == Token_type::equal_equal) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_comparison(token_iter);
-
-            left_expr = make_unique<Binary_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_and(Token_iterator& token_iter) {
-        auto left_expr = consume_equality(token_iter);
-
-        while (token_iter->type == Token_type::and_) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_equality(token_iter);
-
-            left_expr = make_unique<Logical_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_or(Token_iterator& token_iter) {
-        auto left_expr = consume_and(token_iter);
-
-        while (token_iter->type == Token_type::or_) {
-            auto operator_token = *move(token_iter);
-            ++token_iter;
-            auto right_expr = consume_and(token_iter);
-
-            left_expr = make_unique<Logical_expr>(move(left_expr), move(operator_token), move(right_expr));
-        }
-
-        return left_expr;
-    }
-
-    unique_ptr<Expr> consume_assignment(Token_iterator& token_iter) {
-        auto lhs_expr = consume_or(token_iter);
-
-        if (token_iter->type == Token_type::equal) {
-            const auto equals_token = *move(token_iter);
-            ++token_iter;
-
-            auto rhs_expr = consume_assignment(token_iter);
-
-            // The lhs expression *could* turn out to be an l-value such as an identifier, but it could also turn out to
-            // be an r-value such as a literal. Either one is exposed only as a base Expr interface, so we have to
-            // downcast and throw if it isn't an l-value. But if you've read my other comments and past commit messages,
-            // you know I consider casts a smell. TODO Find an alternate way to detect or remember l-value vs r-value-
-            // ness.
-            auto var_expr = dynamic_cast<Var_expr*>(lhs_expr.get());
-            if (!var_expr) {
-                throw Parser_error{"Invalid assignment target.", equals_token};
+                return make_unique<Var_stmt>(move(var_name), move(initializer));
             }
 
-            return make_unique<Assign_expr>(move(var_expr->name), move(rhs_expr));
-        }
+            unique_ptr<Stmt> consume_function_declaration() {
+                auto name = consume(Token_type::identifier, "Expected function name.");
 
-        return lhs_expr;
-    }
+                consume(Token_type::left_paren, "Expected '(' after function name.");
+                vector<Token> parameters;
+                if (token_iter_->type != Token_type::right_paren) {
+                    do {
+                        parameters.push_back(consume(Token_type::identifier, "Expected parameter name."));
+                    } while (advance_if_match(Token_type::comma));
 
-    unique_ptr<Expr> consume_expression(Token_iterator& token_iter) {
-        return consume_assignment(token_iter);
-    }
+                    if (parameters.size() > 8) {
+                        throw Parser_error{"Cannot have more than 8 parameters.", *token_iter_};
+                    }
+                }
+                consume(Token_type::right_paren, "Expected ')' after parameters.");
 
-    unique_ptr<Stmt> consume_if_statement(Token_iterator& token_iter) {
-        consume(token_iter, Token_type::left_paren, "Expected '(' after 'if'.");
-        auto condition = consume_expression(token_iter);
-        consume(token_iter, Token_type::right_paren, "Expected ')' after if condition.");
+                consume(Token_type::left_brace, "Expected '{' before function body.");
+                auto body = consume_block_statement();
 
-        auto then_branch = consume_statement(token_iter);
+                return make_unique<Function_stmt>(move(name), move(parameters), move(body));
+            }
 
-        unique_ptr<Stmt> else_branch;
-        if (advance_if_match(token_iter, Token_type::else_)) {
-            else_branch = consume_statement(token_iter);
-        }
+            unique_ptr<Stmt> consume_statement() {
+                if (advance_if_match(Token_type::for_)) return consume_for_statement();
+                if (advance_if_match(Token_type::if_)) return consume_if_statement();
+                if (advance_if_match(Token_type::print_)) return consume_print_statement();
+                if (advance_if_match(Token_type::return_)) return consume_return_statement();
+                if (advance_if_match(Token_type::while_)) return consume_while_statement();
+                if (advance_if_match(Token_type::left_brace)) return make_unique<Block_stmt>(consume_block_statement());
 
-        return make_unique<If_stmt>(move(condition), move(then_branch), move(else_branch));
-    }
+                return consume_expression_statement();
+            }
 
-    unique_ptr<Stmt> consume_print_statement(Token_iterator& token_iter) {
-        auto value = consume_expression(token_iter);
-        consume(token_iter, Token_type::semicolon, "Expected ';' after value.");
+            unique_ptr<Stmt> consume_expression_statement() {
+                auto expr = consume_expression();
+                consume(Token_type::semicolon, "Expected ';' after expression.");
 
-        return make_unique<Print_stmt>(move(value));
-    }
+                return make_unique<Expr_stmt>(move(expr));
+            }
 
-    unique_ptr<Stmt> consume_return_statement(Token_iterator& token_iter, Token&& keyword) {
-        unique_ptr<Expr> value;
-        if (token_iter->type != Token_type::semicolon) {
-            value = consume_expression(token_iter);
-        }
-        consume(token_iter, Token_type::semicolon, "Expected ';' after return value.");
+            vector<unique_ptr<Stmt>> consume_block_statement() {
+                vector<unique_ptr<Stmt>> statements;
+                while (token_iter_->type != Token_type::right_brace && token_iter_->type != Token_type::eof) {
+                    statements.push_back(consume_declaration());
+                }
+                consume(Token_type::right_brace, "Expected '}' after block.");
 
-        return make_unique<Return_stmt>(move(keyword), move(value));
-    }
+                return statements;
+            }
 
-    unique_ptr<Stmt> consume_while_statement(Token_iterator& token_iter) {
-        consume(token_iter, Token_type::left_paren, "Expected '(' after 'while'.");
-        auto condition = consume_expression(token_iter);
-        consume(token_iter, Token_type::right_paren, "Expected ')' after condition.");
+            unique_ptr<Stmt> consume_for_statement() {
+                consume(Token_type::left_paren, "Expected '(' after 'for'.");
 
-        auto body = consume_statement(token_iter);
-
-        return make_unique<While_stmt>(move(condition), move(body));
-    }
-
-    unique_ptr<Stmt> consume_expression_statement(Token_iterator& token_iter) {
-        auto expr = consume_expression(token_iter);
-        consume(token_iter, Token_type::semicolon, "Expected ';' after expression.");
-
-        return make_unique<Expr_stmt>(move(expr));
-    }
-
-    auto consume_block_statement(Token_iterator& token_iter) {
-        vector<unique_ptr<Stmt>> statements;
-        while (token_iter->type != Token_type::right_brace && token_iter->type != Token_type::eof) {
-            statements.push_back(consume_declaration(token_iter));
-        }
-        consume(token_iter, Token_type::right_brace, "Expected '}' after block.");
-
-        return statements;
-    }
-
-    unique_ptr<Stmt> consume_function_declaration(Token_iterator& token_iter) {
-        auto name = consume(token_iter, Token_type::identifier, "Expected function name.");
-
-        consume(token_iter, Token_type::left_paren, "Expected '(' after function name.");
-        vector<Token> parameters;
-        if (token_iter->type != Token_type::right_paren) {
-            do {
-                if (parameters.size() >= 8) {
-                    throw Parser_error{"Cannot have more than 8 parameters.", *token_iter};
+                unique_ptr<Stmt> initializer;
+                if (advance_if_match(Token_type::semicolon)) {
+                    // initializer is already null
+                } else if (advance_if_match(Token_type::var_)) {
+                    initializer = consume_var_declaration();
+                } else {
+                    initializer = consume_expression_statement();
                 }
 
-                parameters.push_back(consume(token_iter, Token_type::identifier, "Expected parameter name."));
-            } while (advance_if_match(token_iter, Token_type::comma));
-        }
-        consume(token_iter, Token_type::right_paren, "Expected ')' after parameters.");
+                unique_ptr<Expr> condition;
+                if (token_iter_->type != Token_type::semicolon) {
+                    condition = consume_expression();
+                }
+                consume(Token_type::semicolon, "Expected ';' after loop condition.");
 
-        consume(token_iter, Token_type::left_brace, "Expected '{' before function body.");
-        auto body = consume_block_statement(token_iter);
+                unique_ptr<Expr> increment;
+                if (token_iter_->type != Token_type::right_paren) {
+                    increment = consume_expression();
+                }
+                consume(Token_type::right_paren, "Expected ')' after for clauses.");
 
-        return make_unique<Function_stmt>(move(name), move(parameters), move(body));
-    }
+                auto body = consume_statement();
 
-    unique_ptr<Stmt> consume_var_declaration(Token_iterator& token_iter) {
-        auto var_name = consume(token_iter, Token_type::identifier, "Expected variable name.");
+                if (increment) {
+                    vector<unique_ptr<Stmt>> stmts;
+                    stmts.push_back(move(body));
+                    stmts.push_back(make_unique<Expr_stmt>(move(increment)));
+                    body = make_unique<Block_stmt>(move(stmts));
+                }
 
-        unique_ptr<Expr> initializer;
-        if (advance_if_match(token_iter, Token_type::equal)) {
-            initializer = consume_expression(token_iter);
-        }
+                if (!condition) {
+                    condition = make_unique<Literal_expr>(Literal{true});
+                }
+                body = make_unique<While_stmt>(move(condition), move(body));
 
-        consume(token_iter, Token_type::semicolon, "Expected ';' after variable declaration.");
+                if (initializer) {
+                    vector<unique_ptr<Stmt>> stmts;
+                    stmts.push_back(move(initializer));
+                    stmts.push_back(move(body));
+                    body = make_unique<Block_stmt>(move(stmts));
+                }
 
-        return make_unique<Var_stmt>(move(var_name), move(initializer));
-    }
-
-    unique_ptr<Stmt> consume_for_statement(Token_iterator& token_iter) {
-        consume(token_iter, Token_type::left_paren, "Expected '(' after 'for'.");
-
-        unique_ptr<Stmt> initializer;
-        if (advance_if_match(token_iter, Token_type::semicolon)) {
-            // initializer is already null
-        } else if (advance_if_match(token_iter, Token_type::var_)) {
-            initializer = consume_var_declaration(token_iter);
-        } else {
-            initializer = consume_expression_statement(token_iter);
-        }
-
-        unique_ptr<Expr> condition;
-        if (token_iter->type != Token_type::semicolon) {
-            condition = consume_expression(token_iter);
-        }
-        consume(token_iter, Token_type::semicolon, "Expected ';' after loop condition.");
-
-        unique_ptr<Expr> increment;
-        if (token_iter->type != Token_type::right_paren) {
-            increment = consume_expression(token_iter);
-        }
-        consume(token_iter, Token_type::right_paren, "Expected ')' after for clauses.");
-
-        auto body = consume_statement(token_iter);
-
-        if (increment) {
-            vector<unique_ptr<Stmt>> stmts;
-            stmts.push_back(move(body));
-            stmts.push_back(make_unique<Expr_stmt>(move(increment)));
-            body = make_unique<Block_stmt>(move(stmts));
-        }
-
-        if (!condition) {
-            condition = make_unique<Literal_expr>(Literal{true});
-        }
-        body = make_unique<While_stmt>(move(condition), move(body));
-
-        if (initializer) {
-            vector<unique_ptr<Stmt>> stmts;
-            stmts.push_back(move(initializer));
-            stmts.push_back(move(body));
-            body = make_unique<Block_stmt>(move(stmts));
-        }
-
-        return body;
-    }
-
-    unique_ptr<Stmt> consume_statement(Token_iterator& token_iter) {
-        if (advance_if_match(token_iter, Token_type::for_)) {
-            return consume_for_statement(token_iter);
-        }
-        if (advance_if_match(token_iter, Token_type::if_)) {
-            return consume_if_statement(token_iter);
-        }
-        if (advance_if_match(token_iter, Token_type::print_)) {
-            return consume_print_statement(token_iter);
-        }
-        if (token_iter->type == Token_type::return_) {
-            auto keyword = *move(token_iter);
-            ++token_iter;
-
-            return consume_return_statement(token_iter, move(keyword));
-        }
-        if (advance_if_match(token_iter, Token_type::while_)) {
-            return consume_while_statement(token_iter);
-        }
-        if (advance_if_match(token_iter, Token_type::left_brace)) {
-            return make_unique<Block_stmt>(consume_block_statement(token_iter));
-        }
-
-        return consume_expression_statement(token_iter);
-    }
-
-    unique_ptr<Stmt> consume_declaration(Token_iterator& token_iter) {
-        if (advance_if_match(token_iter, Token_type::fun_)) {
-            return consume_function_declaration(token_iter);
-        }
-        if (advance_if_match(token_iter, Token_type::var_)) {
-            return consume_var_declaration(token_iter);
-        }
-
-        return consume_statement(token_iter);
-    }
-
-    void recover_to_synchronization_point(Token_iterator& token_iter) {
-        while (token_iter->type != Token_type::eof) {
-            // After a semicolon, we're probably finished with a statement. Use it as a synchronization point
-            if (advance_if_match(token_iter, Token_type::semicolon)) {
-                return;
+                return body;
             }
 
-            // Most statements start with a keyword -- for, if, return, var, etc. Use them as synchronization points.
-            if (
-                token_iter->type == Token_type::class_ ||
-                token_iter->type == Token_type::fun_ ||
-                token_iter->type == Token_type::var_ ||
-                token_iter->type == Token_type::for_ ||
-                token_iter->type == Token_type::if_ ||
-                token_iter->type == Token_type::while_ ||
-                token_iter->type == Token_type::print_ ||
-                token_iter->type == Token_type::return_
-            ) {
-                return;
+            unique_ptr<Stmt> consume_if_statement() {
+                consume(Token_type::left_paren, "Expected '(' after 'if'.");
+                auto condition = consume_expression();
+                consume(Token_type::right_paren, "Expected ')' after if condition.");
+
+                auto then_branch = consume_statement();
+
+                unique_ptr<Stmt> else_branch;
+                if (advance_if_match(Token_type::else_)) {
+                    else_branch = consume_statement();
+                }
+
+                return make_unique<If_stmt>(move(condition), move(then_branch), move(else_branch));
             }
 
-            // Discard tokens until we find a statement boundary
-            ++token_iter;
-        }
-    }
+            unique_ptr<Stmt> consume_while_statement() {
+                consume(Token_type::left_paren, "Expected '(' after 'while'.");
+                auto condition = consume_expression();
+                consume(Token_type::right_paren, "Expected ')' after condition.");
+
+                auto body = consume_statement();
+
+                return make_unique<While_stmt>(move(condition), move(body));
+            }
+
+            unique_ptr<Stmt> consume_print_statement() {
+                auto value = consume_expression();
+                consume(Token_type::semicolon, "Expected ';' after value.");
+
+                return make_unique<Print_stmt>(move(value));
+            }
+
+            unique_ptr<Stmt> consume_return_statement() {
+                unique_ptr<Expr> value;
+                if (token_iter_->type != Token_type::semicolon) {
+                    value = consume_expression();
+                }
+                consume(Token_type::semicolon, "Expected ';' after return value.");
+
+                return make_unique<Return_stmt>(move(value));
+            }
+
+            unique_ptr<Expr> consume_expression() {
+                return consume_assignment();
+            }
+
+            unique_ptr<Expr> consume_assignment() {
+                auto lhs_expr = consume_or();
+
+                if (token_iter_->type == Token_type::equal) {
+                    const auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto rhs_expr = consume_assignment();
+
+                    return make_unique<Assign_expr>(
+                        move(*lhs_expr).lvalue_name(Parser_error{"Invalid assignment target.", op}),
+                        move(rhs_expr)
+                    );
+                }
+
+                return lhs_expr;
+            }
+
+            unique_ptr<Expr> consume_or() {
+                auto left_expr = consume_and();
+
+                while (token_iter_->type == Token_type::or_) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_and();
+
+                    left_expr = make_unique<Logical_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_and() {
+                auto left_expr = consume_equality();
+
+                while (token_iter_->type == Token_type::and_) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_equality();
+
+                    left_expr = make_unique<Logical_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_equality() {
+                auto left_expr = consume_comparison();
+
+                while (token_iter_->type == Token_type::bang_equal || token_iter_->type == Token_type::equal_equal) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_comparison();
+
+                    left_expr = make_unique<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_comparison() {
+                auto left_expr = consume_addition();
+
+                while (
+                    token_iter_->type == Token_type::greater || token_iter_->type == Token_type::greater_equal ||
+                    token_iter_->type == Token_type::less || token_iter_->type == Token_type::less_equal
+                ) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_addition();
+
+                    left_expr = make_unique<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_addition() {
+                auto left_expr = consume_multiplication();
+
+                while (token_iter_->type == Token_type::minus || token_iter_->type == Token_type::plus) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_multiplication();
+
+                    left_expr = make_unique<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_multiplication() {
+                auto left_expr = consume_unary();
+
+                while (token_iter_->type == Token_type::slash || token_iter_->type == Token_type::star) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_unary();
+
+                    left_expr = make_unique<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                }
+
+                return left_expr;
+            }
+
+            unique_ptr<Expr> consume_unary() {
+                if (token_iter_->type == Token_type::bang || token_iter_->type == Token_type::minus) {
+                    auto op = *move(token_iter_);
+                    ++token_iter_;
+                    auto right_expr = consume_unary();
+
+                    return make_unique<Unary_expr>(move(op), move(right_expr));
+                }
+
+                return consume_call();
+            }
+
+            unique_ptr<Expr> consume_call() {
+                auto expr = consume_primary();
+
+                while (advance_if_match(Token_type::left_paren)) {
+                    expr = consume_finish_call(move(expr));
+                }
+
+                return expr;
+            }
+
+            unique_ptr<Expr> consume_finish_call(unique_ptr<Expr>&& callee) {
+                vector<unique_ptr<Expr>> arguments;
+                if (token_iter_->type != Token_type::right_paren) {
+                    do {
+                        arguments.push_back(consume_expression());
+                    } while (advance_if_match(Token_type::comma));
+
+                    if (arguments.size() > 8) {
+                        throw Parser_error{"Cannot have more than 8 arguments.", *token_iter_};
+                    }
+                }
+                auto closing_paren = consume(Token_type::right_paren, "Expected ')' after arguments.");
+
+                return make_unique<Call_expr>(move(callee), move(closing_paren), move(arguments));
+            }
+
+            unique_ptr<Expr> consume_primary() {
+                if (advance_if_match(Token_type::false_)) return make_unique<Literal_expr>(Literal{false});
+                if (advance_if_match(Token_type::true_)) return make_unique<Literal_expr>(Literal{true});
+                if (advance_if_match(Token_type::nil_)) return make_unique<Literal_expr>(Literal{nullptr});
+
+                if (token_iter_->type == Token_type::number || token_iter_->type == Token_type::string) {
+                    auto expr = make_unique<Literal_expr>(*((*move(token_iter_)).literal));
+                    ++token_iter_;
+                    return expr;
+                }
+
+                if (token_iter_->type == Token_type::identifier) {
+                    auto expr = make_unique<Var_expr>(*move(token_iter_));
+                    ++token_iter_;
+                    return expr;
+                }
+
+                if (advance_if_match(Token_type::left_paren)) {
+                    auto expr = consume_expression();
+                    consume(Token_type::right_paren, "Expected ')' after expression.");
+
+                    return make_unique<Grouping_expr>(move(expr));
+                }
+
+                throw Parser_error{"Expected expression.", *token_iter_};
+            }
+
+            Token consume(Token_type token_type, const string& error_msg) {
+                if (token_iter_->type != token_type) {
+                    throw Parser_error{error_msg, *token_iter_};
+                }
+                const auto token = *move(token_iter_);
+                ++token_iter_;
+
+                return token;
+            }
+
+            bool advance_if_match(Token_type token_type) {
+                if (token_iter_->type == token_type) {
+                    ++token_iter_;
+                    return true;
+                }
+
+                return false;
+            }
+
+            void recover_to_synchronization_point() {
+                while (token_iter_->type != Token_type::eof) {
+                    // After a semicolon, we're probably finished with a statement; use it as a synchronization point
+                    if (advance_if_match(Token_type::semicolon)) return;
+
+                    // Most statements start with a keyword -- for, if, return, var, etc. Use them as synchronization
+                    // points.
+                    if (
+                        token_iter_->type == Token_type::class_ ||
+                        token_iter_->type == Token_type::fun_ ||
+                        token_iter_->type == Token_type::var_ ||
+                        token_iter_->type == Token_type::for_ ||
+                        token_iter_->type == Token_type::if_ ||
+                        token_iter_->type == Token_type::while_ ||
+                        token_iter_->type == Token_type::print_ ||
+                        token_iter_->type == Token_type::return_
+                    ) {
+                        return;
+                    }
+
+                    // Discard tokens until we find a statement boundary
+                    ++token_iter_;
+                }
+            }
+    };
 }
 
 // Exported (external linkage)
@@ -445,12 +419,14 @@ namespace motts { namespace lox {
     vector<unique_ptr<Stmt>> parse(Token_iterator&& token_iter) {
         vector<unique_ptr<Stmt>> statements;
         vector<string> parser_errors;
-        while (token_iter->type != Token_type::eof) {
+
+        Parser parser {move(token_iter)};
+        while (parser.token_iter()->type != Token_type::eof) {
             try {
-                statements.push_back(consume_declaration(token_iter));
+                statements.push_back(parser.consume_declaration());
             } catch (const Parser_error& error) {
                 parser_errors.push_back(error.what());
-                recover_to_synchronization_point(token_iter);
+                parser.recover_to_synchronization_point();
             }
         }
         if (parser_errors.size()) {
