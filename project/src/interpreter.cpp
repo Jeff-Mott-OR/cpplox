@@ -22,8 +22,10 @@ using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::system_clock;
 using std::cout;
+using std::make_shared;
 using std::move;
 using std::nullptr_t;
+using std::shared_ptr;
 using std::string;
 using std::to_string;
 using std::transform;
@@ -32,7 +34,6 @@ using std::vector;
 using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
-using gcpp::deferred_ptr;
 using gsl::finally;
 using gsl::narrow;
 
@@ -62,14 +63,14 @@ namespace motts { namespace lox {
         return end();
     }
 
-    Function::Function(deferred_ptr<Function_stmt> declaration, deferred_ptr<Environment> enclosed) :
+    Function::Function(shared_ptr<Function_stmt> declaration, shared_ptr<Environment> enclosed) :
         declaration_ {declaration},
         enclosed_ {enclosed}
     {}
 
     Literal Function::call(Interpreter& interpreter, const vector<Literal>& arguments) {
         auto caller_environment = interpreter.environment_;
-        interpreter.environment_ = interpreter.deferred_heap_.make<Environment>(*enclosed_, Environment::Enclosing_tag{});
+        interpreter.environment_ = make_shared<Environment>(*enclosed_, Environment::Enclosing_tag{});
         const auto _ = finally([&] () {
             interpreter.environment_ = caller_environment;
         });
@@ -115,7 +116,7 @@ namespace motts { namespace lox {
             }
         };
 
-        (*globals_)["clock"] = Literal{deferred_heap_.make<Clock_callable>()};
+        (*globals_)["clock"] = Literal{make_shared<Clock_callable>()};
     }
 
     void Interpreter::visit(const Literal_expr& expr) {
@@ -308,7 +309,7 @@ namespace motts { namespace lox {
         // cases a smell. TODO Find an alternate way to detect or remember callable-ness.
         auto callee_result_callable = ([&] () {
             try {
-                return get<deferred_ptr<Callable>>(move(callee_result).value);
+                return get<shared_ptr<Callable>>(move(callee_result).value);
             } catch (const bad_get&) {
                 // Convert a boost variant error into a Lox error
                 throw Interpreter_error{"Can only call functions and classes."};
@@ -365,7 +366,7 @@ namespace motts { namespace lox {
 
     void Interpreter::visit(const Block_stmt& stmt) {
         auto enclosed = environment_;
-        environment_ = deferred_heap_.make<Environment>(*enclosed, Environment::Enclosing_tag{});
+        environment_ = make_shared<Environment>(*enclosed, Environment::Enclosing_tag{});
         const auto _ = finally([&] () {
             environment_ = enclosed;
         });
@@ -378,7 +379,7 @@ namespace motts { namespace lox {
     void Interpreter::visit(const Function_stmt& stmt) {
         const auto name = stmt.name.lexeme;
         (*environment_)[name] = Literal{
-            deferred_heap_.make<Function>(deferred_heap_.make<Function_stmt>(Function_stmt{stmt}), environment_)
+            make_shared<Function>(make_shared<Function_stmt>(Function_stmt{stmt}), environment_)
         };
     }
 

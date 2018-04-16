@@ -88,16 +88,6 @@ ExternalProject_Get_Property(gsl SOURCE_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 
 ExternalProject_Add(
-    gcpp
-    DEPENDS gsl
-    URL https://github.com/hsutter/gcpp/archive/3be430dd62fe29e92b42c66fd1f9ee3803edbca4.zip
-    EXCLUDE_FROM_ALL TRUE
-    CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
-)
-ExternalProject_Get_Property(gcpp SOURCE_DIR)
-set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
-
-ExternalProject_Add(
     google_benchmark
     URL https://github.com/google/benchmark/archive/v1.3.0.tar.gz
     EXCLUDE_FROM_ALL TRUE
@@ -134,7 +124,7 @@ set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 # Now that we have our dependencies on disk to be found, it's safe to configure (run cmake on) the real project
 ExternalProject_Add(
     main
-    DEPENDS boost gsl gcpp
+    DEPENDS boost gsl
     DOWNLOAD_COMMAND ""
     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/project"
     BUILD_ALWAYS TRUE

@@ -10,11 +10,11 @@
 using std::boolalpha;
 using std::nullptr_t;
 using std::ostream;
+using std::shared_ptr;
 using std::string;
 
 using boost::apply_visitor;
 using boost::static_visitor;
-using gcpp::deferred_ptr;
 
 namespace motts { namespace lox {
     struct Ostream_visitor : static_visitor<void> {
@@ -40,7 +40,7 @@ namespace motts { namespace lox {
             os << "nil";
         }
 
-        auto operator()(const deferred_ptr<Callable>& callable) {
+        auto operator()(const shared_ptr<Callable>& callable) {
             os << callable->to_string();
         }
     };

@@ -4,12 +4,10 @@
 #include "interpreter_fwd.hpp"
 // C standard headers
 // C++ standard headers
+#include <memory>
 #include <string>
 #include <unordered_map>
 // Third-party headers
-#pragma warning(push, 0)
-    #include <deferred_heap.h>
-#pragma warning(pop)
 // This project's headers
 #include "callable.hpp"
 #include "exception.hpp"
@@ -41,14 +39,14 @@ namespace motts { namespace lox {
 
     class Function : public Callable {
         public:
-            explicit Function(gcpp::deferred_ptr<Function_stmt> declaration, gcpp::deferred_ptr<Environment> enclosed);
+            explicit Function(std::shared_ptr<Function_stmt> declaration, std::shared_ptr<Environment> enclosed);
             Literal call(Interpreter&, const std::vector<Literal>& arguments) override;
             int arity() const override;
             std::string to_string() const override;
 
         private:
-            gcpp::deferred_ptr<Function_stmt> declaration_;
-            gcpp::deferred_ptr<Environment> enclosed_;
+            std::shared_ptr<Function_stmt> declaration_;
+            std::shared_ptr<Environment> enclosed_;
     };
 
     class Interpreter : public Expr_visitor, public Stmt_visitor {
@@ -79,9 +77,8 @@ namespace motts { namespace lox {
         private:
             Literal result_;
 
-            gcpp::deferred_heap deferred_heap_;
-            gcpp::deferred_ptr<Environment> environment_ {deferred_heap_.make<Environment>()};
-            gcpp::deferred_ptr<Environment> globals_ {environment_};
+            std::shared_ptr<Environment> environment_ {std::make_shared<Environment>()};
+            std::shared_ptr<Environment> globals_ {environment_};
 
             friend class Function;
     };
