@@ -109,6 +109,28 @@ ExternalProject_Add(
 ExternalProject_Get_Property(google_benchmark INSTALL_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
 
+ExternalProject_Add(
+    craftinginterpreters
+    URL https://github.com/munificent/craftinginterpreters/archive/d2800ebca6ab6d56f698ad0eef8202a91821eb04.zip
+    EXCLUDE_FROM_ALL TRUE
+
+    # CraftingInterpreters uses non-portable makefiles; give it a CMake script instead
+    PATCH_COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "${CMAKE_CURRENT_SOURCE_DIR}/patch/craftinginterpreters/jlox_build.cmake"
+        "<SOURCE_DIR>/jlox_build.cmake"
+    COMMAND
+        "${CMAKE_COMMAND}" -E copy
+        "${CMAKE_CURRENT_SOURCE_DIR}/patch/craftinginterpreters/jlox_run.cmake"
+        "<SOURCE_DIR>/jlox_run.cmake"
+
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND "${CMAKE_COMMAND}" -P "<SOURCE_DIR>/jlox_build.cmake"
+    INSTALL_COMMAND ""
+)
+ExternalProject_Get_Property(craftinginterpreters SOURCE_DIR)
+set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
+
 # Now that we have our dependencies on disk to be found, it's safe to configure (run cmake on) the real project
 ExternalProject_Add(
     main
@@ -132,4 +154,10 @@ if(ENABLE_TESTING)
         main bench DEPENDEES test
         COMMAND "${CMAKE_COMMAND}" --build "<BINARY_DIR>" --target bench --config "${CMAKE_BUILD_TYPE}"
     )
+
+    find_program(JAVAC_COMMAND javac)
+    message(STATUS "Check for javac: ${JAVAC_COMMAND}")
+    if(NOT JAVAC_COMMAND STREQUAL "JAVAC_COMMAND-NOTFOUND")
+        add_dependencies(main craftinginterpreters)
+    endif()
 endif()

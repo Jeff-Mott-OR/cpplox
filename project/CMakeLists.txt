@@ -6,6 +6,7 @@ if(ENABLE_TESTING)
     find_package(benchmark)
     set(Boost_USE_STATIC_LIBS TRUE)
     find_package(Boost COMPONENTS filesystem program_options unit_test_framework)
+    find_file(JLOX_RUN_SCRIPT jlox_run.cmake)
 else()
     find_package(Boost)
 endif()
@@ -86,7 +87,8 @@ if(ENABLE_TESTING)
         bench
         bench_harness
             --cpplox-file "$<TARGET_FILE:cpplox>"
-            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts"
+            --jlox-file "${JLOX_RUN_SCRIPT}"
         DEPENDS bench_harness cpplox
     )
 
@@ -97,7 +99,7 @@ if(ENABLE_TESTING)
             NAME valgrind
             COMMAND "${VALGRIND_COMMAND}"
                 "$<TARGET_FILE:cpplox>"
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts/function_closure.lox"
+                "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
         )
         set_tests_properties(
             valgrind PROPERTIES

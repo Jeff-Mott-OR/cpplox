@@ -23,7 +23,8 @@ int main(int argc, /*const*/ char* argv[]) {
     options_description.add_options()
         ("help", "Print usage information and exit.")
         ("cpplox-file", program_options::value<string>(), "Required. File path to cpplox executable.")
-        ("test-scripts-path", program_options::value<string>(), "Required. Path to test scripts.");
+        ("test-scripts-path", program_options::value<string>(), "Required. Path to test scripts.")
+        ("jlox-file", program_options::value<string>(), "File path to jlox run cmake script.");
 
     program_options::variables_map variables_map;
     program_options::store(program_options::parse_command_line(argc, argv, options_description), variables_map);
@@ -39,21 +40,39 @@ int main(int argc, /*const*/ char* argv[]) {
         return 0;
     }
 
-    const auto benchmark_cpplox = [&] (benchmark::State& state) {
-        const auto cpplox = variables_map.at("cpplox-file").as<string>();
-        const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/function_closure.lox";
+    for (string script_name : {"fib", "equality"}) {
+        benchmark::RegisterBenchmark(("cpplox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
+            const auto cpplox = variables_map.at("cpplox-file").as<string>();
+            const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";
+            const auto cmd = "\"" + cpplox + "\" \"" + test_script + "\"";
 
-        for (auto _ : state) {
-            process::ipstream cpplox_out;
+            for (auto _ : state) {
+                process::ipstream cpplox_out;
 
-            // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
-            // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
-            // quotes, then I'd get "syntax is incorrect errors". But boost system works just fine either way.
-            process::system(cpplox, test_script, process::std_out > cpplox_out);
+                // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
+                // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
+                // quotes, then I'd get "syntax is incorrect errors". But boost system works just fine either way.
+                process::system(cmd, process::std_out > cpplox_out);
+            }
+        });
+
+        if (variables_map.count("jlox-file") && variables_map.at("jlox-file").as<string>().size()) {
+            benchmark::RegisterBenchmark(("jlox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
+                const auto jlox = variables_map.at("jlox-file").as<string>();
+                const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";
+                const auto cmd = "cmake -P \"" + jlox + "\" \"" + test_script + "\"";
+
+                for (auto _ : state) {
+                    process::ipstream jlox_out;
+
+                    // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
+                    // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
+                    // quotes, then I'd get "syntax is incorrect errors". But boost system works just fine either way.
+                    process::system(cmd, process::std_out > jlox_out);
+                }
+            });
         }
-    };
-
-    benchmark::RegisterBenchmark("cpplox", benchmark_cpplox);
+    }
 
     benchmark::Initialize(&argc, argv);
     benchmark::RunSpecifiedBenchmarks();
