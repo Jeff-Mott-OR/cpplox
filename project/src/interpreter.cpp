@@ -160,7 +160,7 @@ namespace motts { namespace lox {
             }
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Unsupported operand type.", expr.op};
+            throw Interpreter_error{"Operands must be numbers.", expr.op};
         }
     }
 
@@ -176,7 +176,7 @@ namespace motts { namespace lox {
         // All other type combinations can't be '+'-ed together
         template<typename T, typename U>
             Literal operator()(const T&, const U&) const {
-                throw Interpreter_error{"Unsupported operand types for '+'."};
+                throw Interpreter_error{"Operands must be two numbers or two strings."};
             }
     };
 
@@ -249,7 +249,7 @@ namespace motts { namespace lox {
             }
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Unsupported operand type.", expr.op};
+            throw Interpreter_error{"Operands must be numbers.", expr.op};
         }
     }
 
@@ -375,10 +375,10 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(Function_stmt& stmt) {
-        const auto lexeme = stmt.name.lexeme;
-        (*environment_)[lexeme] = Literal{
-            deferred_heap_.make<Function>(deferred_heap_.make<Function_stmt>(move(stmt)), environment_)
+    void Interpreter::visit(const Function_stmt& stmt) {
+        const auto name = stmt.name.lexeme;
+        (*environment_)[name] = Literal{
+            deferred_heap_.make<Function>(deferred_heap_.make<Function_stmt>(Function_stmt{stmt}), environment_)
         };
     }
 
@@ -404,7 +404,7 @@ namespace motts { namespace lox {
 
     Interpreter_error::Interpreter_error(const string& what, const Token& token) :
         Runtime_error {
-            "[Line " + to_string(token.line) + "] Error " + token.lexeme + ": " + what
+            "[Line " + to_string(token.line) + "] Error '" + token.lexeme + "': " + what
         }
     {}
 }}

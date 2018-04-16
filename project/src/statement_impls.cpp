@@ -2,12 +2,17 @@
 #include "statement_impls.hpp"
 // C standard headers
 // C++ standard headers
+#include <algorithm>
+#include <iterator>
 #include <utility>
 // Third-party headers
 // This project's headers
 #include "statement_visitor.hpp"
 
+using std::back_inserter;
+using std::make_unique;
 using std::move;
+using std::transform;
 using std::unique_ptr;
 using std::vector;
 
@@ -24,6 +29,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Stmt> Expr_stmt::clone() const {
+        return make_unique<Expr_stmt>(expr ? expr->clone() : nullptr);
+    }
+
     /*
         struct Print_stmt
     */
@@ -34,6 +43,10 @@ namespace motts { namespace lox {
 
     void Print_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Stmt> Print_stmt::clone() const {
+        return make_unique<Print_stmt>(expr ? expr->clone() : nullptr);
     }
 
     /*
@@ -49,6 +62,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Stmt> Var_stmt::clone() const {
+        return make_unique<Var_stmt>(Token{name}, initializer ? initializer->clone() : nullptr);
+    }
+
     /*
         struct While_stmt
     */
@@ -62,6 +79,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Stmt> While_stmt::clone() const {
+        return make_unique<While_stmt>(condition ? condition->clone() : nullptr, body ? body->clone() : nullptr);
+    }
+
     /*
         struct Block_stmt
     */
@@ -72,6 +93,15 @@ namespace motts { namespace lox {
 
     void Block_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Stmt> Block_stmt::clone() const {
+        vector<unique_ptr<Stmt>> statements_copy;
+        transform(statements.cbegin(), statements.cend(), back_inserter(statements_copy), [] (const auto& stmt) {
+            return stmt->clone();
+        });
+
+        return make_unique<Block_stmt>(move(statements_copy));
     }
 
     /*
@@ -92,6 +122,14 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Stmt> If_stmt::clone() const {
+        return make_unique<If_stmt>(
+            condition ? condition->clone() : nullptr,
+            then_branch ? then_branch->clone() : nullptr,
+            else_branch ? else_branch->clone() : nullptr
+        );
+    }
+
     /*
         struct Function_stmt
     */
@@ -106,15 +144,21 @@ namespace motts { namespace lox {
         body {move(body_arg)}
     {}
 
-    // Move constructor not written as =default because the base class's move constructor is deleted to avoid slicing
-    Function_stmt::Function_stmt(Function_stmt&& rhs) :
-        name {move(rhs.name)},
-        parameters {move(rhs.parameters)},
-        body {move(rhs.body)}
-    {}
+    Function_stmt::Function_stmt(const Function_stmt& rhs) :
+        name {rhs.name},
+        parameters {rhs.parameters}
+    {
+        transform(rhs.body.cbegin(), rhs.body.cend(), back_inserter(body), [] (const auto& stmt) {
+            return stmt->clone();
+        });
+    }
 
     void Function_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Stmt> Function_stmt::clone() const {
+        return make_unique<Function_stmt>(*this);
     }
 
     /*
@@ -128,5 +172,9 @@ namespace motts { namespace lox {
 
     void Return_stmt::accept(Stmt_visitor& visitor) {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Stmt> Return_stmt::clone() const {
+        return make_unique<Return_stmt>(Token{keyword}, value ? value->clone() : nullptr);
     }
 }}

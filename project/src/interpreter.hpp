@@ -70,7 +70,7 @@ namespace motts { namespace lox {
             void visit(const While_stmt&) override;
             void visit(const Var_stmt&) override;
             void visit(const Block_stmt&) override;
-            void visit(Function_stmt&) override;
+            void visit(const Function_stmt&) override;
             void visit(const Return_stmt&) override;
 
             const Literal& result() const &;

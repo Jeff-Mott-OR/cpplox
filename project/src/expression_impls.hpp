@@ -19,6 +19,7 @@ namespace motts { namespace lox {
 
         explicit Binary_expr(std::unique_ptr<Expr>&& left, Token&& op, std::unique_ptr<Expr>&& right);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Grouping_expr : Expr {
@@ -26,6 +27,7 @@ namespace motts { namespace lox {
 
         explicit Grouping_expr(std::unique_ptr<Expr>&& expr);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Literal_expr : Expr {
@@ -33,6 +35,7 @@ namespace motts { namespace lox {
 
         explicit Literal_expr(Literal&& value);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Unary_expr : Expr {
@@ -41,6 +44,7 @@ namespace motts { namespace lox {
 
         explicit Unary_expr(Token&& op, std::unique_ptr<Expr>&& right);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Var_expr : Expr {
@@ -48,6 +52,7 @@ namespace motts { namespace lox {
 
         explicit Var_expr(Token&& name);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Assign_expr : Expr {
@@ -56,6 +61,7 @@ namespace motts { namespace lox {
 
         explicit Assign_expr(Token&& name, std::unique_ptr<Expr>&& value);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Logical_expr : Expr {
@@ -65,6 +71,7 @@ namespace motts { namespace lox {
 
         explicit Logical_expr(std::unique_ptr<Expr>&& left, Token&& op, std::unique_ptr<Expr>&& right);
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 
     struct Call_expr : Expr {
@@ -78,5 +85,6 @@ namespace motts { namespace lox {
             std::vector<std::unique_ptr<Expr>>&& arguments
         );
         void accept(Expr_visitor&) const override;
+        std::unique_ptr<Expr> clone() const override;
     };
 }}

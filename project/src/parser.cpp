@@ -4,6 +4,7 @@
 // C++ standard headers
 #include <utility>
 // Third-party headers
+#include <boost/algorithm/string/join.hpp>
 // This project's headers
 #include "expression_impls.hpp"
 #include "statement_impls.hpp"
@@ -14,6 +15,8 @@ using std::string;
 using std::to_string;
 using std::unique_ptr;
 using std::vector;
+
+using boost::algorithm::join;
 
 // Allow the internal linkage section to access names
 using namespace motts::lox;
@@ -441,13 +444,17 @@ namespace {
 namespace motts { namespace lox {
     vector<unique_ptr<Stmt>> parse(Token_iterator&& token_iter) {
         vector<unique_ptr<Stmt>> statements;
+        vector<string> parser_errors;
         while (token_iter->type != Token_type::eof) {
             try {
                 statements.push_back(consume_declaration(token_iter));
-            } catch (const Parser_error&) {
-                // TODO Log the error somewhere
+            } catch (const Parser_error& error) {
+                parser_errors.push_back(error.what());
                 recover_to_synchronization_point(token_iter);
             }
+        }
+        if (parser_errors.size()) {
+            throw Runtime_error{join(parser_errors, "\n")};
         }
 
         return statements;

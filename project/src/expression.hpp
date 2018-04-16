@@ -3,6 +3,7 @@
 // Related header
 // C standard headers
 // C++ standard headers
+#include <memory>
 // Third-party headers
 // This project's headers
 #include "expression_visitor_fwd.hpp"
@@ -33,6 +34,7 @@ namespace motts { namespace lox {
         result in its private state.
         */
         virtual void accept(Expr_visitor&) const = 0;
+        virtual std::unique_ptr<Expr> clone() const = 0;
 
         // Base class boilerplate
         explicit Expr() = default;

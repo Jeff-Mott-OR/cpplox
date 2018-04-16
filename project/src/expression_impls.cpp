@@ -2,12 +2,17 @@
 #include "expression_impls.hpp"
 // C standard headers
 // C++ standard headers
+#include <algorithm>
+#include <iterator>
 #include <utility>
 // Third-party headers
 // This project's headers
 #include "expression_visitor.hpp"
 
+using std::back_inserter;
+using std::make_unique;
 using std::move;
+using std::transform;
 using std::unique_ptr;
 using std::vector;
 
@@ -26,6 +31,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Expr> Binary_expr::clone() const {
+        return make_unique<Binary_expr>(left->clone(), Token{op}, right->clone());
+    }
+
     /*
         struct Grouping_expr
     */
@@ -38,6 +47,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Expr> Grouping_expr::clone() const {
+        return make_unique<Grouping_expr>(expr->clone());
+    }
+
     /*
         struct Literal_expr
     */
@@ -48,6 +61,10 @@ namespace motts { namespace lox {
 
     void Literal_expr::accept(Expr_visitor& visitor) const {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Expr> Literal_expr::clone() const {
+        return make_unique<Literal_expr>(Literal{value});
     }
 
     /*
@@ -63,6 +80,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Expr> Unary_expr::clone() const {
+        return make_unique<Unary_expr>(Token{op}, right->clone());
+    }
+
     /*
         struct Var_expr
     */
@@ -73,6 +94,10 @@ namespace motts { namespace lox {
 
     void Var_expr::accept(Expr_visitor& visitor) const {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Expr> Var_expr::clone() const {
+        return make_unique<Var_expr>(Token{name});
     }
 
     /*
@@ -88,6 +113,10 @@ namespace motts { namespace lox {
         visitor.visit(*this);
     }
 
+    unique_ptr<Expr> Assign_expr::clone() const {
+        return make_unique<Assign_expr>(Token{name}, value->clone());
+    }
+
     /*
         struct Logical_expr
     */
@@ -100,6 +129,10 @@ namespace motts { namespace lox {
 
     void Logical_expr::accept(Expr_visitor& visitor) const {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Expr> Logical_expr::clone() const {
+        return make_unique<Logical_expr>(left->clone(), Token{op}, right->clone());
     }
 
     /*
@@ -118,5 +151,14 @@ namespace motts { namespace lox {
 
     void Call_expr::accept(Expr_visitor& visitor) const {
         visitor.visit(*this);
+    }
+
+    unique_ptr<Expr> Call_expr::clone() const {
+        vector<unique_ptr<Expr>> arguments_copy;
+        transform(arguments.cbegin(), arguments.cend(), back_inserter(arguments_copy), [] (const auto& expr) {
+            return expr->clone();
+        });
+
+        return make_unique<Call_expr>(callee->clone(), Token{closing_paren}, move(arguments_copy));
     }
 }}

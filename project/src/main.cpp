@@ -15,6 +15,7 @@
 #include "parser.hpp"
 #include "scanner.hpp"
 
+using std::cerr;
 using std::cin;
 using std::cout;
 using std::exception;
@@ -64,7 +65,7 @@ auto run_prompt() {
         try {
             run(source_line, interpreter);
         } catch (const lox::Runtime_error& error) {
-            cout << error.what() << "\n";
+            cerr << error.what() << "\n";
         }
     }
 }
@@ -82,10 +83,10 @@ int main(int argc, const char* argv[]) {
             run_prompt();
         }
     } catch (const exception& error) {
-        cout << "Something went wrong: " << error.what() << "\n";
+        cerr << error.what() << "\n";
         exit(EXIT_FAILURE);
     } catch (...) {
-        cout << "Something went wrong.\n";
+        cerr << "An unknown error occurred.\n";
         exit(EXIT_FAILURE);
     }
 }

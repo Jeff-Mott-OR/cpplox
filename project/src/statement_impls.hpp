@@ -17,6 +17,7 @@ namespace motts { namespace lox {
 
         explicit Expr_stmt(std::unique_ptr<Expr>&& expr);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Print_stmt : Stmt {
@@ -24,6 +25,7 @@ namespace motts { namespace lox {
 
         explicit Print_stmt(std::unique_ptr<Expr>&& expr);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Var_stmt : Stmt {
@@ -32,6 +34,7 @@ namespace motts { namespace lox {
 
         explicit Var_stmt(Token&& name, std::unique_ptr<Expr>&& initializer);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct While_stmt : Stmt {
@@ -40,6 +43,7 @@ namespace motts { namespace lox {
 
         explicit While_stmt(std::unique_ptr<Expr>&& condition, std::unique_ptr<Stmt>&& body);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Block_stmt : Stmt {
@@ -47,6 +51,7 @@ namespace motts { namespace lox {
 
         explicit Block_stmt(std::vector<std::unique_ptr<Stmt>>&& statements);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct If_stmt : Stmt {
@@ -60,6 +65,7 @@ namespace motts { namespace lox {
             std::unique_ptr<Stmt>&& else_branch
         );
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Function_stmt : Stmt {
@@ -72,8 +78,9 @@ namespace motts { namespace lox {
             std::vector<Token>&& parameters,
             std::vector<std::unique_ptr<Stmt>>&& body
         );
-        explicit Function_stmt(Function_stmt&&);
+        explicit Function_stmt(const Function_stmt&);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 
     struct Return_stmt : Stmt {
@@ -82,5 +89,6 @@ namespace motts { namespace lox {
 
         explicit Return_stmt(Token&& keyword, std::unique_ptr<Expr>&& value);
         void accept(Stmt_visitor&) override;
+        std::unique_ptr<Stmt> clone() const override;
     };
 }}
