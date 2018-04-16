@@ -79,15 +79,13 @@ namespace motts { namespace lox {
             (*(interpreter.environment_))[declaration_->parameters.at(i).lexeme] = arguments.at(i);
         }
 
-        try {
-            for (const auto& statement : declaration_->body) {
-                statement->accept(interpreter);
+        for (const auto& statement : declaration_->body) {
+            statement->accept(interpreter);
+
+            if (interpreter.returning_) {
+                interpreter.returning_ = false;
+                return move(interpreter.result_);
             }
-        } catch (Return& return_value) {
-            // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
-            // happen to offer exactly the behavior we need. We needed to traverse an unknown call stack depth to get
-            // back to here, the nearest Function.call().
-            return move(return_value).value;
         }
 
         return Literal{};
@@ -335,6 +333,10 @@ namespace motts { namespace lox {
         const auto condition_result = lox::apply_visitor(*this, *(if_stmt.condition));
         if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
             if_stmt.then_branch->accept(*this);
+
+            if (returning_) {
+                return;
+            }
         } else if (if_stmt.else_branch) {
             if_stmt.else_branch->accept(*this);
         }
@@ -349,6 +351,10 @@ namespace motts { namespace lox {
             })()
         ) {
             stmt.body->accept(*this);
+
+            if (returning_) {
+                return;
+            }
         }
     }
 
@@ -373,6 +379,10 @@ namespace motts { namespace lox {
 
         for (const auto& statement : stmt.statements) {
             statement->accept(*this);
+
+            if (returning_) {
+                return;
+            }
         }
     }
 
@@ -389,10 +399,8 @@ namespace motts { namespace lox {
             value = apply_visitor(*this, *(stmt.value));
         }
 
-        // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
-        // happen to offer exactly the behavior we need. We need to traverse an unknown call stack depth to get back to
-        // the nearest Function.call().
-        throw Return{move(value)};
+        result_ = move(value);
+        returning_ = true;
     }
 
     const Literal& Interpreter::result() const & {

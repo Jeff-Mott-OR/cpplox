@@ -76,6 +76,7 @@ namespace motts { namespace lox {
 
         private:
             Literal result_;
+            bool returning_ {false};
 
             std::shared_ptr<Environment> environment_ {std::make_shared<Environment>()};
             std::shared_ptr<Environment> globals_ {environment_};
@@ -87,9 +88,5 @@ namespace motts { namespace lox {
         using Runtime_error::Runtime_error;
 
         explicit Interpreter_error(const std::string& what, const Token&);
-    };
-
-    struct Return {
-        Literal value;
     };
 }}
