@@ -6,7 +6,6 @@ if(ENABLE_TESTING)
     find_package(benchmark)
     set(Boost_USE_STATIC_LIBS TRUE)
     find_package(Boost COMPONENTS filesystem program_options unit_test_framework)
-    find_file(JLOX_RUN_SCRIPT jlox_run.cmake)
 else()
     find_package(Boost)
 endif()
@@ -64,32 +63,12 @@ if(ENABLE_TESTING)
             Boost::program_options
             Boost::unit_test_framework
     )
-
-    add_executable(bench_harness bench/main.cpp)
-    target_compile_features(bench_harness PRIVATE cxx_std_14)
-    target_link_libraries(
-        bench_harness
-        PRIVATE
-            benchmark::benchmark
-            Boost::boost
-            Boost::filesystem
-            Boost::program_options
-    )
-
     enable_testing()
     add_test(
         NAME test_harness
         COMMAND test_harness --
             --cpplox-file "$<TARGET_FILE:cpplox>"
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
-    )
-    add_custom_target(
-        bench
-        bench_harness
-            --cpplox-file "$<TARGET_FILE:cpplox>"
-            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts"
-            --jlox-file "${JLOX_RUN_SCRIPT}"
-        DEPENDS bench_harness cpplox
     )
 
     find_program(VALGRIND_COMMAND valgrind)
@@ -106,4 +85,30 @@ if(ENABLE_TESTING)
             PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
         )
     endif()
+
+    add_executable(bench_harness bench/main.cpp)
+    target_compile_features(bench_harness PRIVATE cxx_std_14)
+    target_link_libraries(
+        bench_harness
+        PRIVATE
+            benchmark::benchmark
+            Boost::boost
+            Boost::filesystem
+            Boost::program_options
+    )
+
+    find_file(JLOX_RUN_SCRIPT jlox_run.cmake)
+    message(STATUS "Check for jlox: ${JLOX_RUN_SCRIPT}")
+    if(JLOX_RUN_SCRIPT STREQUAL "JLOX_RUN_SCRIPT-NOTFOUND")
+        set(JLOX_RUN_SCRIPT "\"\"")
+    endif()
+
+    add_custom_target(
+        bench
+        bench_harness
+            --cpplox-file "$<TARGET_FILE:cpplox>"
+            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts"
+            --jlox-file "${JLOX_RUN_SCRIPT}"
+        DEPENDS bench_harness cpplox
+    )
 endif()

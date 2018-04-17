@@ -16,6 +16,21 @@ Or, to optionally build and run tests and benchmarking, use this cmake command i
 
 This project comes with vagrant files to make it easier to build on a variety of platforms with a variety of compilers.
 
+### Build with g++-7 on Ubuntu
+
+    cd vagrant/ubuntu-xenial64-g++-7
+    vagrant up
+
+#### Build
+
+In the VM, run:
+
+    mkdir build
+    cd build
+
+    cmake /cpplox
+    cmake --build .
+
 ### Build with MSVC 2017
 
     cd vagrant/w16s-vs17c
