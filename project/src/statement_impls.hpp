@@ -13,81 +13,72 @@
 
 namespace motts { namespace lox {
     struct Expr_stmt : Stmt {
-        std::unique_ptr<Expr> expr;
+        std::shared_ptr<const Expr> expr;
 
-        explicit Expr_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit Expr_stmt(std::shared_ptr<const Expr>&& expr);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct Print_stmt : Stmt {
-        std::unique_ptr<Expr> expr;
+        std::shared_ptr<const Expr> expr;
 
-        explicit Print_stmt(std::unique_ptr<Expr>&& expr);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit Print_stmt(std::shared_ptr<const Expr>&& expr);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct Var_stmt : Stmt {
         Token name;
-        std::unique_ptr<Expr> initializer;
+        std::shared_ptr<const Expr> initializer;
 
-        explicit Var_stmt(Token&& name, std::unique_ptr<Expr>&& initializer);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit Var_stmt(Token&& name, std::shared_ptr<const Expr>&& initializer);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct While_stmt : Stmt {
-        std::unique_ptr<Expr> condition;
-        std::unique_ptr<Stmt> body;
+        std::shared_ptr<const Expr> condition;
+        std::shared_ptr<const Stmt> body;
 
-        explicit While_stmt(std::unique_ptr<Expr>&& condition, std::unique_ptr<Stmt>&& body);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit While_stmt(std::shared_ptr<const Expr>&& condition, std::shared_ptr<const Stmt>&& body);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct Block_stmt : Stmt {
-        std::vector<std::unique_ptr<Stmt>> statements;
+        std::vector<std::shared_ptr<const Stmt>> statements;
 
-        explicit Block_stmt(std::vector<std::unique_ptr<Stmt>>&& statements);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit Block_stmt(std::vector<std::shared_ptr<const Stmt>>&& statements);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct If_stmt : Stmt {
-        std::unique_ptr<Expr> condition;
-        std::unique_ptr<Stmt> then_branch;
-        std::unique_ptr<Stmt> else_branch;
+        std::shared_ptr<const Expr> condition;
+        std::shared_ptr<const Stmt> then_branch;
+        std::shared_ptr<const Stmt> else_branch;
 
         explicit If_stmt(
-            std::unique_ptr<Expr>&& condition,
-            std::unique_ptr<Stmt>&& then_branch,
-            std::unique_ptr<Stmt>&& else_branch
+            std::shared_ptr<const Expr>&& condition,
+            std::shared_ptr<const Stmt>&& then_branch,
+            std::shared_ptr<const Stmt>&& else_branch
         );
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct Function_stmt : Stmt {
         Token name;
         std::vector<Token> parameters;
-        std::vector<std::unique_ptr<Stmt>> body;
+        std::vector<std::shared_ptr<const Stmt>> body;
 
         explicit Function_stmt(
             Token&& name,
             std::vector<Token>&& parameters,
-            std::vector<std::unique_ptr<Stmt>>&& body
+            std::vector<std::shared_ptr<const Stmt>>&& body
         );
-        explicit Function_stmt(const Function_stmt&);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 
     struct Return_stmt : Stmt {
-        std::unique_ptr<Expr> value;
+        std::shared_ptr<const Expr> value;
 
-        explicit Return_stmt(std::unique_ptr<Expr>&& value);
-        void accept(Stmt_visitor&) const override;
-        std::unique_ptr<Stmt> clone() const override;
+        explicit Return_stmt(std::shared_ptr<const Expr>&& value);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 }}

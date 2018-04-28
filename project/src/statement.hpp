@@ -10,17 +10,14 @@
 
 namespace motts { namespace lox {
     struct Stmt {
-        virtual void accept(Stmt_visitor&) const = 0;
-        virtual std::unique_ptr<Stmt> clone() const = 0;
+        virtual void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const = 0;
 
         // Base class boilerplate
         explicit Stmt() = default;
         virtual ~Stmt() = default;
-
-        protected:
-            Stmt(const Stmt&) = default;
-            Stmt& operator=(const Stmt&) = default;
-            Stmt(Stmt&&) = default;
-            Stmt& operator=(Stmt&&) = default;
+        Stmt(const Stmt&) = delete;
+        Stmt& operator=(const Stmt&) = delete;
+        Stmt(Stmt&&) = delete;
+        Stmt& operator=(Stmt&&) = delete;
     };
 }}

@@ -8,32 +8,33 @@
 // This project's headers
 
 using std::move;
+using std::shared_ptr;
 using std::string;
 
 using boost::lexical_cast;
 
 namespace motts { namespace lox {
-    void Ast_printer::visit(const Binary_expr& expr) {
-        result_ += "(" + expr.op.lexeme + " ";
-        expr.left->accept(*this);
+    void Ast_printer::visit(const shared_ptr<const Binary_expr>& expr) {
+        result_ += "(" + expr->op.lexeme + " ";
+        expr->left->accept(expr->left, *this);
         result_ += " ";
-        expr.right->accept(*this);
+        expr->right->accept(expr->right, *this);
         result_ += ")";
     }
 
-    void Ast_printer::visit(const Grouping_expr& expr) {
+    void Ast_printer::visit(const shared_ptr<const Grouping_expr>& expr) {
         result_ += "(group ";
-        expr.expr->accept(*this);
+        expr->expr->accept(expr->expr, *this);
         result_ += ")";
     }
 
-    void Ast_printer::visit(const Literal_expr& expr) {
-        result_ += lexical_cast<string>(expr.value);
+    void Ast_printer::visit(const shared_ptr<const Literal_expr>& expr) {
+        result_ += lexical_cast<string>(expr->value);
     }
 
-    void Ast_printer::visit(const Unary_expr& expr) {
-        result_ += "(" + expr.op.lexeme + " ";
-        expr.right->accept(*this);
+    void Ast_printer::visit(const shared_ptr<const Unary_expr>& expr) {
+        result_ += "(" + expr->op.lexeme + " ";
+        expr->right->accept(expr->right, *this);
         result_ += ")";
     }
 

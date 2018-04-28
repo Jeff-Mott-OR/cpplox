@@ -32,7 +32,7 @@ namespace lox = motts::lox;
 auto run(const string& source, lox::Interpreter& interpreter) {
     const auto statements = lox::parse(lox::Token_iterator{source});
     for (const auto& statement : statements) {
-        statement->accept(interpreter);
+        statement->accept(statement, interpreter);
     }
 }
 

@@ -2,18 +2,14 @@
 #include "statement_impls.hpp"
 // C standard headers
 // C++ standard headers
-#include <algorithm>
-#include <iterator>
 #include <utility>
 // Third-party headers
 // This project's headers
 #include "statement_visitor.hpp"
 
-using std::back_inserter;
-using std::make_unique;
 using std::move;
-using std::transform;
-using std::unique_ptr;
+using std::shared_ptr;
+using std::static_pointer_cast;
 using std::vector;
 
 namespace motts { namespace lox {
@@ -21,87 +17,62 @@ namespace motts { namespace lox {
         struct Expr_stmt
     */
 
-    Expr_stmt::Expr_stmt(unique_ptr<Expr>&& expr_arg) :
+    Expr_stmt::Expr_stmt(shared_ptr<const Expr>&& expr_arg) :
         expr {move(expr_arg)}
     {}
 
-    void Expr_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Expr_stmt::clone() const {
-        return make_unique<Expr_stmt>(expr ? expr->clone() : nullptr);
+    void Expr_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Expr_stmt>(owner_this));
     }
 
     /*
         struct Print_stmt
     */
 
-    Print_stmt::Print_stmt(unique_ptr<Expr>&& expr_arg) :
+    Print_stmt::Print_stmt(shared_ptr<const Expr>&& expr_arg) :
         expr {move(expr_arg)}
     {}
 
-    void Print_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Print_stmt::clone() const {
-        return make_unique<Print_stmt>(expr ? expr->clone() : nullptr);
+    void Print_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Print_stmt>(owner_this));
     }
 
     /*
         struct Var_stmt
     */
 
-    Var_stmt::Var_stmt(Token&& name_arg, unique_ptr<Expr>&& initializer_arg) :
+    Var_stmt::Var_stmt(Token&& name_arg, shared_ptr<const Expr>&& initializer_arg) :
         name {move(name_arg)},
         initializer {move(initializer_arg)}
     {}
 
-    void Var_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Var_stmt::clone() const {
-        return make_unique<Var_stmt>(Token{name}, initializer ? initializer->clone() : nullptr);
+    void Var_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Var_stmt>(owner_this));
     }
 
     /*
         struct While_stmt
     */
 
-    While_stmt::While_stmt(unique_ptr<Expr>&& condition_arg, unique_ptr<Stmt>&& body_arg) :
+    While_stmt::While_stmt(shared_ptr<const Expr>&& condition_arg, shared_ptr<const Stmt>&& body_arg) :
         condition {move(condition_arg)},
         body {move(body_arg)}
     {}
 
-    void While_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> While_stmt::clone() const {
-        return make_unique<While_stmt>(condition ? condition->clone() : nullptr, body ? body->clone() : nullptr);
+    void While_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const While_stmt>(owner_this));
     }
 
     /*
         struct Block_stmt
     */
 
-    Block_stmt::Block_stmt(vector<unique_ptr<Stmt>>&& statements_arg) :
+    Block_stmt::Block_stmt(vector<shared_ptr<const Stmt>>&& statements_arg) :
         statements {move(statements_arg)}
     {}
 
-    void Block_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Block_stmt::clone() const {
-        vector<unique_ptr<Stmt>> statements_copy;
-        transform(statements.cbegin(), statements.cend(), back_inserter(statements_copy), [] (const auto& stmt) {
-            return stmt->clone();
-        });
-
-        return make_unique<Block_stmt>(move(statements_copy));
+    void Block_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Block_stmt>(owner_this));
     }
 
     /*
@@ -109,25 +80,17 @@ namespace motts { namespace lox {
     */
 
     If_stmt::If_stmt(
-        unique_ptr<Expr>&& condition_arg,
-        unique_ptr<Stmt>&& then_branch_arg,
-        unique_ptr<Stmt>&& else_branch_arg
+        shared_ptr<const Expr>&& condition_arg,
+        shared_ptr<const Stmt>&& then_branch_arg,
+        shared_ptr<const Stmt>&& else_branch_arg
     ) :
         condition {move(condition_arg)},
         then_branch {move(then_branch_arg)},
         else_branch {move(else_branch_arg)}
     {}
 
-    void If_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> If_stmt::clone() const {
-        return make_unique<If_stmt>(
-            condition ? condition->clone() : nullptr,
-            then_branch ? then_branch->clone() : nullptr,
-            else_branch ? else_branch->clone() : nullptr
-        );
+    void If_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const If_stmt>(owner_this));
     }
 
     /*
@@ -137,44 +100,26 @@ namespace motts { namespace lox {
     Function_stmt::Function_stmt(
         Token&& name_arg,
         vector<Token>&& parameters_arg,
-        vector<unique_ptr<Stmt>>&& body_arg
+        vector<shared_ptr<const Stmt>>&& body_arg
     ) :
         name {move(name_arg)},
         parameters {move(parameters_arg)},
         body {move(body_arg)}
     {}
 
-    Function_stmt::Function_stmt(const Function_stmt& rhs) :
-        Stmt {rhs},
-        name {rhs.name},
-        parameters {rhs.parameters}
-    {
-        transform(rhs.body.cbegin(), rhs.body.cend(), back_inserter(body), [] (const auto& stmt) {
-            return stmt->clone();
-        });
-    }
-
-    void Function_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Function_stmt::clone() const {
-        return make_unique<Function_stmt>(*this);
+    void Function_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Function_stmt>(owner_this));
     }
 
     /*
         struct Return_stmt
     */
 
-    Return_stmt::Return_stmt(unique_ptr<Expr>&& value_arg) :
+    Return_stmt::Return_stmt(shared_ptr<const Expr>&& value_arg) :
         value {move(value_arg)}
     {}
 
-    void Return_stmt::accept(Stmt_visitor& visitor) const {
-        visitor.visit(*this);
-    }
-
-    unique_ptr<Stmt> Return_stmt::clone() const {
-        return make_unique<Return_stmt>(value ? value->clone() : nullptr);
+    void Return_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Return_stmt>(owner_this));
     }
 }}

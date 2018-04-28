@@ -92,13 +92,13 @@ namespace motts { namespace lox {
     };
 
     class Interpreter::Function : public Callable {
-        std::shared_ptr<Function_stmt> declaration_;
+        std::shared_ptr<const Function_stmt> declaration_;
         std::shared_ptr<Environment> enclosed_;
 
         public:
-            explicit Function(shared_ptr<Function_stmt> declaration, shared_ptr<Environment> enclosed) :
-                declaration_ {declaration},
-                enclosed_ {enclosed}
+            explicit Function(shared_ptr<const Function_stmt> declaration, shared_ptr<Environment> enclosed) :
+                declaration_ {move(declaration)},
+                enclosed_ {move(enclosed)}
             {}
 
             Literal call(Interpreter& interpreter, const vector<Literal>& arguments) const override {
@@ -113,7 +113,7 @@ namespace motts { namespace lox {
                 }
 
                 for (const auto& statement : declaration_->body) {
-                    statement->accept(interpreter);
+                    statement->accept(statement, interpreter);
 
                     if (interpreter.returning_) {
                         interpreter.returning_ = false;
@@ -154,12 +154,12 @@ namespace motts { namespace lox {
         globals_->find_own_or_make("clock") = Literal{make_shared<Clock_callable>()};
     }
 
-    void Interpreter::visit(const Literal_expr& expr) {
-        result_ = expr.value;
+    void Interpreter::visit(const shared_ptr<const Literal_expr>& expr) {
+        result_ = expr->value;
     }
 
-    void Interpreter::visit(const Grouping_expr& expr) {
-        expr.expr->accept(*this);
+    void Interpreter::visit(const shared_ptr<const Grouping_expr>& expr) {
+        expr->expr->accept(expr->expr, *this);
     }
 
     // False and nil are falsey, everything else is truthy
@@ -178,11 +178,11 @@ namespace motts { namespace lox {
             }
     };
 
-    void Interpreter::visit(const Unary_expr& expr) {
-        const auto unary_result = lox::apply_visitor(*this, *(expr.right));
+    void Interpreter::visit(const shared_ptr<const Unary_expr>& expr) {
+        const auto unary_result = lox::apply_visitor(*this, expr->right);
 
         try {
-            switch (expr.op.type) {
+            switch (expr->op.type) {
                 case Token_type::minus:
                     result_ = Literal{ - get<double>(unary_result.value)};
                     break;
@@ -192,11 +192,11 @@ namespace motts { namespace lox {
                     break;
 
                 default:
-                    throw Interpreter_error{"Unreachable.", expr.op};
+                    throw Interpreter_error{"Unreachable.", expr->op};
             }
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Operands must be numbers.", expr.op};
+            throw Interpreter_error{"Operands must be numbers.", expr->op};
         }
     }
 
@@ -230,12 +230,12 @@ namespace motts { namespace lox {
             }
     };
 
-    void Interpreter::visit(const Binary_expr& expr) {
-        const auto left_result = lox::apply_visitor(*this, *(expr.left));
-        const auto right_result = lox::apply_visitor(*this, *(expr.right));
+    void Interpreter::visit(const shared_ptr<const Binary_expr>& expr) {
+        const auto left_result = lox::apply_visitor(*this, expr->left);
+        const auto right_result = lox::apply_visitor(*this, expr->right);
 
         try {
-            switch (expr.op.type) {
+            switch (expr->op.type) {
                 case Token_type::greater:
                     result_ = Literal{get<double>(left_result.value) > get<double>(right_result.value)};
                     break;
@@ -279,55 +279,55 @@ namespace motts { namespace lox {
                     break;
 
                 default:
-                    throw Interpreter_error{"Unreachable.", expr.op};
+                    throw Interpreter_error{"Unreachable.", expr->op};
             }
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Operands must be numbers.", expr.op};
+            throw Interpreter_error{"Operands must be numbers.", expr->op};
         }
     }
 
-    void Interpreter::visit(const Var_expr& expr) {
-        const auto found = environment_->find_in_chain(expr.name.lexeme);
+    void Interpreter::visit(const shared_ptr<const Var_expr>& expr) {
+        const auto found = environment_->find_in_chain(expr->name.lexeme);
         if (found == environment_->end()) {
-            throw Interpreter_error{"Undefined variable '" + expr.name.lexeme + "'."};
+            throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
 
         result_ = found->second;
     }
 
-    void Interpreter::visit(const Assign_expr& expr) {
-        const auto found = environment_->find_in_chain(expr.name.lexeme);
+    void Interpreter::visit(const shared_ptr<const Assign_expr>& expr) {
+        const auto found = environment_->find_in_chain(expr->name.lexeme);
         if (found == environment_->end()) {
-            throw Interpreter_error{"Undefined variable '" + expr.name.lexeme + "'."};
+            throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
 
-        result_ = found->second = lox::apply_visitor(*this, *(expr.value));
+        result_ = found->second = lox::apply_visitor(*this, expr->value);
     }
 
-    void Interpreter::visit(const Logical_expr& expr) {
-        auto left_result = lox::apply_visitor(*this, *(expr.left));
+    void Interpreter::visit(const shared_ptr<const Logical_expr>& expr) {
+        auto left_result = lox::apply_visitor(*this, expr->left);
 
         // Short circuit if possible
-        if (expr.op.type == Token_type::or_) {
+        if (expr->op.type == Token_type::or_) {
             if (boost::apply_visitor(Is_truthy_visitor{}, left_result.value)) {
                 result_ = move(left_result);
                 return;
             }
-        } else if (expr.op.type == Token_type::and_) {
+        } else if (expr->op.type == Token_type::and_) {
             if ( ! boost::apply_visitor(Is_truthy_visitor{}, left_result.value)) {
                 result_ = move(left_result);
                 return;
             }
         } else {
-            throw Interpreter_error{"Unreachable.", expr.op};
+            throw Interpreter_error{"Unreachable.", expr->op};
         }
 
-        expr.right->accept(*this);
+        expr->right->accept(expr->right, *this);
     }
 
-    void Interpreter::visit(const Call_expr& expr) {
-        auto callee_result = apply_visitor(*this, *(expr.callee));
+    void Interpreter::visit(const shared_ptr<const Call_expr>& expr) {
+        auto callee_result = lox::apply_visitor(*this, expr->callee);
         const auto callable = ([&] () {
             try {
                 return get<shared_ptr<Callable>>(move(callee_result).value);
@@ -337,51 +337,51 @@ namespace motts { namespace lox {
             }
         })();
 
-        if (narrow<int>(expr.arguments.size()) != callable->arity()) {
+        if (narrow<int>(expr->arguments.size()) != callable->arity()) {
             throw Interpreter_error{
                 "Expected " + to_string(callable->arity()) +
-                " arguments but got " + to_string(expr.arguments.size()) + ".",
-                expr.closing_paren
+                " arguments but got " + to_string(expr->arguments.size()) + ".",
+                expr->closing_paren
             };
         }
 
         vector<Literal> arguments_results;
         transform(
-            expr.arguments.cbegin(), expr.arguments.cend(), back_inserter(arguments_results),
+            expr->arguments.cbegin(), expr->arguments.cend(), back_inserter(arguments_results),
             [&] (const auto& argument_expr) {
-                return apply_visitor(*this, *argument_expr);
+                return lox::apply_visitor(*this, argument_expr);
             }
         );
 
         result_ = callable->call(*this, arguments_results);
     }
 
-    void Interpreter::visit(const Expr_stmt& stmt) {
-        stmt.expr->accept(*this);
+    void Interpreter::visit(const shared_ptr<const Expr_stmt>& stmt) {
+        stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Interpreter::visit(const If_stmt& if_stmt) {
-        const auto condition_result = lox::apply_visitor(*this, *(if_stmt.condition));
+    void Interpreter::visit(const shared_ptr<const If_stmt>& if_stmt) {
+        const auto condition_result = lox::apply_visitor(*this, if_stmt->condition);
         if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
-            if_stmt.then_branch->accept(*this);
+            if_stmt->then_branch->accept(if_stmt->then_branch, *this);
 
             if (returning_) {
                 return;
             }
-        } else if (if_stmt.else_branch) {
-            if_stmt.else_branch->accept(*this);
+        } else if (if_stmt->else_branch) {
+            if_stmt->else_branch->accept(if_stmt->else_branch, *this);
         }
     }
 
-    void Interpreter::visit(const While_stmt& stmt) {
+    void Interpreter::visit(const shared_ptr<const While_stmt>& stmt) {
         while (
             // IIFE so I can execute multiple statements inside while condition
             ([&] () {
-                const auto condition_result = lox::apply_visitor(*this, *(stmt.condition));
+                const auto condition_result = lox::apply_visitor(*this, stmt->condition);
                 return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
             })()
         ) {
-            stmt.body->accept(*this);
+            stmt->body->accept(stmt->body, *this);
 
             if (returning_) {
                 return;
@@ -389,27 +389,27 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const Print_stmt& stmt) {
-        cout << lox::apply_visitor(*this, *(stmt.expr)) << "\n";
+    void Interpreter::visit(const shared_ptr<const Print_stmt>& stmt) {
+        cout << lox::apply_visitor(*this, stmt->expr) << "\n";
     }
 
-    void Interpreter::visit(const Var_stmt& stmt) {
-        environment_->find_own_or_make(stmt.name.lexeme) = (
-            stmt.initializer ?
-                lox::apply_visitor(*this, *(stmt.initializer)) :
+    void Interpreter::visit(const shared_ptr<const Var_stmt>& stmt) {
+        environment_->find_own_or_make(stmt->name.lexeme) = (
+            stmt->initializer ?
+                lox::apply_visitor(*this, stmt->initializer) :
                 Literal{}
         );
     }
 
-    void Interpreter::visit(const Block_stmt& stmt) {
+    void Interpreter::visit(const shared_ptr<const Block_stmt>& stmt) {
         auto enclosed = move(environment_);
         environment_ = make_shared<Environment>(enclosed);
         const auto _ = finally([&] () {
             environment_ = move(enclosed);
         });
 
-        for (const auto& statement : stmt.statements) {
-            statement->accept(*this);
+        for (const auto& statement : stmt->statements) {
+            statement->accept(statement, *this);
 
             if (returning_) {
                 return;
@@ -417,17 +417,14 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const Function_stmt& stmt) {
-        const auto name = stmt.name.lexeme;
-        environment_->find_own_or_make(name) = Literal{
-            make_shared<Function>(make_shared<Function_stmt>(Function_stmt{stmt}), environment_)
-        };
+    void Interpreter::visit(const shared_ptr<const Function_stmt>& stmt) {
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Function>(stmt, environment_)};
     }
 
-    void Interpreter::visit(const Return_stmt& stmt) {
+    void Interpreter::visit(const shared_ptr<const Return_stmt>& stmt) {
         Literal value;
-        if (stmt.value) {
-            value = apply_visitor(*this, *(stmt.value));
+        if (stmt->value) {
+            value = lox::apply_visitor(*this, stmt->value);
         }
 
         result_ = move(value);

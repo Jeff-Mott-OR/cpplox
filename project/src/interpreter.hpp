@@ -21,23 +21,23 @@ namespace motts { namespace lox {
         public:
             explicit Interpreter();
 
-            void visit(const Binary_expr&) override;
-            void visit(const Grouping_expr&) override;
-            void visit(const Literal_expr&) override;
-            void visit(const Unary_expr&) override;
-            void visit(const Var_expr&) override;
-            void visit(const Assign_expr&) override;
-            void visit(const Logical_expr&) override;
-            void visit(const Call_expr&) override;
+            void visit(const std::shared_ptr<const Binary_expr>&) override;
+            void visit(const std::shared_ptr<const Grouping_expr>&) override;
+            void visit(const std::shared_ptr<const Literal_expr>&) override;
+            void visit(const std::shared_ptr<const Unary_expr>&) override;
+            void visit(const std::shared_ptr<const Var_expr>&) override;
+            void visit(const std::shared_ptr<const Assign_expr>&) override;
+            void visit(const std::shared_ptr<const Logical_expr>&) override;
+            void visit(const std::shared_ptr<const Call_expr>&) override;
 
-            void visit(const Expr_stmt&) override;
-            void visit(const If_stmt&) override;
-            void visit(const Print_stmt&) override;
-            void visit(const While_stmt&) override;
-            void visit(const Var_stmt&) override;
-            void visit(const Block_stmt&) override;
-            void visit(const Function_stmt&) override;
-            void visit(const Return_stmt&) override;
+            void visit(const std::shared_ptr<const Expr_stmt>&) override;
+            void visit(const std::shared_ptr<const If_stmt>&) override;
+            void visit(const std::shared_ptr<const Print_stmt>&) override;
+            void visit(const std::shared_ptr<const While_stmt>&) override;
+            void visit(const std::shared_ptr<const Var_stmt>&) override;
+            void visit(const std::shared_ptr<const Block_stmt>&) override;
+            void visit(const std::shared_ptr<const Function_stmt>&) override;
+            void visit(const std::shared_ptr<const Return_stmt>&) override;
 
             const Literal& result() const &;
             Literal&& result() &&;

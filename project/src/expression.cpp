@@ -7,7 +7,7 @@
 
 namespace motts { namespace lox {
     // Most expressions won't be an lvalue, so make that the default
-    Token&& Expr::lvalue_name(const Runtime_error& throwable_if_not_lvalue) && {
+    Token Expr::lvalue_name(const Runtime_error& throwable_if_not_lvalue) const {
         throw throwable_if_not_lvalue;
     }
 }}

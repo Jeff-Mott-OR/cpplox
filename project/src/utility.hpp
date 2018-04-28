@@ -12,7 +12,7 @@ namespace motts { namespace lox {
     A helper function so that...
 
         Visitor visitor;
-        expr.accept(visitor);
+        expr->accept(expr, visitor);
         visitor.result()
 
     ...can instead be written as...
@@ -21,7 +21,7 @@ namespace motts { namespace lox {
     */
     template<typename Visitor, typename Operand>
         auto apply_visitor(Visitor& visitor, const Operand& operand) {
-            operand.accept(visitor);
+            operand->accept(operand, visitor);
             return std::move(visitor).result();
         }
 
