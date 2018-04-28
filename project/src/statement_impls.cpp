@@ -115,7 +115,8 @@ namespace motts { namespace lox {
         struct Return_stmt
     */
 
-    Return_stmt::Return_stmt(shared_ptr<const Expr>&& value_arg) :
+    Return_stmt::Return_stmt(Token&& keyword_arg, shared_ptr<const Expr>&& value_arg) :
+        keyword {move(keyword_arg)},
         value {move(value_arg)}
     {}
 

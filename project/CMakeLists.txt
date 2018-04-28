@@ -21,6 +21,7 @@ add_executable(
     src/interpreter.cpp
     src/literal.cpp
     src/parser.cpp
+    src/resolver.cpp
     src/scanner.cpp
     src/statement_impls.cpp
     src/token.cpp

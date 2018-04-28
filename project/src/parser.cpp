@@ -81,7 +81,12 @@ namespace {
                 if (advance_if_match(Token_type::for_)) return consume_for_statement();
                 if (advance_if_match(Token_type::if_)) return consume_if_statement();
                 if (advance_if_match(Token_type::print_)) return consume_print_statement();
-                if (advance_if_match(Token_type::return_)) return consume_return_statement();
+                if (token_iter_->type == Token_type::return_) {
+                    auto keyword = *move(token_iter_);
+                    ++token_iter_;
+
+                    return consume_return_statement(move(keyword));
+                }
                 if (advance_if_match(Token_type::while_)) return consume_while_statement();
                 if (advance_if_match(Token_type::left_brace)) return make_shared<Block_stmt>(consume_block_statement());
 
@@ -185,14 +190,14 @@ namespace {
                 return make_shared<Print_stmt>(move(value));
             }
 
-            shared_ptr<const Stmt> consume_return_statement() {
+            shared_ptr<const Stmt> consume_return_statement(Token&& keyword) {
                 shared_ptr<const Expr> value;
                 if (token_iter_->type != Token_type::semicolon) {
                     value = consume_expression();
                 }
                 consume(Token_type::semicolon, "Expected ';' after return value.");
 
-                return make_shared<Return_stmt>(move(value));
+                return make_shared<Return_stmt>(move(keyword), move(value));
             }
 
             shared_ptr<const Expr> consume_expression() {

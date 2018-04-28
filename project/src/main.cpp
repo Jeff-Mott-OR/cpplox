@@ -13,6 +13,7 @@
 #include "exception.hpp"
 #include "interpreter.hpp"
 #include "parser.hpp"
+#include "resolver.hpp"
 #include "scanner.hpp"
 
 using std::cerr;
@@ -31,7 +32,9 @@ namespace lox = motts::lox;
 
 auto run(const string& source, lox::Interpreter& interpreter) {
     const auto statements = lox::parse(lox::Token_iterator{source});
+    lox::Resolver resolver {interpreter};
     for (const auto& statement : statements) {
+        statement->accept(statement, resolver);
         statement->accept(statement, interpreter);
     }
 }

@@ -6,6 +6,8 @@
 // C++ standard headers
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 // Third-party headers
 // This project's headers
 #include "callable.hpp"
@@ -39,6 +41,8 @@ namespace motts { namespace lox {
             void visit(const std::shared_ptr<const Function_stmt>&) override;
             void visit(const std::shared_ptr<const Return_stmt>&) override;
 
+            void resolve(const Expr*, int depth);
+
             const Literal& result() const &;
             Literal&& result() &&;
 
@@ -48,6 +52,7 @@ namespace motts { namespace lox {
 
             std::shared_ptr<Environment> environment_;
             std::shared_ptr<Environment> globals_;
+            std::vector<std::pair<const Expr*, int>> scope_depths_;
 
             class Function;
     };

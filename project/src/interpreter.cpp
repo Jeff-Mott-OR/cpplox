@@ -59,7 +59,21 @@ namespace motts { namespace lox {
                 enclosed_ {move(enclosed)}
             {}
 
-            vector<pair<string, Literal>>::iterator find_in_chain(const string& var_name) {
+            vector<pair<string, Literal>>::iterator find_in_chain(const string& var_name, int depth = 0) {
+                if (depth) {
+                    auto enclosed_at_depth = this;
+                    for (; depth; --depth) {
+                        enclosed_at_depth = enclosed_at_depth->enclosed_.get();
+                    }
+
+                    const auto found_at_depth = enclosed_at_depth->find_in_chain(var_name);
+                    if (found_at_depth != enclosed_at_depth->end()) {
+                        return found_at_depth;
+                    }
+
+                    return end();
+                }
+
                 const auto found_own = find_if(values_.begin(), values_.end(), [&] (const auto& value) {
                     return value.first == var_name;
                 });
@@ -288,21 +302,51 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const shared_ptr<const Var_expr>& expr) {
-        const auto found = environment_->find_in_chain(expr->name.lexeme);
-        if (found == environment_->end()) {
+        const auto found_var_binding = ([&] () {
+            const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
+                return depth.first == expr.get();
+            });
+            if (found_depth != scope_depths_.cend()) {
+                return environment_->find_in_chain(expr->name.lexeme, found_depth->second);
+            } else {
+                const auto found_global = globals_->find_in_chain(expr->name.lexeme);
+                if (found_global != globals_->end()) {
+                    return found_global;
+                } else {
+                    return environment_->end();
+                }
+            }
+        })();
+
+        if (found_var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
 
-        result_ = found->second;
+        result_ = found_var_binding->second;
     }
 
     void Interpreter::visit(const shared_ptr<const Assign_expr>& expr) {
-        const auto found = environment_->find_in_chain(expr->name.lexeme);
-        if (found == environment_->end()) {
+        const auto found_var_binding = ([&] () {
+            const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
+                return depth.first == expr.get();
+            });
+            if (found_depth != scope_depths_.cend()) {
+                return environment_->find_in_chain(expr->name.lexeme, found_depth->second);
+            } else {
+                const auto found_global = globals_->find_in_chain(expr->name.lexeme);
+                if (found_global != globals_->end()) {
+                    return found_global;
+                } else {
+                    return environment_->end();
+                }
+            }
+        })();
+
+        if (found_var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
 
-        result_ = found->second = lox::apply_visitor(*this, expr->value);
+        result_ = found_var_binding->second = lox::apply_visitor(*this, expr->value);
     }
 
     void Interpreter::visit(const shared_ptr<const Logical_expr>& expr) {
@@ -429,6 +473,10 @@ namespace motts { namespace lox {
 
         result_ = move(value);
         returning_ = true;
+    }
+
+    void Interpreter::resolve(const Expr* expr, int depth) {
+        scope_depths_.push_back({expr, depth});
     }
 
     const Literal& Interpreter::result() const & {
