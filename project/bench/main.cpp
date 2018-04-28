@@ -40,7 +40,7 @@ int main(int argc, /*const*/ char* argv[]) {
         return 0;
     }
 
-    for (string script_name : {"fib", "equality"}) {
+    for (string script_name : {"fib", "equality", "string_equality"}) {
         benchmark::RegisterBenchmark(("cpplox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
             const auto cpplox = variables_map.at("cpplox-file").as<string>();
             const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";
@@ -64,10 +64,6 @@ int main(int argc, /*const*/ char* argv[]) {
 
                 for (auto _ : state) {
                     process::ipstream jlox_out;
-
-                    // Using boost system rather than std system due to errors on Windows. If the command was unquoted with
-                    // spaces in the path, then of course I'd get "not a command" errors. But if I wrapped the command in
-                    // quotes, then I'd get "syntax is incorrect errors". But boost system works just fine either way.
                     process::system(cmd, process::std_out > jlox_out);
                 }
             });

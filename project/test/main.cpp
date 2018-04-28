@@ -125,6 +125,7 @@ BOOST_AUTO_TEST_CASE(call_num_test) { expect_script_file_out_to_be("call/num.lox
 BOOST_AUTO_TEST_CASE(call_string_test) { expect_script_file_out_to_be("call/string.lox", "", "Can only call functions and classes.\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(closure_assign_to_closure_test) { expect_script_file_out_to_be("closure/assign_to_closure.lox", "local\nafter f\nafter f\nafter g\n"); }
+BOOST_AUTO_TEST_CASE(closure_assign_to_shadowed_later_test) { expect_script_file_out_to_be("closure/assign_to_shadowed_later.lox", "inner\nassigned\n"); }
 BOOST_AUTO_TEST_CASE(closure_close_over_function_parameter_test) { expect_script_file_out_to_be("closure/close_over_function_parameter.lox", "param\n"); }
 BOOST_AUTO_TEST_CASE(closure_close_over_later_variable_test) { expect_script_file_out_to_be("closure/close_over_later_variable.lox", "b\na\n"); }
 BOOST_AUTO_TEST_CASE(closure_closed_closure_in_function_test) { expect_script_file_out_to_be("closure/closed_closure_in_function.lox", "local\n"); }
@@ -155,6 +156,7 @@ BOOST_AUTO_TEST_CASE(for_var_in_body_test) { expect_script_file_out_to_be("for/v
 BOOST_AUTO_TEST_CASE(function_body_must_be_block_test) { expect_script_file_out_to_be("function/body_must_be_block.lox", "", "[Line 3] Error at '123': Expected '{' before function body.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_empty_body_test) { expect_script_file_out_to_be("function/empty_body.lox", "nil\n"); }
 BOOST_AUTO_TEST_CASE(function_extra_arguments_test) { expect_script_file_out_to_be("function/extra_arguments.lox", "", "[Line 6] Error ')': Expected 2 arguments but got 4.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(function_local_mutual_recursion_test) { expect_script_file_out_to_be("function/local_mutual_recursion.lox", "", "Undefined variable 'isOdd'.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_local_recursion_test) { expect_script_file_out_to_be("function/local_recursion.lox", "21\n"); }
 BOOST_AUTO_TEST_CASE(function_missing_arguments_test) { expect_script_file_out_to_be("function/missing_arguments.lox", "", "[Line 3] Error ')': Expected 2 arguments but got 1.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_missing_comma_in_parameters_test) { expect_script_file_out_to_be("function/missing_comma_in_parameters.lox", "", "[Line 3] Error at 'c': Expected ')' after parameters.\n", EXIT_FAILURE); }
