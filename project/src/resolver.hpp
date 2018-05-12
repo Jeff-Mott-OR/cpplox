@@ -16,13 +16,15 @@
 
 namespace motts { namespace lox {
     enum class Var_binding { declared, defined };
-    enum class Function_type { none, function };
+    enum class Function_type { none, function, initializer, method };
+    enum class Class_type { none, class_ };
 
     class Resolver : public Expr_visitor, public Stmt_visitor {
         public:
             explicit Resolver(Interpreter&);
 
             void visit(const std::shared_ptr<const Block_stmt>&) override;
+            void visit(const std::shared_ptr<const Class_stmt>&) override;
             void visit(const std::shared_ptr<const Var_stmt>&) override;
             void visit(const std::shared_ptr<const Var_expr>&) override;
             void visit(const std::shared_ptr<const Assign_expr>&) override;
@@ -34,14 +36,21 @@ namespace motts { namespace lox {
             void visit(const std::shared_ptr<const While_stmt>&) override;
             void visit(const std::shared_ptr<const Binary_expr>&) override;
             void visit(const std::shared_ptr<const Call_expr>&) override;
+            void visit(const std::shared_ptr<const Get_expr>&) override;
+            void visit(const std::shared_ptr<const Set_expr>&) override;
+            void visit(const std::shared_ptr<const This_expr>&) override;
             void visit(const std::shared_ptr<const Grouping_expr>&) override;
             void visit(const std::shared_ptr<const Literal_expr>&) override;
             void visit(const std::shared_ptr<const Logical_expr>&) override;
             void visit(const std::shared_ptr<const Unary_expr>&) override;
 
         private:
+            void resolve_function(const std::shared_ptr<const Function_stmt>&, Function_type);
+            void resolve_local(const Expr&, const std::string& name);
+
             std::vector<std::vector<std::pair<std::string, Var_binding>>> scopes_;
             Function_type current_function_type_ {Function_type::none};
+            Class_type current_class_type_ {Class_type::none};
             Interpreter& interpreter_;
     };
 

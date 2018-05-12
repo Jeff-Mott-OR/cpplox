@@ -11,6 +11,7 @@
 #include <boost/variant.hpp>
 // This project's headers
 #include "callable_fwd.hpp"
+#include "class_fwd.hpp"
 
 namespace motts { namespace lox {
     /*
@@ -41,7 +42,14 @@ namespace motts { namespace lox {
 
     // Variant wrapped in struct to avoid ambiguous calls due to ADL
     struct Literal {
-        boost::variant<std::nullptr_t, std::string, double, bool, std::shared_ptr<Callable>> value;
+        boost::variant<
+            std::nullptr_t,
+            std::string,
+            double,
+            bool,
+            std::shared_ptr<Callable>,
+            std::shared_ptr<Instance>
+        > value;
     };
 
     std::ostream& operator<<(std::ostream&, const Literal&);

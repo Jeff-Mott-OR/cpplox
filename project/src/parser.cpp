@@ -36,6 +36,7 @@ namespace {
             }
 
             shared_ptr<const Stmt> consume_declaration() {
+                if (advance_if_match(Token_type::class_)) return consume_class_declaration();
                 if (advance_if_match(Token_type::fun_)) return consume_function_declaration();
                 if (advance_if_match(Token_type::var_)) return consume_var_declaration();
 
@@ -55,7 +56,21 @@ namespace {
                 return make_shared<Var_stmt>(move(var_name), move(initializer));
             }
 
-            shared_ptr<const Stmt> consume_function_declaration() {
+            shared_ptr<const Stmt> consume_class_declaration() {
+                auto name = consume(Token_type::identifier, "Expected class name.");
+                consume(Token_type::left_brace, "Expected '{' before class body.");
+
+                vector<shared_ptr<const Function_stmt>> methods;
+                while (token_iter_->type != Token_type::right_brace && token_iter_->type != Token_type::eof) {
+                    methods.push_back(consume_function_declaration());
+                }
+
+                consume(Token_type::right_brace, "Expected '}' after class body.");
+
+                return make_shared<Class_stmt>(move(name), move(methods));
+            }
+
+            shared_ptr<const Function_stmt> consume_function_declaration() {
                 auto name = consume(Token_type::identifier, "Expected function name.");
 
                 consume(Token_type::left_paren, "Expected '(' after function name.");
@@ -212,9 +227,15 @@ namespace {
                     ++token_iter_;
                     auto rhs_expr = consume_assignment();
 
-                    return make_shared<Assign_expr>(
-                        lhs_expr->lvalue_name(Parser_error{"Invalid assignment target.", op}),
-                        move(rhs_expr)
+                    // The lhs might be a var expression or it might be an object get expression, and which it is
+                    // affects which type we need to instantiate. Rather than using RTTI and dynamic_cast, instead rely
+                    // on polymorphism and virtual calls to do the right thing for each type. A virtual call through
+                    // Var_expr will make and return an Assign_expr, and a virtual call through a Get_expr will make and
+                    // return a Set_expr.
+                    return lhs_expr->make_assignment_expression(
+                        move(lhs_expr),
+                        move(rhs_expr),
+                        Parser_error{"Invalid assignment target.", op}
                     );
                 }
 
@@ -323,8 +344,19 @@ namespace {
             shared_ptr<const Expr> consume_call() {
                 auto expr = consume_primary();
 
-                while (advance_if_match(Token_type::left_paren)) {
-                    expr = consume_finish_call(move(expr));
+                while (true) {
+                    if (advance_if_match(Token_type::left_paren)) {
+                        expr = consume_finish_call(move(expr));
+                        continue;
+                    }
+
+                    if (advance_if_match(Token_type::dot)) {
+                        auto name = consume(Token_type::identifier, "Expected property name after '.'.");
+                        expr = make_shared<Get_expr>(move(expr), move(name));
+                        continue;
+                    }
+
+                    break;
                 }
 
                 return expr;
@@ -357,6 +389,12 @@ namespace {
                     return expr;
                 }
 
+                if (token_iter_->type == Token_type::this_) {
+                    auto keyword = *move(token_iter_);
+                    ++token_iter_;
+                    return make_shared<This_expr>(move(keyword));
+                }
+
                 if (token_iter_->type == Token_type::identifier) {
                     auto expr = make_shared<Var_expr>(*move(token_iter_));
                     ++token_iter_;
@@ -366,7 +404,6 @@ namespace {
                 if (advance_if_match(Token_type::left_paren)) {
                     auto expr = consume_expression();
                     consume(Token_type::right_paren, "Expected ')' after expression.");
-
                     return make_shared<Grouping_expr>(move(expr));
                 }
 

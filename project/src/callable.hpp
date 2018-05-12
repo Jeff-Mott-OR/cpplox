@@ -4,6 +4,7 @@
 #include "callable_fwd.hpp"
 // C standard headers
 // C++ standard headers
+#include <memory>
 #include <string>
 #include <vector>
 // Third-party headers
@@ -13,7 +14,11 @@
 
 namespace motts { namespace lox {
     struct Callable {
-        virtual Literal call(Interpreter&, const std::vector<Literal>& arguments) const = 0;
+        virtual Literal call(
+            const std::shared_ptr<const Callable>& owner_this,
+            Interpreter&,
+            const std::vector<Literal>& arguments
+        ) const = 0;
         virtual int arity() const = 0;
         virtual std::string to_string() const = 0;
 

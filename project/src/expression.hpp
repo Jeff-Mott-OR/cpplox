@@ -55,7 +55,11 @@ namespace motts { namespace lox {
         virtual void accept(const std::shared_ptr<const Expr>& owner_this, Expr_visitor&) const = 0;
 
         // To avoid dynamic_cast tests, implement lvalue-ness polymorphically
-        virtual Token lvalue_name(const Runtime_error& throwable_if_not_lvalue) const;
+        virtual std::shared_ptr<const Expr> make_assignment_expression(
+            std::shared_ptr<const Expr>&& lhs_expr,
+            std::shared_ptr<const Expr>&& rhs_expr,
+            const Runtime_error& throwable_if_not_lvalue
+        ) const;
 
         // Base class boilerplate
         explicit Expr() = default;

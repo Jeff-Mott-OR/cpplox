@@ -7,6 +7,7 @@
 // This project's headers
 #include "expression_visitor.hpp"
 
+using std::make_shared;
 using std::move;
 using std::shared_ptr;
 using std::static_pointer_cast;
@@ -76,8 +77,12 @@ namespace motts { namespace lox {
         visitor.visit(static_pointer_cast<const Var_expr>(owner_this));
     }
 
-    Token Var_expr::lvalue_name(const Runtime_error&) const {
-        return name;
+    shared_ptr<const Expr> Var_expr::make_assignment_expression(
+        shared_ptr<const Expr>&& lhs_expr,
+        shared_ptr<const Expr>&& rhs_expr,
+        const Runtime_error& /*throwable_if_not_lvalue*/
+    ) const {
+        return make_shared<Assign_expr>(Token{static_pointer_cast<const Var_expr>(lhs_expr)->name}, move(rhs_expr));
     }
 
     /*
@@ -123,5 +128,56 @@ namespace motts { namespace lox {
 
     void Call_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
         visitor.visit(static_pointer_cast<const Call_expr>(owner_this));
+    }
+
+    /*
+        struct Get_expr
+    */
+
+    Get_expr::Get_expr(shared_ptr<const Expr>&& object_arg, Token&& name_arg) :
+        object {move(object_arg)},
+        name {move(name_arg)}
+    {}
+
+    void Get_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Get_expr>(owner_this));
+    }
+
+    shared_ptr<const Expr> Get_expr::make_assignment_expression(
+        shared_ptr<const Expr>&& lhs_expr,
+        shared_ptr<const Expr>&& rhs_expr,
+        const Runtime_error& /*throwable_if_not_lvalue*/
+    ) const {
+        return make_shared<Set_expr>(
+            shared_ptr<const Expr>{static_pointer_cast<const Get_expr>(lhs_expr)->object},
+            Token{static_pointer_cast<const Get_expr>(lhs_expr)->name},
+            move(rhs_expr)
+        );
+    }
+
+    /*
+        struct Set_expr
+    */
+
+    Set_expr::Set_expr(shared_ptr<const Expr>&& object_arg, Token&& name_arg, shared_ptr<const Expr>&& value_arg) :
+        object {move(object_arg)},
+        name {move(name_arg)},
+        value {move(value_arg)}
+    {}
+
+    void Set_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Set_expr>(owner_this));
+    }
+
+    /*
+        struct This_expr
+    */
+
+    This_expr::This_expr(Token&& keyword_arg) :
+        keyword {move(keyword_arg)}
+    {}
+
+    void This_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const This_expr>(owner_this));
     }
 }}

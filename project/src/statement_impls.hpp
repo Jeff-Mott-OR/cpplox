@@ -82,4 +82,12 @@ namespace motts { namespace lox {
         explicit Return_stmt(Token&& keyword, std::shared_ptr<const Expr>&& value);
         void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
+
+    struct Class_stmt : Stmt {
+        Token name;
+        std::vector<std::shared_ptr<const Function_stmt>> methods;
+
+        explicit Class_stmt(Token&& name, std::vector<std::shared_ptr<const Function_stmt>>&& methods);
+        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+    };
 }}

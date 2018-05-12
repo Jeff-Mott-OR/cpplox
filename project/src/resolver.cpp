@@ -30,6 +30,33 @@ namespace motts { namespace lox {
         }
     }
 
+    void Resolver::visit(const shared_ptr<const Class_stmt>& stmt) {
+        if (scopes_.size()) {
+            scopes_.back().push_back({stmt->name.lexeme, Var_binding::defined});
+        }
+
+        scopes_.push_back({});
+        const auto _ = finally([&] () {
+            scopes_.pop_back();
+        });
+        scopes_.back().push_back({"this", Var_binding::defined});
+
+        const auto enclosing_class_type_ = current_class_type_;
+        current_class_type_ = Class_type::class_;
+        const auto _2 = finally([&] () {
+            current_class_type_ = enclosing_class_type_;
+        });
+
+        for (const auto& method : stmt->methods) {
+            resolve_function(
+                method,
+                method->name.lexeme == "init" ?
+                    Function_type::initializer :
+                    Function_type::method
+            );
+        }
+    }
+
     void Resolver::visit(const shared_ptr<const Var_stmt>& stmt) {
         if (scopes_.size()) {
             const auto found_in_scope = find_if(
@@ -69,31 +96,12 @@ namespace motts { namespace lox {
             }
         }
 
-        for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
-            const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
-                return var_binding.first == expr->name.lexeme;
-            });
-            if (found_in_scope != scope->cend()) {
-                interpreter_.resolve(expr.get(), narrow<int>(scope - scopes_.crbegin()));
-                return;
-            }
-        }
-
-        // Not found; assume it is global
+        resolve_local(*expr, expr->name.lexeme);
     }
 
     void Resolver::visit(const shared_ptr<const Assign_expr>& expr) {
         expr->value->accept(expr->value, *this);
-
-        for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
-            const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
-                return var_binding.first == expr->name.lexeme;
-            });
-            if (found_in_scope != scope->cend()) {
-                interpreter_.resolve(expr.get(), narrow<int>(scope - scopes_.crbegin()));
-                return;
-            }
-        }
+        resolve_local(*expr, expr->name.lexeme);
     }
 
     void Resolver::visit(const shared_ptr<const Function_stmt>& stmt) {
@@ -101,23 +109,7 @@ namespace motts { namespace lox {
             scopes_.back().push_back({stmt->name.lexeme, Var_binding::defined});
         }
 
-        scopes_.push_back({});
-        const auto _ = finally([&] () {
-            scopes_.pop_back();
-        });
-
-        const auto enclosing_function_type_ = current_function_type_;
-        current_function_type_ = Function_type::function;
-        const auto _2 = finally([&] () {
-            current_function_type_ = enclosing_function_type_;
-        });
-
-        for (const auto& param : stmt->parameters) {
-            scopes_.back().push_back({param.lexeme, Var_binding::defined});
-        }
-        for (const auto& statement : stmt->body) {
-            statement->accept(statement, *this);
-        }
+        resolve_function(stmt, Function_type::function);
     }
 
     void Resolver::visit(const shared_ptr<const Expr_stmt>& stmt) {
@@ -142,6 +134,10 @@ namespace motts { namespace lox {
         }
 
         if (stmt->value) {
+            if (current_function_type_ == Function_type::initializer) {
+                throw Resolver_error{"Cannot return a value from an initializer.", stmt->keyword};
+            }
+
             stmt->value->accept(stmt->value, *this);
         }
     }
@@ -163,6 +159,23 @@ namespace motts { namespace lox {
         }
     }
 
+    void Resolver::visit(const shared_ptr<const Get_expr>& expr) {
+        expr->object->accept(expr->object, *this);
+    }
+
+    void Resolver::visit(const shared_ptr<const Set_expr>& expr) {
+        expr->value->accept(expr->value, *this);
+        expr->object->accept(expr->object, *this);
+    }
+
+    void Resolver::visit(const shared_ptr<const This_expr>& expr) {
+        if (current_class_type_ != Class_type::class_) {
+            throw Resolver_error{"Cannot use 'this' outside of a class.", expr->keyword};
+        }
+
+        resolve_local(*expr, expr->keyword.lexeme);
+    }
+
     void Resolver::visit(const shared_ptr<const Grouping_expr>& expr) {
         expr->expr->accept(expr->expr, *this);
     }
@@ -178,9 +191,43 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
+    void Resolver::resolve_local(const Expr& expr, const string& name) {
+        for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
+            const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
+                return var_binding.first == name;
+            });
+            if (found_in_scope != scope->cend()) {
+                interpreter_.resolve(&expr, narrow<int>(scope - scopes_.crbegin()));
+                return;
+            }
+        }
+
+        // Not found; assume it is global
+    }
+
+    void Resolver::resolve_function(const std::shared_ptr<const Function_stmt>& stmt, Function_type function_type) {
+        scopes_.push_back({});
+        const auto _ = finally([&] () {
+            scopes_.pop_back();
+        });
+
+        const auto enclosing_function_type_ = current_function_type_;
+        current_function_type_ = function_type;
+        const auto _2 = finally([&] () {
+            current_function_type_ = enclosing_function_type_;
+        });
+
+        for (const auto& param : stmt->parameters) {
+            scopes_.back().push_back({param.lexeme, Var_binding::defined});
+        }
+        for (const auto& statement : stmt->body) {
+            statement->accept(statement, *this);
+        }
+    }
+
     Resolver_error::Resolver_error(const string& what, const Token& token) :
         Runtime_error {
-            "[Line " + to_string(token.line) + "] Error '" + token.lexeme + "': " + what
+            "[Line " + to_string(token.line) + "] Error at '" + token.lexeme + "': " + what
         }
     {}
 }}

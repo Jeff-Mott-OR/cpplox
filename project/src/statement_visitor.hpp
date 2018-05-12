@@ -18,6 +18,7 @@ namespace motts { namespace lox {
         virtual void visit(const std::shared_ptr<const If_stmt>&) = 0;
         virtual void visit(const std::shared_ptr<const Function_stmt>&) = 0;
         virtual void visit(const std::shared_ptr<const Return_stmt>&) = 0;
+        virtual void visit(const std::shared_ptr<const Class_stmt>&) = 0;
 
         // Base class boilerplate
         explicit Stmt_visitor() = default;

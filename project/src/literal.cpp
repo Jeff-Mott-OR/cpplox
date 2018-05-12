@@ -6,6 +6,7 @@
 // Third-party headers
 // This project's headers
 #include "callable.hpp"
+#include "class.hpp"
 
 using std::boolalpha;
 using std::nullptr_t;
@@ -42,6 +43,10 @@ namespace motts { namespace lox {
 
         auto operator()(const shared_ptr<Callable>& callable) {
             os << callable->to_string();
+        }
+
+        auto operator()(const shared_ptr<Instance>& instance) {
+            os << instance->to_string();
         }
     };
 

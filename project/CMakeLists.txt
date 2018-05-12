@@ -16,6 +16,7 @@ add_executable(
 
     src/main.cpp
     src/ast_printer.cpp
+    src/class.cpp
     src/expression.cpp
     src/expression_impls.cpp
     src/interpreter.cpp

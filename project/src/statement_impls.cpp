@@ -123,4 +123,17 @@ namespace motts { namespace lox {
     void Return_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
         visitor.visit(static_pointer_cast<const Return_stmt>(owner_this));
     }
+
+    /*
+        struct Class_stmt
+    */
+
+    Class_stmt::Class_stmt(Token&& name_arg, vector<shared_ptr<const Function_stmt>>&& methods_arg) :
+        name {move(name_arg)},
+        methods {move(methods_arg)}
+    {}
+
+    void Class_stmt::accept(const shared_ptr<const Stmt>& owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Class_stmt>(owner_this));
+    }
 }}

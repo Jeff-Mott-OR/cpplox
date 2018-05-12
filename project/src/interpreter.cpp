@@ -14,7 +14,7 @@
 #include <boost/variant.hpp>
 #include <gsl/gsl_util>
 // This project's headers
-#include "callable.hpp"
+#include "class.hpp"
 #include "literal.hpp"
 #include "utility.hpp"
 
@@ -30,6 +30,7 @@ using std::move;
 using std::nullptr_t;
 using std::pair;
 using std::shared_ptr;
+using std::static_pointer_cast;
 using std::string;
 using std::to_string;
 using std::transform;
@@ -105,54 +106,71 @@ namespace motts { namespace lox {
             }
     };
 
-    class Interpreter::Function : public Callable {
-        std::shared_ptr<const Function_stmt> declaration_;
-        std::shared_ptr<Environment> enclosed_;
+    Function::Function(
+        shared_ptr<const Function_stmt> declaration,
+        shared_ptr<Environment> enclosed,
+        bool is_initializer
+    ) :
+        declaration_ {move(declaration)},
+        enclosed_ {move(enclosed)},
+        is_initializer_ {is_initializer}
+    {}
 
-        public:
-            explicit Function(shared_ptr<const Function_stmt> declaration, shared_ptr<Environment> enclosed) :
-                declaration_ {move(declaration)},
-                enclosed_ {move(enclosed)}
-            {}
+    Literal Function::call(
+        const shared_ptr<const Callable>& /*owner_this*/,
+        Interpreter& interpreter,
+        const vector<Literal>& arguments
+    ) const {
+        auto caller_environment = move(interpreter.environment_);
+        interpreter.environment_ = make_shared<Environment>(enclosed_);
+        const auto _ = finally([&] () {
+            interpreter.environment_ = move(caller_environment);
+        });
 
-            Literal call(Interpreter& interpreter, const vector<Literal>& arguments) const override {
-                auto caller_environment = move(interpreter.environment_);
-                interpreter.environment_ = make_shared<Environment>(enclosed_);
-                const auto _ = finally([&] () {
-                    interpreter.environment_ = move(caller_environment);
-                });
+        for (decltype(declaration_->parameters.size()) i {0}; i < declaration_->parameters.size(); ++i) {
+            interpreter.environment_->find_own_or_make(declaration_->parameters.at(i).lexeme) = arguments.at(i);
+        }
 
-                for (decltype(declaration_->parameters.size()) i {0}; i < declaration_->parameters.size(); ++i) {
-                    interpreter.environment_->find_own_or_make(declaration_->parameters.at(i).lexeme) = arguments.at(i);
-                }
+        for (const auto& statement : declaration_->body) {
+            statement->accept(statement, interpreter);
 
-                for (const auto& statement : declaration_->body) {
-                    statement->accept(statement, interpreter);
-
-                    if (interpreter.returning_) {
-                        interpreter.returning_ = false;
-                        return move(interpreter.result_);
-                    }
-                }
-
-                return Literal{};
+            if (interpreter.returning_) {
+                interpreter.returning_ = false;
+                return move(interpreter.result_);
             }
+        }
 
-            int arity() const override {
-                return narrow<int>(declaration_->parameters.size());
-            }
+        if (is_initializer_) {
+            return enclosed_->find_in_chain("this")->second;
+        }
 
-            string to_string() const override {
-                return "<fn " + declaration_->name.lexeme + ">";
-            }
-    };
+        return Literal{};
+    }
+
+    int Function::arity() const {
+        return narrow<int>(declaration_->parameters.size());
+    }
+
+    string Function::to_string() const {
+        return "<fn " + declaration_->name.lexeme + ">";
+    }
+
+    shared_ptr<Function> Function::bind(const shared_ptr<Instance>& instance) const {
+        auto this_environment = make_shared<Environment>(enclosed_);
+        this_environment->find_own_or_make("this") = Literal{instance};
+        return make_shared<Function>(declaration_, this_environment, is_initializer_);
+    }
 
     Interpreter::Interpreter() :
         environment_ {make_shared<Environment>()},
         globals_ {environment_}
     {
         struct Clock_callable : Callable {
-            Literal call(Interpreter&, const vector<Literal>& /*arguments*/) const override {
+            Literal call(
+                const shared_ptr<const Callable>& /*owner_this*/,
+                Interpreter&,
+                const vector<Literal>& /*arguments*/
+            ) const override {
                 return Literal{narrow<double>(duration_cast<seconds>(system_clock::now().time_since_epoch()).count())};
             }
 
@@ -302,51 +320,19 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const shared_ptr<const Var_expr>& expr) {
-        const auto found_var_binding = ([&] () {
-            const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-                return depth.first == expr.get();
-            });
-            if (found_depth != scope_depths_.cend()) {
-                return environment_->find_in_chain(expr->name.lexeme, found_depth->second);
-            } else {
-                const auto found_global = globals_->find_in_chain(expr->name.lexeme);
-                if (found_global != globals_->end()) {
-                    return found_global;
-                } else {
-                    return environment_->end();
-                }
-            }
-        })();
-
-        if (found_var_binding == environment_->end()) {
+        const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
+        if (var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
-
-        result_ = found_var_binding->second;
+        result_ = var_binding->second;
     }
 
     void Interpreter::visit(const shared_ptr<const Assign_expr>& expr) {
-        const auto found_var_binding = ([&] () {
-            const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-                return depth.first == expr.get();
-            });
-            if (found_depth != scope_depths_.cend()) {
-                return environment_->find_in_chain(expr->name.lexeme, found_depth->second);
-            } else {
-                const auto found_global = globals_->find_in_chain(expr->name.lexeme);
-                if (found_global != globals_->end()) {
-                    return found_global;
-                } else {
-                    return environment_->end();
-                }
-            }
-        })();
-
-        if (found_var_binding == environment_->end()) {
+        const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
+        if (var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
         }
-
-        result_ = found_var_binding->second = lox::apply_visitor(*this, expr->value);
+        result_ = var_binding->second = lox::apply_visitor(*this, expr->value);
     }
 
     void Interpreter::visit(const shared_ptr<const Logical_expr>& expr) {
@@ -397,7 +383,40 @@ namespace motts { namespace lox {
             }
         );
 
-        result_ = callable->call(*this, arguments_results);
+        result_ = callable->call(callable, *this, arguments_results);
+    }
+
+    void Interpreter::visit(const shared_ptr<const Get_expr>& expr) {
+        const auto object_result = lox::apply_visitor(*this, expr->object);
+        try {
+            const auto instance = get<shared_ptr<Instance>>(object_result.value);
+            result_ = instance->get(instance, expr->name.lexeme);
+        } catch (const bad_get&) {
+            // Convert a boost variant error into a Lox error
+            throw Interpreter_error{"Only instances have properties.", expr->name};
+        }
+    }
+
+    void Interpreter::visit(const shared_ptr<const Set_expr>& expr) {
+        auto object_result = lox::apply_visitor(*this, expr->object);
+        auto value_result = lox::apply_visitor(*this, expr->value);
+
+        try {
+            get<shared_ptr<Instance>>(object_result.value)->set(expr->name.lexeme, Literal{value_result});
+        } catch (const bad_get&) {
+            // Convert a boost variant error into a Lox error
+            throw Interpreter_error{"Only instances have fields.", expr->name};
+        }
+
+        result_ = move(value_result);
+    }
+
+    void Interpreter::visit(const std::shared_ptr<const This_expr>& expr) {
+        const auto var_binding = lookup_variable("this", *expr);
+        if (var_binding == environment_->end()) {
+            throw Interpreter_error{"Undefined variable '" + expr->keyword.lexeme + "'."};
+        }
+        result_ = var_binding->second;
     }
 
     void Interpreter::visit(const shared_ptr<const Expr_stmt>& stmt) {
@@ -461,6 +480,17 @@ namespace motts { namespace lox {
         }
     }
 
+    void Interpreter::visit(const shared_ptr<const Class_stmt>& stmt) {
+        vector<pair<string, shared_ptr<Function>>> methods;
+        for (const auto& method : stmt->methods) {
+            methods.push_back({
+                method->name.lexeme,
+                make_shared<Function>(method, environment_, method->name.lexeme == "init")
+            });
+        }
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Class>(stmt->name.lexeme, move(methods))};
+    }
+
     void Interpreter::visit(const shared_ptr<const Function_stmt>& stmt) {
         environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Function>(stmt, environment_)};
     }
@@ -475,16 +505,32 @@ namespace motts { namespace lox {
         returning_ = true;
     }
 
-    void Interpreter::resolve(const Expr* expr, int depth) {
-        scope_depths_.push_back({expr, depth});
-    }
-
     const Literal& Interpreter::result() const & {
         return result_;
     }
 
     Literal&& Interpreter::result() && {
         return move(result_);
+    }
+
+    void Interpreter::resolve(const Expr* expr, int depth) {
+        scope_depths_.push_back({expr, depth});
+    }
+
+    vector<pair<string, Literal>>::iterator Interpreter::lookup_variable(const string& name, const Expr& expr) {
+        const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
+            return depth.first == &expr;
+        });
+        if (found_depth != scope_depths_.cend()) {
+            return environment_->find_in_chain(name, found_depth->second);
+        }
+
+        const auto found_global = globals_->find_in_chain(name);
+        if (found_global != globals_->end()) {
+            return found_global;
+        }
+
+        return environment_->end();
     }
 
     Interpreter_error::Interpreter_error(const string& what, const Token& token) :
