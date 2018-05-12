@@ -16,9 +16,14 @@ Or, to optionally build and run tests and benchmarking, use this cmake command i
 
 This project comes with vagrant files to make it easier to build on a variety of platforms with a variety of compilers.
 
-### Build with g++-7 on Ubuntu
+### Build with g++-7 or clang-5 on Ubuntu
 
     cd vagrant/ubuntu-xenial64-g++-7
+    vagrant up
+
+Or.
+
+    cd vagrant/ubuntu-xenial64-clang-5
     vagrant up
 
 #### Build
@@ -40,28 +45,6 @@ In the VM, run:
 
 1. Install CMake. The installer will be on the desktop. Select the option to add cmake to the system PATH.
 2. Install Visual Studio's _Desktop Development with C++_. Navigate to _Control Panel_ > _Programs and Features_. Select Microsoft Visual Studio and press Change. Update the Visual Studio installer, then update Visual Studio itself. Finally, modify the installation and tick the box to install Desktop Development with C++.
-
-#### Build
-
-In the VM, open a command prompt and run:
-
-    pushd \\vboxsvr\cpplox
-
-    mkdir build
-    cd build
-
-    cmake .. -A x64
-    cmake --build . --config Release
-
-### Build with MSVC 2015
-
-    cd vagrant/w16s-vs15c
-    vagrant up
-
-#### First time boot manual steps
-
-1. Install CMake. The installer will be on the desktop. Select the option to add cmake to the system PATH.
-2. Install Visual C++. Navigate to _Control Panel_ > _Programs and Features_. Select Microsoft Visual Studio and press Change. Modify the installation and tick the box to install Visual C++.
 
 #### Build
 

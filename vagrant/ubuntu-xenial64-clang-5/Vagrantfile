@@ -12,7 +12,7 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "gusztavvargadr/w16s-vs15c"
+  config.vm.box = "ubuntu/xenial64"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -64,6 +64,15 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
-      powershell Invoke-WebRequest -Uri https://cmake.org/files/v3.10/cmake-3.10.2-win64-x64.msi -OutFile C:/Users/Vagrant/Desktop/cmake-3.10.2-win64-x64.msi
+    sudo apt-add-repository -y ppa:llvm-toolchain-trusty-5.0
+    sudo add-apt-repository -y ppa:openjdk-r/ppa
+    sudo apt-get update
+    sudo apt-get install -y build-essential clang-5.0 valgrind openjdk-9-jdk
+    echo "export CC=clang-5.0 && export CXX=clang++-5.0" >> /home/vagrant/.profile
+    echo "PATH=\"/usr/lib/jvm/java-9-openjdk-amd64/bin:\\$PATH\"" >> /home/vagrant/.profile
+
+    wget https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
+    tar -xf cmake-3.10.2-Linux-x86_64.tar.gz
+    echo "PATH=\"$PWD/cmake-3.10.2-Linux-x86_64/bin:\\$PATH\"" >> /home/vagrant/.profile
   SHELL
 end
