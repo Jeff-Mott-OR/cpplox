@@ -8,6 +8,7 @@
 // This project's headers
 
 using std::find_if;
+using std::pair;
 using std::shared_ptr;
 using std::string;
 using std::to_string;
@@ -32,7 +33,7 @@ namespace motts { namespace lox {
 
     void Resolver::visit(const shared_ptr<const Class_stmt>& stmt) {
         if (scopes_.size()) {
-            scopes_.back().push_back({stmt->name.lexeme, Var_binding::defined});
+            declare_var(stmt->name).second = Var_binding::defined;
         }
 
         scopes_.push_back({});
@@ -69,7 +70,7 @@ namespace motts { namespace lox {
                 throw Resolver_error{"Variable with this name already declared in this scope.", stmt->name};
             }
 
-            scopes_.back().push_back({stmt->name.lexeme, Var_binding::declared});
+            declare_var(stmt->name);
         }
 
         if (stmt->initializer) {
@@ -77,9 +78,7 @@ namespace motts { namespace lox {
         }
 
         if (scopes_.size()) {
-            find_if(scopes_.back().begin(), scopes_.back().end(), [&] (const auto& var_binding) {
-                return var_binding.first == stmt->name.lexeme;
-            })->second = Var_binding::defined;
+            scopes_.back().back().second = Var_binding::defined;
         }
     }
 
@@ -106,7 +105,7 @@ namespace motts { namespace lox {
 
     void Resolver::visit(const shared_ptr<const Function_stmt>& stmt) {
         if (scopes_.size()) {
-            scopes_.back().push_back({stmt->name.lexeme, Var_binding::defined});
+            declare_var(stmt->name).second = Var_binding::defined;
         }
 
         resolve_function(stmt, Function_type::function);
@@ -191,6 +190,22 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
+    pair<string, Var_binding>& Resolver::declare_var(const Token& name) {
+        const auto found_in_scope = find_if(
+            scopes_.back().cbegin(), scopes_.back().cend(),
+            [&] (const auto& var_binding) {
+                return var_binding.first == name.lexeme;
+            }
+        );
+        if (found_in_scope != scopes_.back().cend()) {
+            throw Resolver_error{"Variable with this name already declared in this scope.", name};
+        }
+
+        scopes_.back().push_back({name.lexeme, Var_binding::declared});
+
+        return scopes_.back().back();
+    }
+
     void Resolver::resolve_local(const Expr& expr, const string& name) {
         for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
             const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
@@ -218,7 +233,7 @@ namespace motts { namespace lox {
         });
 
         for (const auto& param : stmt->parameters) {
-            scopes_.back().push_back({param.lexeme, Var_binding::defined});
+            declare_var(param).second = Var_binding::defined;
         }
         for (const auto& statement : stmt->body) {
             statement->accept(statement, *this);

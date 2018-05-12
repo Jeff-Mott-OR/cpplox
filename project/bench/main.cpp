@@ -40,7 +40,7 @@ int main(int argc, /*const*/ char* argv[]) {
         return 0;
     }
 
-    for (string script_name : {"fib", "equality", "string_equality"}) {
+    for (string script_name : {"binary_trees", "equality", "fib", "invocation", "properties", "string_equality"}) {
         benchmark::RegisterBenchmark(("cpplox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
             const auto cpplox = variables_map.at("cpplox-file").as<string>();
             const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";

@@ -45,6 +45,7 @@ namespace motts { namespace lox {
             void visit(const std::shared_ptr<const Unary_expr>&) override;
 
         private:
+            std::pair<std::string, Var_binding>& declare_var(const Token& name);
             void resolve_function(const std::shared_ptr<const Function_stmt>&, Function_type);
             void resolve_local(const Expr&, const std::string& name);
 
