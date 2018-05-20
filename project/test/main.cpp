@@ -131,6 +131,7 @@ BOOST_AUTO_TEST_CASE(call_object_test) { expect_script_file_out_to_be("call/obje
 BOOST_AUTO_TEST_CASE(call_string_test) { expect_script_file_out_to_be("call/string.lox", "", "Can only call functions and classes.\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(class_empty_test) { expect_script_file_out_to_be("class/empty.lox", "Foo\n"); }
+BOOST_AUTO_TEST_CASE(class_inherited_method_test) { expect_script_file_out_to_be("class/inherited_method.lox", "in foo\nin bar\nin baz\n"); }
 BOOST_AUTO_TEST_CASE(class_local_reference_self_test) { expect_script_file_out_to_be("class/local_reference_self.lox", "Foo\n"); }
 BOOST_AUTO_TEST_CASE(class_reference_self_test) { expect_script_file_out_to_be("class/reference_self.lox", "Foo\n"); }
 
@@ -304,6 +305,13 @@ BOOST_AUTO_TEST_CASE(if_truth_test) { expect_script_file_out_to_be("if/truth.lox
 BOOST_AUTO_TEST_CASE(if_var_in_else_test) { expect_script_file_out_to_be("if/var_in_else.lox", "", "[Line 2] Error at 'var': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(if_var_in_then_test) { expect_script_file_out_to_be("if/var_in_then.lox", "", "[Line 2] Error at 'var': Expected expression.\n", EXIT_FAILURE); }
 
+BOOST_AUTO_TEST_CASE(inheritance_inherit_from_function_test) { expect_script_file_out_to_be("inheritance/inherit_from_function.lox", "", "[Line 3] Error at 'foo': Superclass must be a class.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(inheritance_inherit_from_nil_test) { expect_script_file_out_to_be("inheritance/inherit_from_nil.lox", "", "[Line 2] Error at 'Nil': Superclass must be a class.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(inheritance_inherit_from_number_test) { expect_script_file_out_to_be("inheritance/inherit_from_number.lox", "", "[Line 2] Error at 'Number': Superclass must be a class.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(inheritance_inherit_methods_test) { expect_script_file_out_to_be("inheritance/inherit_methods.lox", "foo\nbar\nbar\n"); }
+BOOST_AUTO_TEST_CASE(inheritance_parenthesized_superclass_test) { expect_script_file_out_to_be("inheritance/parenthesized_superclass.lox", "", "[Line 4] Error at '(': Expected superclass name.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(inheritance_set_fields_from_base_class_test) { expect_script_file_out_to_be("inheritance/set_fields_from_base_class.lox", "foo 1\nfoo 2\nbar 1\nbar 2\nbar 1\nbar 2\n"); }
+
 BOOST_AUTO_TEST_CASE(logical_operator_and_test) { expect_script_file_out_to_be("logical_operator/and.lox", "false\n1\nfalse\ntrue\n3\ntrue\nfalse\n"); }
 BOOST_AUTO_TEST_CASE(logical_operator_and_truth_test) { expect_script_file_out_to_be("logical_operator/and_truth.lox", "false\nnil\nok\nok\nok\n"); }
 BOOST_AUTO_TEST_CASE(logical_operator_or_test) { expect_script_file_out_to_be("logical_operator/or.lox", "1\n1\ntrue\nfalse\nfalse\nfalse\ntrue\n"); }
@@ -375,6 +383,27 @@ BOOST_AUTO_TEST_CASE(string_error_after_multiline_test) { expect_script_file_out
 BOOST_AUTO_TEST_CASE(string_literals_test) { expect_script_file_out_to_be("string/literals.lox", "()\na string\nA~¶Þॐஃ\n"); }
 BOOST_AUTO_TEST_CASE(string_multiline_test) { expect_script_file_out_to_be("string/multiline.lox", "1\n2\n3\n"); }
 BOOST_AUTO_TEST_CASE(string_unterminated_test) { expect_script_file_out_to_be("string/unterminated.lox", "", "[Line 2] Error: Unterminated string.\n", EXIT_FAILURE); }
+
+BOOST_AUTO_TEST_CASE(super_bound_method_test) { expect_script_file_out_to_be("super/bound_method.lox", "A.method(arg)\n"); }
+BOOST_AUTO_TEST_CASE(super_call_other_method_test) { expect_script_file_out_to_be("super/call_other_method.lox", "Derived.bar()\nBase.foo()\n"); }
+BOOST_AUTO_TEST_CASE(super_call_same_method_test) { expect_script_file_out_to_be("super/call_same_method.lox", "Derived.foo()\nBase.foo()\n"); }
+BOOST_AUTO_TEST_CASE(super_closure_test) { expect_script_file_out_to_be("super/closure.lox", "Base\n"); }
+BOOST_AUTO_TEST_CASE(super_constructor_test) { expect_script_file_out_to_be("super/constructor.lox", "Derived.init()\nBase.init(a, b)\n"); }
+BOOST_AUTO_TEST_CASE(super_extra_arguments_test) { expect_script_file_out_to_be("super/extra_arguments.lox", "Derived.foo()\n", "[Line 10] Error at ')': Expected 2 arguments but got 4.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_indirectly_inherited_test) { expect_script_file_out_to_be("super/indirectly_inherited.lox", "C.foo()\nA.foo()\n"); }
+BOOST_AUTO_TEST_CASE(super_missing_arguments_test) { expect_script_file_out_to_be("super/missing_arguments.lox", "", "[Line 9] Error at ')': Expected 2 arguments but got 1.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_no_superclass_bind_test) { expect_script_file_out_to_be("super/no_superclass_bind.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_no_superclass_call_test) { expect_script_file_out_to_be("super/no_superclass_call.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_no_superclass_method_test) { expect_script_file_out_to_be("super/no_superclass_method.lox", "", "Undefined property 'doesNotExist'.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_parenthesized_test) { expect_script_file_out_to_be("super/parenthesized.lox", "", "[Line 8] Error at ')': Expected '.' after 'super'.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_reassign_superclass_test) { expect_script_file_out_to_be("super/reassign_superclass.lox", "Base.method()\nBase.method()\n"); }
+BOOST_AUTO_TEST_CASE(super_super_at_top_level_test) { expect_script_file_out_to_be("super/super_at_top_level.lox", "", "[Line 1] Error at 'super': Cannot use 'super' outside of a class.\n[Line 2] Error at 'super': Cannot use 'super' outside of a class.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_in_closure_in_inherited_method_test) { expect_script_file_out_to_be("super/super_in_closure_in_inherited_method.lox", "A\n"); }
+BOOST_AUTO_TEST_CASE(super_super_in_inherited_method_test) { expect_script_file_out_to_be("super/super_in_inherited_method.lox", "A\n"); }
+BOOST_AUTO_TEST_CASE(super_super_in_top_level_function_test) { expect_script_file_out_to_be("super/super_in_top_level_function.lox", "", "[Line 2] Error at 'super': Cannot use 'super' outside of a class.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_without_dot_test) { expect_script_file_out_to_be("super/super_without_dot.lox", "", "[Line 6] Error at ';': Expected '.' after 'super'.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_without_name_test) { expect_script_file_out_to_be("super/super_without_name.lox", "", "[Line 5] Error at ';': Expected superclass method name.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_this_in_superclass_method_test) { expect_script_file_out_to_be("super/this_in_superclass_method.lox", "a\nb\n"); }
 
 BOOST_AUTO_TEST_CASE(this_closure_test) { expect_script_file_out_to_be("this/closure.lox", "Foo\n"); }
 BOOST_AUTO_TEST_CASE(this_nested_class_test) { expect_script_file_out_to_be("this/nested_class.lox", "Outer instance\nOuter instance\nInner instance\n"); }
