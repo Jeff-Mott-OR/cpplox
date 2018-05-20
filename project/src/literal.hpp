@@ -12,6 +12,7 @@
 // This project's headers
 #include "callable_fwd.hpp"
 #include "class_fwd.hpp"
+#include "interpreter_fwd.hpp"
 
 namespace motts { namespace lox {
     /*
@@ -48,6 +49,8 @@ namespace motts { namespace lox {
             double,
             bool,
             std::shared_ptr<Callable>,
+            std::shared_ptr<Function>,
+            std::shared_ptr<Class>,
             std::shared_ptr<Instance>
         > value;
     };

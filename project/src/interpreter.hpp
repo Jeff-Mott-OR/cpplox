@@ -34,6 +34,7 @@ namespace motts { namespace lox {
             void visit(const std::shared_ptr<const Call_expr>&) override;
             void visit(const std::shared_ptr<const Get_expr>&) override;
             void visit(const std::shared_ptr<const Set_expr>&) override;
+            void visit(const std::shared_ptr<const Super_expr>&) override;
             void visit(const std::shared_ptr<const This_expr>&) override;
 
             void visit(const std::shared_ptr<const Expr_stmt>&) override;

@@ -36,17 +36,31 @@ namespace motts { namespace lox {
             declare_var(stmt->name).second = Var_binding::defined;
         }
 
-        scopes_.push_back({});
+        const auto enclosing_class_type_ = current_class_type_;
+        current_class_type_ = Class_type::class_;
         const auto _ = finally([&] () {
+            current_class_type_ = enclosing_class_type_;
+        });
+
+        if (stmt->superclass) {
+            current_class_type_ = Class_type::subclass;
+            stmt->superclass->accept(stmt->superclass, *this);
+            scopes_.push_back({});
+        }
+        const auto _2 = finally([&] () {
+            if (stmt->superclass) {
+                scopes_.pop_back();
+            }
+        });
+        if (stmt->superclass) {
+            scopes_.back().push_back({"super", Var_binding::defined});
+        }
+
+        scopes_.push_back({});
+        const auto _3 = finally([&] () {
             scopes_.pop_back();
         });
         scopes_.back().push_back({"this", Var_binding::defined});
-
-        const auto enclosing_class_type_ = current_class_type_;
-        current_class_type_ = Class_type::class_;
-        const auto _2 = finally([&] () {
-            current_class_type_ = enclosing_class_type_;
-        });
 
         for (const auto& method : stmt->methods) {
             resolve_function(
@@ -167,8 +181,19 @@ namespace motts { namespace lox {
         expr->object->accept(expr->object, *this);
     }
 
+    void Resolver::visit(const shared_ptr<const Super_expr>& expr) {
+        if (current_class_type_ == Class_type::none) {
+            throw Resolver_error{"Cannot use 'super' outside of a class.", expr->keyword};
+        }
+        if (current_class_type_ != Class_type::subclass) {
+            throw Resolver_error{"Cannot use 'super' in a class with no superclass.", expr->keyword};
+        }
+
+        resolve_local(*expr, expr->keyword.lexeme);
+    }
+
     void Resolver::visit(const shared_ptr<const This_expr>& expr) {
-        if (current_class_type_ != Class_type::class_) {
+        if (current_class_type_ == Class_type::none) {
             throw Resolver_error{"Cannot use 'this' outside of a class.", expr->keyword};
         }
 

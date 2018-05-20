@@ -180,4 +180,17 @@ namespace motts { namespace lox {
     void This_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
         visitor.visit(static_pointer_cast<const This_expr>(owner_this));
     }
+
+    /*
+        struct Super_expr
+    */
+
+    Super_expr::Super_expr(Token&& keyword_arg, Token&& method_arg) :
+        keyword {move(keyword_arg)},
+        method {move(method_arg)}
+    {}
+
+    void Super_expr::accept(const shared_ptr<const Expr>& owner_this, Expr_visitor& visitor) const {
+        visitor.visit(static_pointer_cast<const Super_expr>(owner_this));
+    }
 }}

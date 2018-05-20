@@ -25,6 +25,7 @@ using namespace motts::lox;
 namespace {
     class Parser {
         Token_iterator token_iter_;
+        vector<string> parser_errors_;
 
         public:
             Parser(Token_iterator&& token_iter) :
@@ -35,12 +36,23 @@ namespace {
                 return token_iter_;
             }
 
-            shared_ptr<const Stmt> consume_declaration() {
-                if (advance_if_match(Token_type::class_)) return consume_class_declaration();
-                if (advance_if_match(Token_type::fun_)) return consume_function_declaration();
-                if (advance_if_match(Token_type::var_)) return consume_var_declaration();
+            const vector<string>& parser_errors() {
+                return parser_errors_;
+            }
 
-                return consume_statement();
+            shared_ptr<const Stmt> consume_declaration() {
+                try {
+                    if (advance_if_match(Token_type::class_)) return consume_class_declaration();
+                    if (advance_if_match(Token_type::fun_)) return consume_function_declaration();
+                    if (advance_if_match(Token_type::var_)) return consume_var_declaration();
+
+                    return consume_statement();
+                } catch (const Parser_error& error) {
+                    parser_errors_.push_back(error.what());
+                    recover_to_synchronization_point();
+
+                    return {};
+                }
             }
 
             shared_ptr<const Stmt> consume_var_declaration() {
@@ -58,6 +70,13 @@ namespace {
 
             shared_ptr<const Stmt> consume_class_declaration() {
                 auto name = consume(Token_type::identifier, "Expected class name.");
+
+                shared_ptr<Var_expr> superclass;
+                if (advance_if_match(Token_type::less)) {
+                    auto super_name = consume(Token_type::identifier, "Expected superclass name.");
+                    superclass = make_shared<Var_expr>(move(super_name));
+                }
+
                 consume(Token_type::left_brace, "Expected '{' before class body.");
 
                 vector<shared_ptr<const Function_stmt>> methods;
@@ -67,7 +86,7 @@ namespace {
 
                 consume(Token_type::right_brace, "Expected '}' after class body.");
 
-                return make_shared<Class_stmt>(move(name), move(methods));
+                return make_shared<Class_stmt>(move(name), move(superclass), move(methods));
             }
 
             shared_ptr<const Function_stmt> consume_function_declaration() {
@@ -389,6 +408,14 @@ namespace {
                     return expr;
                 }
 
+                if (token_iter_->type == Token_type::super_) {
+                    auto keyword = *move(token_iter_);
+                    ++token_iter_;
+                    consume(Token_type::dot, "Expected '.' after 'super'.");
+                    auto method = consume(Token_type::identifier, "Expected superclass method name.");
+                    return make_shared<Super_expr>(move(keyword), move(method));
+                }
+
                 if (token_iter_->type == Token_type::this_) {
                     auto keyword = *move(token_iter_);
                     ++token_iter_;
@@ -460,19 +487,16 @@ namespace {
 namespace motts { namespace lox {
     vector<shared_ptr<const Stmt>> parse(Token_iterator&& token_iter) {
         vector<shared_ptr<const Stmt>> statements;
-        vector<string> parser_errors;
 
         Parser parser {move(token_iter)};
         while (parser.token_iter()->type != Token_type::eof) {
-            try {
-                statements.push_back(parser.consume_declaration());
-            } catch (const Parser_error& error) {
-                parser_errors.push_back(error.what());
-                parser.recover_to_synchronization_point();
+            auto declaration = parser.consume_declaration();
+            if (declaration) {
+                statements.push_back(move(declaration));
             }
         }
-        if (parser_errors.size()) {
-            throw Runtime_error{join(parser_errors, "\n")};
+        if (parser.parser_errors().size()) {
+            throw Runtime_error{join(parser.parser_errors(), "\n")};
         }
 
         return statements;

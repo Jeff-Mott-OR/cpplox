@@ -8,6 +8,7 @@
 // Third-party headers
 // This project's headers
 #include "expression.hpp"
+#include "expression_impls.hpp"
 #include "statement.hpp"
 #include "token.hpp"
 
@@ -85,9 +86,14 @@ namespace motts { namespace lox {
 
     struct Class_stmt : Stmt {
         Token name;
+        std::shared_ptr<Var_expr> superclass;
         std::vector<std::shared_ptr<const Function_stmt>> methods;
 
-        explicit Class_stmt(Token&& name, std::vector<std::shared_ptr<const Function_stmt>>&& methods);
+        explicit Class_stmt(
+            Token&& name,
+            std::shared_ptr<Var_expr>&& superclass,
+            std::vector<std::shared_ptr<const Function_stmt>>&& methods
+        );
         void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
     };
 }}

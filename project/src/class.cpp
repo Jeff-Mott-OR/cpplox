@@ -23,8 +23,9 @@ namespace motts { namespace lox {
         class Class
     */
 
-    Class::Class(const string& name, vector<pair<string, shared_ptr<Function>>>&& methods) :
+    Class::Class(const string& name, shared_ptr<Class>&& superclass, vector<pair<string, shared_ptr<Function>>>&& methods) :
         name_ {name},
+        superclass_ {move(superclass)},
         methods_ {move(methods)}
     {}
 
@@ -58,6 +59,21 @@ namespace motts { namespace lox {
         return name_;
     }
 
+    Literal Class::get(const shared_ptr<Instance>& instance_to_bind, const string& name) const {
+        const auto found_method = find_if(methods_.cbegin(), methods_.cend(), [&] (const auto& method) {
+            return method.first == name;
+        });
+        if (found_method != methods_.cend()) {
+            return Literal{found_method->second->bind(instance_to_bind)};
+        }
+
+        if (superclass_) {
+            return superclass_->get(instance_to_bind, name);
+        }
+
+        throw Runtime_error{"Undefined property '" + name + "'."};
+    }
+
     /*
         class Instance
     */
@@ -74,14 +90,7 @@ namespace motts { namespace lox {
             return found_field->second;
         }
 
-        const auto found_method = find_if(class_->methods_.cbegin(), class_->methods_.cend(), [&] (const auto& method) {
-            return method.first == name;
-        });
-        if (found_method != class_->methods_.cend()) {
-            return Literal{found_method->second->bind(owner_this)};
-        }
-
-        throw Runtime_error{"Undefined property '" + name + "'."};
+        return class_->get(owner_this, name);
     }
 
     void Instance::set(const string& name, Literal&& value) {

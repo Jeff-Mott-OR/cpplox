@@ -356,16 +356,29 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
-    void Interpreter::visit(const shared_ptr<const Call_expr>& expr) {
-        auto callee_result = lox::apply_visitor(*this, expr->callee);
-        const auto callable = ([&] () {
-            try {
-                return get<shared_ptr<Callable>>(move(callee_result).value);
-            } catch (const bad_get&) {
-                // Convert a boost variant error into a Lox error
+    struct Get_callable_visitor : static_visitor<shared_ptr<Callable>> {
+        shared_ptr<Callable> operator()(shared_ptr<Callable>& callable) const {
+            return callable;
+        }
+
+        shared_ptr<Callable> operator()(shared_ptr<Function>& callable) const {
+            return callable;
+        }
+
+        shared_ptr<Callable> operator()(shared_ptr<Class>& callable) const {
+            return callable;
+        }
+
+        // All other types are not callables
+        template<typename T>
+            shared_ptr<Callable> operator()(const T&) const {
                 throw Interpreter_error{"Can only call functions and classes."};
             }
-        })();
+    };
+
+    void Interpreter::visit(const shared_ptr<const Call_expr>& expr) {
+        auto callee_result = lox::apply_visitor(*this, expr->callee);
+        const auto callable = boost::apply_visitor(Get_callable_visitor{}, callee_result.value);
 
         if (narrow<int>(expr->arguments.size()) != callable->arity()) {
             throw Interpreter_error{
@@ -409,6 +422,16 @@ namespace motts { namespace lox {
         }
 
         result_ = move(value_result);
+    }
+
+    void Interpreter::visit(const std::shared_ptr<const Super_expr>& expr) {
+        const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
+            return depth.first == expr.get();
+        });
+        auto superclass = get<shared_ptr<Class>>(environment_->find_in_chain("super", found_depth->second)->second.value);
+        auto instance = get<shared_ptr<Instance>>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
+
+        result_ = superclass->get(instance, expr->method.lexeme);
     }
 
     void Interpreter::visit(const std::shared_ptr<const This_expr>& expr) {
@@ -481,14 +504,38 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const shared_ptr<const Class_stmt>& stmt) {
+        shared_ptr<Class> superclass;
         vector<pair<string, shared_ptr<Function>>> methods;
-        for (const auto& method : stmt->methods) {
-            methods.push_back({
-                method->name.lexeme,
-                make_shared<Function>(method, environment_, method->name.lexeme == "init")
+
+        {
+            shared_ptr<Environment> enclosed;
+            if (stmt->superclass) {
+                try {
+                    superclass = get<shared_ptr<Class>>(lox::apply_visitor(*this, stmt->superclass).value);
+                } catch (const bad_get&) {
+                    // Convert a boost variant error into a Lox error
+                    throw Interpreter_error{"Superclass must be a class.", stmt->superclass->name};
+                }
+
+                enclosed = move(environment_);
+                environment_ = make_shared<Environment>(enclosed);
+                environment_->find_own_or_make("super") = Literal{superclass};
+            }
+            const auto _ = finally([&] () {
+                if (enclosed) {
+                    environment_ = move(enclosed);
+                }
             });
+
+            for (const auto& method : stmt->methods) {
+                methods.push_back({
+                    method->name.lexeme,
+                    make_shared<Function>(method, environment_, method->name.lexeme == "init")
+                });
+            }
         }
-        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Class>(stmt->name.lexeme, move(methods))};
+
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Class>(stmt->name.lexeme, move(superclass), move(methods))};
     }
 
     void Interpreter::visit(const shared_ptr<const Function_stmt>& stmt) {

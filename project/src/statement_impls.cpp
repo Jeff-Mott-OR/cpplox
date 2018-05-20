@@ -128,8 +128,13 @@ namespace motts { namespace lox {
         struct Class_stmt
     */
 
-    Class_stmt::Class_stmt(Token&& name_arg, vector<shared_ptr<const Function_stmt>>&& methods_arg) :
+    Class_stmt::Class_stmt(
+        Token&& name_arg,
+        shared_ptr<Var_expr>&& superclass_arg,
+        vector<shared_ptr<const Function_stmt>>&& methods_arg
+    ) :
         name {move(name_arg)},
+        superclass {move(superclass_arg)},
         methods {move(methods_arg)}
     {}
 

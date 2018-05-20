@@ -17,7 +17,7 @@
 namespace motts { namespace lox {
     enum class Var_binding { declared, defined };
     enum class Function_type { none, function, initializer, method };
-    enum class Class_type { none, class_ };
+    enum class Class_type { none, class_, subclass };
 
     class Resolver : public Expr_visitor, public Stmt_visitor {
         public:
@@ -38,6 +38,7 @@ namespace motts { namespace lox {
             void visit(const std::shared_ptr<const Call_expr>&) override;
             void visit(const std::shared_ptr<const Get_expr>&) override;
             void visit(const std::shared_ptr<const Set_expr>&) override;
+            void visit(const std::shared_ptr<const Super_expr>&) override;
             void visit(const std::shared_ptr<const This_expr>&) override;
             void visit(const std::shared_ptr<const Grouping_expr>&) override;
             void visit(const std::shared_ptr<const Literal_expr>&) override;

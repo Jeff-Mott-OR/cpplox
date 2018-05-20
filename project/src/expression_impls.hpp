@@ -113,4 +113,12 @@ namespace motts { namespace lox {
         explicit This_expr(Token&& keyword);
         void accept(const std::shared_ptr<const Expr>& owner_this, Expr_visitor&) const override;
     };
+
+    struct Super_expr : Expr {
+        Token keyword;
+        Token method;
+
+        explicit Super_expr(Token&& keyword, Token&& method);
+        void accept(const std::shared_ptr<const Expr>& owner_this, Expr_visitor&) const override;
+    };
 }}

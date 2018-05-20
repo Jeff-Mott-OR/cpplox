@@ -22,6 +22,7 @@ namespace motts { namespace lox {
         virtual void visit(const std::shared_ptr<const Get_expr>&) = 0;
         virtual void visit(const std::shared_ptr<const Set_expr>&) = 0;
         virtual void visit(const std::shared_ptr<const This_expr>&) = 0;
+        virtual void visit(const std::shared_ptr<const Super_expr>&) = 0;
 
         // Base class boilerplate
         explicit Expr_visitor() = default;
