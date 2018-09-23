@@ -24,7 +24,8 @@ int main(int argc, /*const*/ char* argv[]) {
         ("help", "Print usage information and exit.")
         ("cpplox-file", program_options::value<string>(), "Required. File path to cpplox executable.")
         ("test-scripts-path", program_options::value<string>(), "Required. Path to test scripts.")
-        ("jlox-file", program_options::value<string>(), "File path to jlox run cmake script.");
+        ("jlox-file", program_options::value<string>(), "File path to jlox run cmake script.")
+        ("node-file", program_options::value<string>(), "File path to node executable.");
 
     program_options::variables_map variables_map;
     program_options::store(program_options::parse_command_line(argc, argv, options_description), variables_map);
@@ -65,6 +66,19 @@ int main(int argc, /*const*/ char* argv[]) {
                 for (auto _ : state) {
                     process::ipstream jlox_out;
                     process::system(cmd, process::std_out > jlox_out);
+                }
+            });
+        }
+
+        if (variables_map.count("node-file") && variables_map.at("node-file").as<string>().size()) {
+            benchmark::RegisterBenchmark(("node_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
+                const auto node = variables_map.at("node-file").as<string>();
+                const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".js";
+                const auto cmd = "\"" + node + "\" \"" + test_script + "\"";
+
+                for (auto _ : state) {
+                    process::ipstream node_out;
+                    process::system(cmd, process::std_out > node_out);
                 }
             });
         }

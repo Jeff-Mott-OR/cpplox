@@ -71,6 +71,9 @@ Vagrant.configure("2") do |config|
     echo "export CC=clang-5.0 && export CXX=clang++-5.0" >> /home/vagrant/.profile
     echo "PATH=\"/usr/lib/jvm/java-9-openjdk-amd64/bin:\\$PATH\"" >> /home/vagrant/.profile
 
+    curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+
     wget https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
     tar -xf cmake-3.10.2-Linux-x86_64.tar.gz
     echo "PATH=\"$PWD/cmake-3.10.2-Linux-x86_64/bin:\\$PATH\"" >> /home/vagrant/.profile

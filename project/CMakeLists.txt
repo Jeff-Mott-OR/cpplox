@@ -112,12 +112,19 @@ if(ENABLE_TESTING)
         set(JLOX_RUN_SCRIPT "\"\"")
     endif()
 
+    find_program(NODE_COMMAND node)
+    message(STATUS "Check for node: ${NODE_COMMAND}")
+    if(NODE_COMMAND STREQUAL "NODE_COMMAND-NOTFOUND")
+        set(NODE_COMMAND "\"\"")
+    endif()
+
     add_custom_target(
         bench
         bench_harness
             --cpplox-file "$<TARGET_FILE:cpplox>"
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts"
             --jlox-file "${JLOX_RUN_SCRIPT}"
+            --node-file "${NODE_COMMAND}"
         DEPENDS bench_harness cpplox
     )
 endif()
