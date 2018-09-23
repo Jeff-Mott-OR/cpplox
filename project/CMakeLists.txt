@@ -10,6 +10,7 @@ else()
     find_package(Boost)
 endif()
 find_path(GSL_INCLUDE_DIR gsl/gsl)
+find_path(HBOEHM_GC_INSTALL_DIR include/gc.h)
 
 add_executable(
     cpplox
@@ -29,7 +30,13 @@ add_executable(
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
 target_link_libraries(cpplox PRIVATE Boost::boost)
-target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}")
+if(CMAKE_HOST_UNIX)
+    target_link_libraries(cpplox PRIVATE "${HBOEHM_GC_INSTALL_DIR}/lib/libgc.a" pthread)
+else()
+    target_link_libraries(cpplox PRIVATE "${HBOEHM_GC_INSTALL_DIR}/lib/gc-lib.lib")
+endif()
+
+target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}" "${HBOEHM_GC_INSTALL_DIR}/include")
 install(TARGETS cpplox DESTINATION ./)
 
 # CMake doesn't abstract warning options for us, so detect compiler. Assume anything that isn't MSVC is GNU or GNU-

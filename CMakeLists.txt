@@ -84,6 +84,53 @@ ExternalProject_Get_Property(gsl SOURCE_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 
 ExternalProject_Add(
+    python_patch
+    URL https://github.com/techtonik/python-patch/archive/1.16.tar.gz
+    EXCLUDE_FROM_ALL TRUE
+    CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
+)
+ExternalProject_Get_Property(python_patch SOURCE_DIR)
+set(python_patch_SOURCE_DIR "${SOURCE_DIR}")
+
+ExternalProject_Add(
+    libatomic_ops
+    URL http://www.hboehm.info/gc/gc_source/libatomic_ops-7.6.2.tar.gz
+    EXCLUDE_FROM_ALL TRUE
+    CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
+)
+ExternalProject_Get_Property(libatomic_ops SOURCE_DIR)
+set(libatomic_ops_SOURCE_DIR "${SOURCE_DIR}")
+
+ExternalProject_Add(
+    hboehm_gc_unix
+    URL http://www.hboehm.info/gc/gc_source/gc-7.6.4.tar.gz
+    DEPENDS libatomic_ops
+    EXCLUDE_FROM_ALL TRUE
+    BUILD_IN_SOURCE TRUE
+    PATCH_COMMAND "${CMAKE_COMMAND}" -E copy_directory "${libatomic_ops_SOURCE_DIR}" "<SOURCE_DIR>/libatomic_ops"
+    CONFIGURE_COMMAND ./configure "--prefix=<INSTALL_DIR>"
+    BUILD_COMMAND make
+    INSTALL_COMMAND make install
+)
+ExternalProject_Get_Property(hboehm_gc_unix INSTALL_DIR)
+set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
+
+ExternalProject_Add(
+    hboehm_gc_win
+    URL http://www.hboehm.info/gc/gc_source/gc-7.6.4.tar.gz
+    DEPENDS libatomic_ops python_patch
+    EXCLUDE_FROM_ALL TRUE
+    PATCH_COMMAND "${CMAKE_COMMAND}" -E copy_directory "${libatomic_ops_SOURCE_DIR}" "<SOURCE_DIR>/libatomic_ops"
+        COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/patch/hboehm_gc/cmake_install_targets.diff"
+    CMAKE_ARGS
+        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+)
+ExternalProject_Get_Property(hboehm_gc_win INSTALL_DIR)
+set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
+
+ExternalProject_Add(
     google_benchmark
     URL https://github.com/google/benchmark/archive/v1.3.0.tar.gz
     EXCLUDE_FROM_ALL TRUE
@@ -134,6 +181,11 @@ ExternalProject_Add(
     # Override test command so we can specify verbose, otherwise the test harness's output is suppressed
     TEST_COMMAND "${CMAKE_CTEST_COMMAND}" --build-config "${CMAKE_BUILD_TYPE}" --verbose
 )
+if(CMAKE_HOST_UNIX)
+    add_dependencies(main hboehm_gc_unix)
+else()
+    add_dependencies(main hboehm_gc_win)
+endif()
 if(ENABLE_TESTING)
     add_dependencies(main google_benchmark)
     ExternalProject_Add_Step(

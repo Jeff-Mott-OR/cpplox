@@ -3,7 +3,6 @@
 // Related header
 // C standard headers
 // C++ standard headers
-#include <memory>
 #include <vector>
 // Third-party headers
 // This project's headers
@@ -14,86 +13,86 @@
 
 namespace motts { namespace lox {
     struct Expr_stmt : Stmt {
-        std::shared_ptr<const Expr> expr;
+        const Expr* expr {};
 
-        explicit Expr_stmt(std::shared_ptr<const Expr>&& expr);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit Expr_stmt(const Expr* expr);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Print_stmt : Stmt {
-        std::shared_ptr<const Expr> expr;
+        const Expr* expr {};
 
-        explicit Print_stmt(std::shared_ptr<const Expr>&& expr);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit Print_stmt(const Expr* expr);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Var_stmt : Stmt {
         Token name;
-        std::shared_ptr<const Expr> initializer;
+        const Expr* initializer {};
 
-        explicit Var_stmt(Token&& name, std::shared_ptr<const Expr>&& initializer);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit Var_stmt(Token&& name, const Expr* initializer);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct While_stmt : Stmt {
-        std::shared_ptr<const Expr> condition;
-        std::shared_ptr<const Stmt> body;
+        const Expr* condition {};
+        const Stmt* body {};
 
-        explicit While_stmt(std::shared_ptr<const Expr>&& condition, std::shared_ptr<const Stmt>&& body);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit While_stmt(const Expr* condition, const Stmt* body);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Block_stmt : Stmt {
-        std::vector<std::shared_ptr<const Stmt>> statements;
+        std::vector<const Stmt*> statements;
 
-        explicit Block_stmt(std::vector<std::shared_ptr<const Stmt>>&& statements);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit Block_stmt(std::vector<const Stmt*>&& statements);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct If_stmt : Stmt {
-        std::shared_ptr<const Expr> condition;
-        std::shared_ptr<const Stmt> then_branch;
-        std::shared_ptr<const Stmt> else_branch;
+        const Expr* condition {};
+        const Stmt* then_branch {};
+        const Stmt* else_branch {};
 
         explicit If_stmt(
-            std::shared_ptr<const Expr>&& condition,
-            std::shared_ptr<const Stmt>&& then_branch,
-            std::shared_ptr<const Stmt>&& else_branch
+            const Expr* condition,
+            const Stmt* then_branch,
+            const Stmt* else_branch
         );
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Function_stmt : Stmt {
         Token name;
         std::vector<Token> parameters;
-        std::vector<std::shared_ptr<const Stmt>> body;
+        std::vector<const Stmt*> body;
 
         explicit Function_stmt(
             Token&& name,
             std::vector<Token>&& parameters,
-            std::vector<std::shared_ptr<const Stmt>>&& body
+            std::vector<const Stmt*>&& body
         );
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Return_stmt : Stmt {
         Token keyword;
-        std::shared_ptr<const Expr> value;
+        const Expr* value {};
 
-        explicit Return_stmt(Token&& keyword, std::shared_ptr<const Expr>&& value);
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        explicit Return_stmt(Token&& keyword, const Expr* value);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
     struct Class_stmt : Stmt {
         Token name;
-        std::shared_ptr<Var_expr> superclass;
-        std::vector<std::shared_ptr<const Function_stmt>> methods;
+        Var_expr* superclass {};
+        std::vector<const Function_stmt*> methods;
 
         explicit Class_stmt(
             Token&& name,
-            std::shared_ptr<Var_expr>&& superclass,
-            std::vector<std::shared_ptr<const Function_stmt>>&& methods
+            Var_expr* superclass,
+            std::vector<const Function_stmt*>&& methods
         );
-        void accept(const std::shared_ptr<const Stmt>& owner_this, Stmt_visitor&) const override;
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 }}

@@ -12,6 +12,7 @@
 #include <utility>
 // Third-party headers
 #include <boost/variant.hpp>
+#include <gc.h>
 #include <gsl/gsl_util>
 // This project's headers
 #include "class.hpp"
@@ -25,12 +26,9 @@ using std::chrono::system_clock;
 using std::cout;
 using std::find_if;
 using std::make_pair;
-using std::make_shared;
 using std::move;
 using std::nullptr_t;
 using std::pair;
-using std::shared_ptr;
-using std::static_pointer_cast;
 using std::string;
 using std::to_string;
 using std::transform;
@@ -51,12 +49,12 @@ namespace motts { namespace lox {
         // This is conceptually an unordered map, but prefer vector as default container
         vector<pair<string, Literal>> values_;
 
-        shared_ptr<Environment> enclosed_;
+        Environment* enclosed_ {};
 
         public:
             explicit Environment() = default;
 
-            explicit Environment(shared_ptr<Environment> enclosed) :
+            explicit Environment(Environment* enclosed) :
                 enclosed_ {move(enclosed)}
             {}
 
@@ -64,7 +62,7 @@ namespace motts { namespace lox {
                 if (depth) {
                     auto enclosed_at_depth = this;
                     for (; depth; --depth) {
-                        enclosed_at_depth = enclosed_at_depth->enclosed_.get();
+                        enclosed_at_depth = enclosed_at_depth->enclosed_;
                     }
 
                     const auto found_at_depth = enclosed_at_depth->find_in_chain(var_name);
@@ -107,8 +105,8 @@ namespace motts { namespace lox {
     };
 
     Function::Function(
-        shared_ptr<const Function_stmt> declaration,
-        shared_ptr<Environment> enclosed,
+        const Function_stmt* declaration,
+        Environment* enclosed,
         bool is_initializer
     ) :
         declaration_ {move(declaration)},
@@ -117,12 +115,12 @@ namespace motts { namespace lox {
     {}
 
     Literal Function::call(
-        const shared_ptr<const Callable>& /*owner_this*/,
+        const Callable* /*owner_this*/,
         Interpreter& interpreter,
         const vector<Literal>& arguments
     ) const {
         auto caller_environment = move(interpreter.environment_);
-        interpreter.environment_ = make_shared<Environment>(enclosed_);
+        interpreter.environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
         const auto _ = finally([&] () {
             interpreter.environment_ = move(caller_environment);
         });
@@ -155,19 +153,19 @@ namespace motts { namespace lox {
         return "<fn " + declaration_->name.lexeme + ">";
     }
 
-    shared_ptr<Function> Function::bind(const shared_ptr<Instance>& instance) const {
-        auto this_environment = make_shared<Environment>(enclosed_);
+    Function* Function::bind(Instance* instance) const {
+        auto this_environment = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
         this_environment->find_own_or_make("this") = Literal{instance};
-        return make_shared<Function>(declaration_, this_environment, is_initializer_);
+        return new (GC_MALLOC(sizeof(Function))) Function{declaration_, this_environment, is_initializer_};
     }
 
     Interpreter::Interpreter() :
-        environment_ {make_shared<Environment>()},
+        environment_ {new (GC_MALLOC(sizeof(Environment))) Environment{}},
         globals_ {environment_}
     {
         struct Clock_callable : Callable {
             Literal call(
-                const shared_ptr<const Callable>& /*owner_this*/,
+                const Callable* /*owner_this*/,
                 Interpreter&,
                 const vector<Literal>& /*arguments*/
             ) const override {
@@ -183,14 +181,14 @@ namespace motts { namespace lox {
             }
         };
 
-        globals_->find_own_or_make("clock") = Literal{make_shared<Clock_callable>()};
+        globals_->find_own_or_make("clock") = Literal{new (GC_MALLOC(sizeof(Clock_callable))) Clock_callable{}};
     }
 
-    void Interpreter::visit(const shared_ptr<const Literal_expr>& expr) {
+    void Interpreter::visit(const Literal_expr* expr) {
         result_ = expr->value;
     }
 
-    void Interpreter::visit(const shared_ptr<const Grouping_expr>& expr) {
+    void Interpreter::visit(const Grouping_expr* expr) {
         expr->expr->accept(expr->expr, *this);
     }
 
@@ -210,7 +208,7 @@ namespace motts { namespace lox {
             }
     };
 
-    void Interpreter::visit(const shared_ptr<const Unary_expr>& expr) {
+    void Interpreter::visit(const Unary_expr* expr) {
         const auto unary_result = lox::apply_visitor(*this, expr->right);
 
         try {
@@ -262,7 +260,7 @@ namespace motts { namespace lox {
             }
     };
 
-    void Interpreter::visit(const shared_ptr<const Binary_expr>& expr) {
+    void Interpreter::visit(const Binary_expr* expr) {
         const auto left_result = lox::apply_visitor(*this, expr->left);
         const auto right_result = lox::apply_visitor(*this, expr->right);
 
@@ -319,7 +317,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const shared_ptr<const Var_expr>& expr) {
+    void Interpreter::visit(const Var_expr* expr) {
         const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
         if (var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
@@ -327,7 +325,7 @@ namespace motts { namespace lox {
         result_ = var_binding->second;
     }
 
-    void Interpreter::visit(const shared_ptr<const Assign_expr>& expr) {
+    void Interpreter::visit(const Assign_expr* expr) {
         const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
         if (var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
@@ -335,7 +333,7 @@ namespace motts { namespace lox {
         result_ = var_binding->second = lox::apply_visitor(*this, expr->value);
     }
 
-    void Interpreter::visit(const shared_ptr<const Logical_expr>& expr) {
+    void Interpreter::visit(const Logical_expr* expr) {
         auto left_result = lox::apply_visitor(*this, expr->left);
 
         // Short circuit if possible
@@ -356,27 +354,27 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
-    struct Get_callable_visitor : static_visitor<shared_ptr<Callable>> {
-        shared_ptr<Callable> operator()(shared_ptr<Callable>& callable) const {
+    struct Get_callable_visitor : static_visitor<Callable*> {
+        Callable* operator()(Callable* callable) const {
             return callable;
         }
 
-        shared_ptr<Callable> operator()(shared_ptr<Function>& callable) const {
+        Callable* operator()(Function* callable) const {
             return callable;
         }
 
-        shared_ptr<Callable> operator()(shared_ptr<Class>& callable) const {
+        Callable* operator()(Class* callable) const {
             return callable;
         }
 
         // All other types are not callables
         template<typename T>
-            shared_ptr<Callable> operator()(const T&) const {
+            Callable* operator()(const T&) const {
                 throw Interpreter_error{"Can only call functions and classes."};
             }
     };
 
-    void Interpreter::visit(const shared_ptr<const Call_expr>& expr) {
+    void Interpreter::visit(const Call_expr* expr) {
         auto callee_result = lox::apply_visitor(*this, expr->callee);
         const auto callable = boost::apply_visitor(Get_callable_visitor{}, callee_result.value);
 
@@ -399,10 +397,10 @@ namespace motts { namespace lox {
         result_ = callable->call(callable, *this, arguments_results);
     }
 
-    void Interpreter::visit(const shared_ptr<const Get_expr>& expr) {
+    void Interpreter::visit(const Get_expr* expr) {
         const auto object_result = lox::apply_visitor(*this, expr->object);
         try {
-            const auto instance = get<shared_ptr<Instance>>(object_result.value);
+            const auto instance = get<Instance*>(object_result.value);
             result_ = instance->get(instance, expr->name.lexeme);
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
@@ -410,12 +408,12 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const shared_ptr<const Set_expr>& expr) {
+    void Interpreter::visit(const Set_expr* expr) {
         auto object_result = lox::apply_visitor(*this, expr->object);
         auto value_result = lox::apply_visitor(*this, expr->value);
 
         try {
-            get<shared_ptr<Instance>>(object_result.value)->set(expr->name.lexeme, Literal{value_result});
+            get<Instance*>(object_result.value)->set(expr->name.lexeme, Literal{value_result});
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
             throw Interpreter_error{"Only instances have fields.", expr->name};
@@ -424,17 +422,17 @@ namespace motts { namespace lox {
         result_ = move(value_result);
     }
 
-    void Interpreter::visit(const std::shared_ptr<const Super_expr>& expr) {
+    void Interpreter::visit(const Super_expr* expr) {
         const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-            return depth.first == expr.get();
+            return depth.first == expr;
         });
-        auto superclass = get<shared_ptr<Class>>(environment_->find_in_chain("super", found_depth->second)->second.value);
-        auto instance = get<shared_ptr<Instance>>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
+        auto superclass = get<Class*>(environment_->find_in_chain("super", found_depth->second)->second.value);
+        auto instance = get<Instance*>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
 
         result_ = superclass->get(instance, expr->method.lexeme);
     }
 
-    void Interpreter::visit(const std::shared_ptr<const This_expr>& expr) {
+    void Interpreter::visit(const This_expr* expr) {
         const auto var_binding = lookup_variable("this", *expr);
         if (var_binding == environment_->end()) {
             throw Interpreter_error{"Undefined variable '" + expr->keyword.lexeme + "'."};
@@ -442,11 +440,11 @@ namespace motts { namespace lox {
         result_ = var_binding->second;
     }
 
-    void Interpreter::visit(const shared_ptr<const Expr_stmt>& stmt) {
+    void Interpreter::visit(const Expr_stmt* stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Interpreter::visit(const shared_ptr<const If_stmt>& if_stmt) {
+    void Interpreter::visit(const If_stmt* if_stmt) {
         const auto condition_result = lox::apply_visitor(*this, if_stmt->condition);
         if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
             if_stmt->then_branch->accept(if_stmt->then_branch, *this);
@@ -459,7 +457,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const shared_ptr<const While_stmt>& stmt) {
+    void Interpreter::visit(const While_stmt* stmt) {
         while (
             // IIFE so I can execute multiple statements inside while condition
             ([&] () {
@@ -475,11 +473,11 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const shared_ptr<const Print_stmt>& stmt) {
+    void Interpreter::visit(const Print_stmt* stmt) {
         cout << lox::apply_visitor(*this, stmt->expr) << "\n";
     }
 
-    void Interpreter::visit(const shared_ptr<const Var_stmt>& stmt) {
+    void Interpreter::visit(const Var_stmt* stmt) {
         environment_->find_own_or_make(stmt->name.lexeme) = (
             stmt->initializer ?
                 lox::apply_visitor(*this, stmt->initializer) :
@@ -487,9 +485,9 @@ namespace motts { namespace lox {
         );
     }
 
-    void Interpreter::visit(const shared_ptr<const Block_stmt>& stmt) {
+    void Interpreter::visit(const Block_stmt* stmt) {
         auto enclosed = move(environment_);
-        environment_ = make_shared<Environment>(enclosed);
+        environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
         const auto _ = finally([&] () {
             environment_ = move(enclosed);
         });
@@ -503,22 +501,22 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const shared_ptr<const Class_stmt>& stmt) {
-        shared_ptr<Class> superclass;
-        vector<pair<string, shared_ptr<Function>>> methods;
+    void Interpreter::visit(const Class_stmt* stmt) {
+        Class* superclass {};
+        vector<pair<string, Function*>> methods;
 
         {
-            shared_ptr<Environment> enclosed;
+            Environment* enclosed {};
             if (stmt->superclass) {
                 try {
-                    superclass = get<shared_ptr<Class>>(lox::apply_visitor(*this, stmt->superclass).value);
+                    superclass = get<Class*>(lox::apply_visitor(*this, stmt->superclass).value);
                 } catch (const bad_get&) {
                     // Convert a boost variant error into a Lox error
                     throw Interpreter_error{"Superclass must be a class.", stmt->superclass->name};
                 }
 
                 enclosed = move(environment_);
-                environment_ = make_shared<Environment>(enclosed);
+                environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
                 environment_->find_own_or_make("super") = Literal{superclass};
             }
             const auto _ = finally([&] () {
@@ -530,19 +528,19 @@ namespace motts { namespace lox {
             for (const auto& method : stmt->methods) {
                 methods.push_back({
                     method->name.lexeme,
-                    make_shared<Function>(method, environment_, method->name.lexeme == "init")
+                    new (GC_MALLOC(sizeof(Function))) Function{method, environment_, method->name.lexeme == "init"}
                 });
             }
         }
 
-        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Class>(stmt->name.lexeme, move(superclass), move(methods))};
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{new (GC_MALLOC(sizeof(Class))) Class{stmt->name.lexeme, move(superclass), move(methods)}};
     }
 
-    void Interpreter::visit(const shared_ptr<const Function_stmt>& stmt) {
-        environment_->find_own_or_make(stmt->name.lexeme) = Literal{make_shared<Function>(stmt, environment_)};
+    void Interpreter::visit(const Function_stmt* stmt) {
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{new (GC_MALLOC(sizeof(Function))) Function{stmt, environment_}};
     }
 
-    void Interpreter::visit(const shared_ptr<const Return_stmt>& stmt) {
+    void Interpreter::visit(const Return_stmt* stmt) {
         Literal value;
         if (stmt->value) {
             value = lox::apply_visitor(*this, stmt->value);

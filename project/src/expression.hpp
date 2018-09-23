@@ -3,7 +3,6 @@
 // Related header
 // C standard headers
 // C++ standard headers
-#include <memory>
 // Third-party headers
 // This project's headers
 #include "exception.hpp"
@@ -52,12 +51,12 @@ namespace motts { namespace lox {
             `owner_this` smart pointer parameter, and the definition of `accept` will need to cast that `owner_this` to
             the derived type that we know it really is.
         */
-        virtual void accept(const std::shared_ptr<const Expr>& owner_this, Expr_visitor&) const = 0;
+        virtual void accept(const Expr* owner_this, Expr_visitor&) const = 0;
 
         // To avoid dynamic_cast tests, implement lvalue-ness polymorphically
-        virtual std::shared_ptr<const Expr> make_assignment_expression(
-            std::shared_ptr<const Expr>&& lhs_expr,
-            std::shared_ptr<const Expr>&& rhs_expr,
+        virtual const Expr* make_assignment_expression(
+            const Expr* lhs_expr,
+            const Expr* rhs_expr,
             const Runtime_error& throwable_if_not_lvalue
         ) const;
 

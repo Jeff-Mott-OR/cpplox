@@ -10,6 +10,7 @@
 #include <vector>
 // Third-party headers
 #include <boost/algorithm/string/join.hpp>
+#include <gc.h>
 #include <gsl/span>
 // This project's headers
 #include "exception.hpp"
@@ -35,6 +36,8 @@ using gsl::span;
 namespace lox = motts::lox;
 
 auto run(const string& source, lox::Interpreter& interpreter) {
+    GC_INIT();
+
     const auto statements = lox::parse(lox::Token_iterator{source});
 
     lox::Resolver resolver {interpreter};

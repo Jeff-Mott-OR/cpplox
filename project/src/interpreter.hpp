@@ -4,7 +4,6 @@
 #include "interpreter_fwd.hpp"
 // C standard headers
 // C++ standard headers
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,28 +23,28 @@ namespace motts { namespace lox {
         public:
             explicit Interpreter();
 
-            void visit(const std::shared_ptr<const Binary_expr>&) override;
-            void visit(const std::shared_ptr<const Grouping_expr>&) override;
-            void visit(const std::shared_ptr<const Literal_expr>&) override;
-            void visit(const std::shared_ptr<const Unary_expr>&) override;
-            void visit(const std::shared_ptr<const Var_expr>&) override;
-            void visit(const std::shared_ptr<const Assign_expr>&) override;
-            void visit(const std::shared_ptr<const Logical_expr>&) override;
-            void visit(const std::shared_ptr<const Call_expr>&) override;
-            void visit(const std::shared_ptr<const Get_expr>&) override;
-            void visit(const std::shared_ptr<const Set_expr>&) override;
-            void visit(const std::shared_ptr<const Super_expr>&) override;
-            void visit(const std::shared_ptr<const This_expr>&) override;
+            void visit(const Binary_expr*) override;
+            void visit(const Grouping_expr*) override;
+            void visit(const Literal_expr*) override;
+            void visit(const Unary_expr*) override;
+            void visit(const Var_expr*) override;
+            void visit(const Assign_expr*) override;
+            void visit(const Logical_expr*) override;
+            void visit(const Call_expr*) override;
+            void visit(const Get_expr*) override;
+            void visit(const Set_expr*) override;
+            void visit(const Super_expr*) override;
+            void visit(const This_expr*) override;
 
-            void visit(const std::shared_ptr<const Expr_stmt>&) override;
-            void visit(const std::shared_ptr<const If_stmt>&) override;
-            void visit(const std::shared_ptr<const Print_stmt>&) override;
-            void visit(const std::shared_ptr<const While_stmt>&) override;
-            void visit(const std::shared_ptr<const Var_stmt>&) override;
-            void visit(const std::shared_ptr<const Block_stmt>&) override;
-            void visit(const std::shared_ptr<const Class_stmt>&) override;
-            void visit(const std::shared_ptr<const Function_stmt>&) override;
-            void visit(const std::shared_ptr<const Return_stmt>&) override;
+            void visit(const Expr_stmt*) override;
+            void visit(const If_stmt*) override;
+            void visit(const Print_stmt*) override;
+            void visit(const While_stmt*) override;
+            void visit(const Var_stmt*) override;
+            void visit(const Block_stmt*) override;
+            void visit(const Class_stmt*) override;
+            void visit(const Function_stmt*) override;
+            void visit(const Return_stmt*) override;
 
             const Literal& result() const &;
             Literal&& result() &&;
@@ -60,30 +59,30 @@ namespace motts { namespace lox {
             Literal result_;
             bool returning_ {false};
 
-            std::shared_ptr<Environment> environment_;
-            std::shared_ptr<Environment> globals_;
+            Environment* environment_ {};
+            Environment* globals_ {};
             std::vector<std::pair<const Expr*, int>> scope_depths_;
     };
 
     class Function : public Callable {
         public:
             explicit Function(
-                std::shared_ptr<const Function_stmt> declaration,
-                std::shared_ptr<Environment> enclosed,
+                const Function_stmt* declaration,
+                Environment* enclosed,
                 bool is_initializer = false
             );
             Literal call(
-                const std::shared_ptr<const Callable>& /*owner_this*/,
+                const Callable* /*owner_this*/,
                 Interpreter& interpreter,
                 const std::vector<Literal>& arguments
             ) const override;
             int arity() const override;
             std::string to_string() const override;
-            std::shared_ptr<Function> bind(const std::shared_ptr<Instance>&) const;
+            Function* bind(Instance*) const;
 
         private:
-            std::shared_ptr<const Function_stmt> declaration_;
-            std::shared_ptr<Environment> enclosed_;
+            const Function_stmt* declaration_ {};
+            Environment* enclosed_ {};
             bool is_initializer_;
     };
 

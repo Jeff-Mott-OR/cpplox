@@ -4,7 +4,6 @@
 // C standard headers
 #include <cstddef>
 // C++ standard headers
-#include <memory>
 #include <ostream>
 #include <string>
 // Third-party headers
@@ -48,10 +47,10 @@ namespace motts { namespace lox {
             std::string,
             double,
             bool,
-            std::shared_ptr<Callable>,
-            std::shared_ptr<Function>,
-            std::shared_ptr<Class>,
-            std::shared_ptr<Instance>
+            Callable*,
+            Function*,
+            Class*,
+            Instance*
         > value;
     };
 

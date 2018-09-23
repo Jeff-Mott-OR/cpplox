@@ -5,15 +5,14 @@
 #include <utility>
 // Third-party headers
 #include <boost/algorithm/string/join.hpp>
+#include <gc.h>
 // This project's headers
 #include "expression_impls.hpp"
 #include "statement_impls.hpp"
 
-using std::make_shared;
 using std::move;
 using std::string;
 using std::to_string;
-using std::shared_ptr;
 using std::vector;
 
 using boost::algorithm::join;
@@ -40,7 +39,7 @@ namespace {
                 return parser_errors_;
             }
 
-            shared_ptr<const Stmt> consume_declaration() {
+            const Stmt* consume_declaration() {
                 try {
                     if (advance_if_match(Token_type::class_)) return consume_class_declaration();
                     if (advance_if_match(Token_type::fun_)) return consume_function_declaration();
@@ -55,41 +54,41 @@ namespace {
                 }
             }
 
-            shared_ptr<const Stmt> consume_var_declaration() {
+            const Stmt* consume_var_declaration() {
                 auto var_name = consume(Token_type::identifier, "Expected variable name.");
 
-                shared_ptr<const Expr> initializer;
+                const Expr* initializer {};
                 if (advance_if_match(Token_type::equal)) {
                     initializer = consume_expression();
                 }
 
                 consume(Token_type::semicolon, "Expected ';' after variable declaration.");
 
-                return make_shared<Var_stmt>(move(var_name), move(initializer));
+                return new (GC_MALLOC(sizeof(Var_stmt))) Var_stmt{move(var_name), move(initializer)};
             }
 
-            shared_ptr<const Stmt> consume_class_declaration() {
+            const Stmt* consume_class_declaration() {
                 auto name = consume(Token_type::identifier, "Expected class name.");
 
-                shared_ptr<Var_expr> superclass;
+                Var_expr* superclass {};
                 if (advance_if_match(Token_type::less)) {
                     auto super_name = consume(Token_type::identifier, "Expected superclass name.");
-                    superclass = make_shared<Var_expr>(move(super_name));
+                    superclass = new (GC_MALLOC(sizeof(Var_expr))) Var_expr{move(super_name)};
                 }
 
                 consume(Token_type::left_brace, "Expected '{' before class body.");
 
-                vector<shared_ptr<const Function_stmt>> methods;
+                vector<const Function_stmt*> methods;
                 while (token_iter_->type != Token_type::right_brace && token_iter_->type != Token_type::eof) {
                     methods.push_back(consume_function_declaration());
                 }
 
                 consume(Token_type::right_brace, "Expected '}' after class body.");
 
-                return make_shared<Class_stmt>(move(name), move(superclass), move(methods));
+                return new (GC_MALLOC(sizeof(Class_stmt))) Class_stmt{move(name), move(superclass), move(methods)};
             }
 
-            shared_ptr<const Function_stmt> consume_function_declaration() {
+            const Function_stmt* consume_function_declaration() {
                 auto name = consume(Token_type::identifier, "Expected function name.");
 
                 consume(Token_type::left_paren, "Expected '(' after function name.");
@@ -108,10 +107,10 @@ namespace {
                 consume(Token_type::left_brace, "Expected '{' before function body.");
                 auto body = consume_block_statement();
 
-                return make_shared<Function_stmt>(move(name), move(parameters), move(body));
+                return new (GC_MALLOC(sizeof(Function_stmt))) Function_stmt{move(name), move(parameters), move(body)};
             }
 
-            shared_ptr<const Stmt> consume_statement() {
+            const Stmt* consume_statement() {
                 if (advance_if_match(Token_type::for_)) return consume_for_statement();
                 if (advance_if_match(Token_type::if_)) return consume_if_statement();
                 if (advance_if_match(Token_type::print_)) return consume_print_statement();
@@ -122,20 +121,20 @@ namespace {
                     return consume_return_statement(move(keyword));
                 }
                 if (advance_if_match(Token_type::while_)) return consume_while_statement();
-                if (advance_if_match(Token_type::left_brace)) return make_shared<Block_stmt>(consume_block_statement());
+                if (advance_if_match(Token_type::left_brace)) return new (GC_MALLOC(sizeof(Block_stmt))) Block_stmt{consume_block_statement()};
 
                 return consume_expression_statement();
             }
 
-            shared_ptr<const Stmt> consume_expression_statement() {
+            const Stmt* consume_expression_statement() {
                 auto expr = consume_expression();
                 consume(Token_type::semicolon, "Expected ';' after expression.");
 
-                return make_shared<const Expr_stmt>(move(expr));
+                return new (GC_MALLOC(sizeof(Expr_stmt))) Expr_stmt{move(expr)};
             }
 
-            vector<shared_ptr<const Stmt>> consume_block_statement() {
-                vector<shared_ptr<const Stmt>> statements;
+            vector<const Stmt*> consume_block_statement() {
+                vector<const Stmt*> statements;
                 while (token_iter_->type != Token_type::right_brace && token_iter_->type != Token_type::eof) {
                     statements.push_back(consume_declaration());
                 }
@@ -144,10 +143,10 @@ namespace {
                 return statements;
             }
 
-            shared_ptr<const Stmt> consume_for_statement() {
+            const Stmt* consume_for_statement() {
                 consume(Token_type::left_paren, "Expected '(' after 'for'.");
 
-                shared_ptr<const Stmt> initializer;
+                const Stmt* initializer {};
                 if (advance_if_match(Token_type::semicolon)) {
                     // initializer is already null
                 } else if (advance_if_match(Token_type::var_)) {
@@ -156,13 +155,13 @@ namespace {
                     initializer = consume_expression_statement();
                 }
 
-                shared_ptr<const Expr> condition;
+                const Expr* condition {};
                 if (token_iter_->type != Token_type::semicolon) {
                     condition = consume_expression();
                 }
                 consume(Token_type::semicolon, "Expected ';' after loop condition.");
 
-                shared_ptr<const Expr> increment;
+                const Expr* increment {};
                 if (token_iter_->type != Token_type::right_paren) {
                     increment = consume_expression();
                 }
@@ -171,74 +170,74 @@ namespace {
                 auto body = consume_statement();
 
                 if (increment) {
-                    vector<shared_ptr<const Stmt>> stmts;
+                    vector<const Stmt*> stmts;
                     stmts.push_back(move(body));
-                    stmts.push_back(make_shared<const Expr_stmt>(move(increment)));
-                    body = make_shared<Block_stmt>(move(stmts));
+                    stmts.push_back(new (GC_MALLOC(sizeof(Expr_stmt))) Expr_stmt{move(increment)});
+                    body = new (GC_MALLOC(sizeof(Block_stmt))) Block_stmt{move(stmts)};
                 }
 
                 if (!condition) {
-                    condition = make_shared<Literal_expr>(Literal{true});
+                    condition = new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{true}};
                 }
-                body = make_shared<While_stmt>(move(condition), move(body));
+                body = new (GC_MALLOC(sizeof(While_stmt))) While_stmt{move(condition), move(body)};
 
                 if (initializer) {
-                    vector<shared_ptr<const Stmt>> stmts;
+                    vector<const Stmt*> stmts;
                     stmts.push_back(move(initializer));
                     stmts.push_back(move(body));
-                    body = make_shared<Block_stmt>(move(stmts));
+                    body = new (GC_MALLOC(sizeof(Block_stmt))) Block_stmt{move(stmts)};
                 }
 
                 return body;
             }
 
-            shared_ptr<const Stmt> consume_if_statement() {
+            const Stmt* consume_if_statement() {
                 consume(Token_type::left_paren, "Expected '(' after 'if'.");
                 auto condition = consume_expression();
                 consume(Token_type::right_paren, "Expected ')' after if condition.");
 
                 auto then_branch = consume_statement();
 
-                shared_ptr<const Stmt> else_branch;
+                const Stmt* else_branch {};
                 if (advance_if_match(Token_type::else_)) {
                     else_branch = consume_statement();
                 }
 
-                return make_shared<If_stmt>(move(condition), move(then_branch), move(else_branch));
+                return new (GC_MALLOC(sizeof(If_stmt))) If_stmt{move(condition), move(then_branch), move(else_branch)};
             }
 
-            shared_ptr<const Stmt> consume_while_statement() {
+            const Stmt* consume_while_statement() {
                 consume(Token_type::left_paren, "Expected '(' after 'while'.");
                 auto condition = consume_expression();
                 consume(Token_type::right_paren, "Expected ')' after condition.");
 
                 auto body = consume_statement();
 
-                return make_shared<While_stmt>(move(condition), move(body));
+                return new (GC_MALLOC(sizeof(While_stmt))) While_stmt{move(condition), move(body)};
             }
 
-            shared_ptr<const Stmt> consume_print_statement() {
+            const Stmt* consume_print_statement() {
                 auto value = consume_expression();
                 consume(Token_type::semicolon, "Expected ';' after value.");
 
-                return make_shared<Print_stmt>(move(value));
+                return new (GC_MALLOC(sizeof(Print_stmt))) Print_stmt{move(value)};
             }
 
-            shared_ptr<const Stmt> consume_return_statement(Token&& keyword) {
-                shared_ptr<const Expr> value;
+            const Stmt* consume_return_statement(Token&& keyword) {
+                const Expr* value {};
                 if (token_iter_->type != Token_type::semicolon) {
                     value = consume_expression();
                 }
                 consume(Token_type::semicolon, "Expected ';' after return value.");
 
-                return make_shared<Return_stmt>(move(keyword), move(value));
+                return new (GC_MALLOC(sizeof(Return_stmt))) Return_stmt{move(keyword), move(value)};
             }
 
-            shared_ptr<const Expr> consume_expression() {
+            const Expr* consume_expression() {
                 return consume_assignment();
             }
 
-            shared_ptr<const Expr> consume_assignment() {
+            const Expr* consume_assignment() {
                 auto lhs_expr = consume_or();
 
                 if (token_iter_->type == Token_type::equal) {
@@ -261,7 +260,7 @@ namespace {
                 return lhs_expr;
             }
 
-            shared_ptr<const Expr> consume_or() {
+            const Expr* consume_or() {
                 auto left_expr = consume_and();
 
                 while (token_iter_->type == Token_type::or_) {
@@ -269,13 +268,13 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_and();
 
-                    left_expr = make_shared<Logical_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Logical_expr))) Logical_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_and() {
+            const Expr* consume_and() {
                 auto left_expr = consume_equality();
 
                 while (token_iter_->type == Token_type::and_) {
@@ -283,13 +282,13 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_equality();
 
-                    left_expr = make_shared<Logical_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Logical_expr))) Logical_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_equality() {
+            const Expr* consume_equality() {
                 auto left_expr = consume_comparison();
 
                 while (token_iter_->type == Token_type::bang_equal || token_iter_->type == Token_type::equal_equal) {
@@ -297,13 +296,13 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_comparison();
 
-                    left_expr = make_shared<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Binary_expr))) Binary_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_comparison() {
+            const Expr* consume_comparison() {
                 auto left_expr = consume_addition();
 
                 while (
@@ -314,13 +313,13 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_addition();
 
-                    left_expr = make_shared<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Binary_expr))) Binary_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_addition() {
+            const Expr* consume_addition() {
                 auto left_expr = consume_multiplication();
 
                 while (token_iter_->type == Token_type::minus || token_iter_->type == Token_type::plus) {
@@ -328,13 +327,13 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_multiplication();
 
-                    left_expr = make_shared<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Binary_expr))) Binary_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_multiplication() {
+            const Expr* consume_multiplication() {
                 auto left_expr = consume_unary();
 
                 while (token_iter_->type == Token_type::slash || token_iter_->type == Token_type::star) {
@@ -342,25 +341,25 @@ namespace {
                     ++token_iter_;
                     auto right_expr = consume_unary();
 
-                    left_expr = make_shared<Binary_expr>(move(left_expr), move(op), move(right_expr));
+                    left_expr = new (GC_MALLOC(sizeof(Binary_expr))) Binary_expr{move(left_expr), move(op), move(right_expr)};
                 }
 
                 return left_expr;
             }
 
-            shared_ptr<const Expr> consume_unary() {
+            const Expr* consume_unary() {
                 if (token_iter_->type == Token_type::bang || token_iter_->type == Token_type::minus) {
                     auto op = *move(token_iter_);
                     ++token_iter_;
                     auto right_expr = consume_unary();
 
-                    return make_shared<Unary_expr>(move(op), move(right_expr));
+                    return new (GC_MALLOC(sizeof(Unary_expr))) Unary_expr{move(op), move(right_expr)};
                 }
 
                 return consume_call();
             }
 
-            shared_ptr<const Expr> consume_call() {
+            const Expr* consume_call() {
                 auto expr = consume_primary();
 
                 while (true) {
@@ -371,7 +370,7 @@ namespace {
 
                     if (advance_if_match(Token_type::dot)) {
                         auto name = consume(Token_type::identifier, "Expected property name after '.'.");
-                        expr = make_shared<Get_expr>(move(expr), move(name));
+                        expr = new (GC_MALLOC(sizeof(Get_expr))) Get_expr{move(expr), move(name)};
                         continue;
                     }
 
@@ -381,8 +380,8 @@ namespace {
                 return expr;
             }
 
-            shared_ptr<const Expr> consume_finish_call(shared_ptr<const Expr>&& callee) {
-                vector<shared_ptr<const Expr>> arguments;
+            const Expr* consume_finish_call(const Expr* callee) {
+                vector<const Expr*> arguments;
                 if (token_iter_->type != Token_type::right_paren) {
                     do {
                         arguments.push_back(consume_expression());
@@ -394,16 +393,16 @@ namespace {
                 }
                 auto closing_paren = consume(Token_type::right_paren, "Expected ')' after arguments.");
 
-                return make_shared<Call_expr>(move(callee), move(closing_paren), move(arguments));
+                return new (GC_MALLOC(sizeof(Call_expr))) Call_expr{move(callee), move(closing_paren), move(arguments)};
             }
 
-            shared_ptr<const Expr> consume_primary() {
-                if (advance_if_match(Token_type::false_)) return make_shared<Literal_expr>(Literal{false});
-                if (advance_if_match(Token_type::true_)) return make_shared<Literal_expr>(Literal{true});
-                if (advance_if_match(Token_type::nil_)) return make_shared<Literal_expr>(Literal{nullptr});
+            const Expr* consume_primary() {
+                if (advance_if_match(Token_type::false_)) return new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{false}};
+                if (advance_if_match(Token_type::true_)) return new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{true}};
+                if (advance_if_match(Token_type::nil_)) return new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{nullptr}};
 
                 if (token_iter_->type == Token_type::number || token_iter_->type == Token_type::string) {
-                    auto expr = make_shared<Literal_expr>(*((*move(token_iter_)).literal));
+                    auto expr = new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{*((*move(token_iter_)).literal)};
                     ++token_iter_;
                     return expr;
                 }
@@ -413,17 +412,17 @@ namespace {
                     ++token_iter_;
                     consume(Token_type::dot, "Expected '.' after 'super'.");
                     auto method = consume(Token_type::identifier, "Expected superclass method name.");
-                    return make_shared<Super_expr>(move(keyword), move(method));
+                    return new (GC_MALLOC(sizeof(Super_expr))) Super_expr{move(keyword), move(method)};
                 }
 
                 if (token_iter_->type == Token_type::this_) {
                     auto keyword = *move(token_iter_);
                     ++token_iter_;
-                    return make_shared<This_expr>(move(keyword));
+                    return new (GC_MALLOC(sizeof(This_expr))) This_expr{move(keyword)};
                 }
 
                 if (token_iter_->type == Token_type::identifier) {
-                    auto expr = make_shared<Var_expr>(*move(token_iter_));
+                    auto expr = new (GC_MALLOC(sizeof(Var_expr))) Var_expr{*move(token_iter_)};
                     ++token_iter_;
                     return expr;
                 }
@@ -431,7 +430,7 @@ namespace {
                 if (advance_if_match(Token_type::left_paren)) {
                     auto expr = consume_expression();
                     consume(Token_type::right_paren, "Expected ')' after expression.");
-                    return make_shared<Grouping_expr>(move(expr));
+                    return new (GC_MALLOC(sizeof(Grouping_expr))) Grouping_expr{move(expr)};
                 }
 
                 throw Parser_error{"Expected expression.", *token_iter_};
@@ -485,8 +484,8 @@ namespace {
 
 // Exported (external linkage)
 namespace motts { namespace lox {
-    vector<shared_ptr<const Stmt>> parse(Token_iterator&& token_iter) {
-        vector<shared_ptr<const Stmt>> statements;
+    vector<const Stmt*> parse(Token_iterator&& token_iter) {
+        vector<const Stmt*> statements;
 
         Parser parser {move(token_iter)};
         while (parser.token_iter()->type != Token_type::eof) {

@@ -3,7 +3,6 @@
 // Related header
 // C standard headers
 // C++ standard headers
-#include <memory>
 #include <string>
 #include <vector>
 // Third-party headers
@@ -23,7 +22,7 @@ namespace motts { namespace lox {
     iterator directly rather than on a vector of tokens. This way I was able to eliminate the intermediate data
     structure altogether.
     */
-    std::vector<std::shared_ptr<const Stmt>> parse(Token_iterator&&);
+    std::vector<const Stmt*> parse(Token_iterator&&);
 
     struct Parser_error : Runtime_error {
         explicit Parser_error(const std::string& what, const Token&);

@@ -12,7 +12,6 @@
 using std::boolalpha;
 using std::nullptr_t;
 using std::ostream;
-using std::shared_ptr;
 using std::string;
 
 using boost::apply_visitor;
@@ -42,19 +41,19 @@ namespace motts { namespace lox {
             os << "nil";
         }
 
-        auto operator()(const shared_ptr<Callable>& callable) {
+        auto operator()(Callable* callable) {
             os << callable->to_string();
         }
 
-        auto operator()(const shared_ptr<Function>& callable) {
+        auto operator()(Function* callable) {
             os << callable->to_string();
         }
 
-        auto operator()(const shared_ptr<Class>& callable) {
+        auto operator()(Class* callable) {
             os << callable->to_string();
         }
 
-        auto operator()(const shared_ptr<Instance>& instance) {
+        auto operator()(Instance* instance) {
             os << instance->to_string();
         }
     };

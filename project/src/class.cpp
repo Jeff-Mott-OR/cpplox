@@ -5,16 +5,14 @@
 #include <algorithm>
 #include <utility>
 // Third-party headers
+#include <gc.h>
 // This project's headers
 #include "exception.hpp"
 #include "interpreter.hpp"
 
 using std::find_if;
-using std::make_shared;
 using std::move;
 using std::pair;
-using std::shared_ptr;
-using std::static_pointer_cast;
 using std::string;
 using std::vector;
 
@@ -23,14 +21,14 @@ namespace motts { namespace lox {
         class Class
     */
 
-    Class::Class(const string& name, shared_ptr<Class>&& superclass, vector<pair<string, shared_ptr<Function>>>&& methods) :
+    Class::Class(const string& name, Class* superclass, vector<pair<string, Function*>>&& methods) :
         name_ {name},
         superclass_ {move(superclass)},
         methods_ {move(methods)}
     {}
 
-    Literal Class::call(const shared_ptr<const Callable>& owner_this, Interpreter& interpreter, const vector<Literal>& arguments) const {
-        auto instance = make_shared<Instance>(static_pointer_cast<const Class>(owner_this));
+    Literal Class::call(const Callable* owner_this, Interpreter& interpreter, const vector<Literal>& arguments) const {
+        auto instance = new (GC_MALLOC(sizeof(Instance))) Instance{static_cast<const Class*>(owner_this)};
 
         const auto found_init = find_if(methods_.cbegin(), methods_.cend(), [] (const auto& method) {
             return method.first == "init";
@@ -59,7 +57,7 @@ namespace motts { namespace lox {
         return name_;
     }
 
-    Literal Class::get(const shared_ptr<Instance>& instance_to_bind, const string& name) const {
+    Literal Class::get(Instance* instance_to_bind, const string& name) const {
         const auto found_method = find_if(methods_.cbegin(), methods_.cend(), [&] (const auto& method) {
             return method.first == name;
         });
@@ -78,11 +76,11 @@ namespace motts { namespace lox {
         class Instance
     */
 
-    Instance::Instance(shared_ptr<const Class> class_arg) :
+    Instance::Instance(const Class* class_arg) :
         class_ {move(class_arg)}
     {}
 
-    Literal Instance::get(const shared_ptr<Instance>& owner_this, const string& name) {
+    Literal Instance::get(Instance* owner_this, const string& name) {
         const auto found_field = find_if(fields_.cbegin(), fields_.cend(), [&] (const auto& field) {
             return field.first == name;
         });

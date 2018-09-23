@@ -9,7 +9,6 @@
 
 using std::find_if;
 using std::pair;
-using std::shared_ptr;
 using std::string;
 using std::to_string;
 
@@ -21,7 +20,7 @@ namespace motts { namespace lox {
         interpreter_ {interpreter}
     {}
 
-    void Resolver::visit(const shared_ptr<const Block_stmt>& stmt) {
+    void Resolver::visit(const Block_stmt* stmt) {
         scopes_.push_back({});
         const auto _ = finally([&] () {
             scopes_.pop_back();
@@ -31,7 +30,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const shared_ptr<const Class_stmt>& stmt) {
+    void Resolver::visit(const Class_stmt* stmt) {
         if (scopes_.size()) {
             declare_var(stmt->name).second = Var_binding::defined;
         }
@@ -72,7 +71,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const shared_ptr<const Var_stmt>& stmt) {
+    void Resolver::visit(const Var_stmt* stmt) {
         if (scopes_.size()) {
             const auto found_in_scope = find_if(
                 scopes_.back().cbegin(), scopes_.back().cend(),
@@ -96,7 +95,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const shared_ptr<const Var_expr>& expr) {
+    void Resolver::visit(const Var_expr* expr) {
         if (scopes_.size()) {
             const auto found_declared_in_scope = find_if(
                 scopes_.back().cbegin(), scopes_.back().cend(),
@@ -112,12 +111,12 @@ namespace motts { namespace lox {
         resolve_local(*expr, expr->name.lexeme);
     }
 
-    void Resolver::visit(const shared_ptr<const Assign_expr>& expr) {
+    void Resolver::visit(const Assign_expr* expr) {
         expr->value->accept(expr->value, *this);
         resolve_local(*expr, expr->name.lexeme);
     }
 
-    void Resolver::visit(const shared_ptr<const Function_stmt>& stmt) {
+    void Resolver::visit(const Function_stmt* stmt) {
         if (scopes_.size()) {
             declare_var(stmt->name).second = Var_binding::defined;
         }
@@ -125,11 +124,11 @@ namespace motts { namespace lox {
         resolve_function(stmt, Function_type::function);
     }
 
-    void Resolver::visit(const shared_ptr<const Expr_stmt>& stmt) {
+    void Resolver::visit(const Expr_stmt* stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const If_stmt>& stmt) {
+    void Resolver::visit(const If_stmt* stmt) {
         stmt->condition->accept(stmt->condition, *this);
         stmt->then_branch->accept(stmt->then_branch, *this);
         if (stmt->else_branch) {
@@ -137,11 +136,11 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const shared_ptr<const Print_stmt>& stmt) {
+    void Resolver::visit(const Print_stmt* stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Return_stmt>& stmt) {
+    void Resolver::visit(const Return_stmt* stmt) {
         if (current_function_type_ == Function_type::none) {
             throw Resolver_error{"Cannot return from top-level code.", stmt->keyword};
         }
@@ -155,33 +154,33 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const shared_ptr<const While_stmt>& stmt) {
+    void Resolver::visit(const While_stmt* stmt) {
         stmt->condition->accept(stmt->condition, *this);
         stmt->body->accept(stmt->body, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Binary_expr>& expr) {
+    void Resolver::visit(const Binary_expr* expr) {
         expr->left->accept(expr->left, *this);
         expr->right->accept(expr->right, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Call_expr>& expr) {
+    void Resolver::visit(const Call_expr* expr) {
         expr->callee->accept(expr->callee, *this);
         for (const auto& argument : expr->arguments) {
             argument->accept(argument, *this);
         }
     }
 
-    void Resolver::visit(const shared_ptr<const Get_expr>& expr) {
+    void Resolver::visit(const Get_expr* expr) {
         expr->object->accept(expr->object, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Set_expr>& expr) {
+    void Resolver::visit(const Set_expr* expr) {
         expr->value->accept(expr->value, *this);
         expr->object->accept(expr->object, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Super_expr>& expr) {
+    void Resolver::visit(const Super_expr* expr) {
         if (current_class_type_ == Class_type::none) {
             throw Resolver_error{"Cannot use 'super' outside of a class.", expr->keyword};
         }
@@ -192,7 +191,7 @@ namespace motts { namespace lox {
         resolve_local(*expr, expr->keyword.lexeme);
     }
 
-    void Resolver::visit(const shared_ptr<const This_expr>& expr) {
+    void Resolver::visit(const This_expr* expr) {
         if (current_class_type_ == Class_type::none) {
             throw Resolver_error{"Cannot use 'this' outside of a class.", expr->keyword};
         }
@@ -200,18 +199,18 @@ namespace motts { namespace lox {
         resolve_local(*expr, expr->keyword.lexeme);
     }
 
-    void Resolver::visit(const shared_ptr<const Grouping_expr>& expr) {
+    void Resolver::visit(const Grouping_expr* expr) {
         expr->expr->accept(expr->expr, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Literal_expr>&) {}
+    void Resolver::visit(const Literal_expr*) {}
 
-    void Resolver::visit(const shared_ptr<const Logical_expr>& expr) {
+    void Resolver::visit(const Logical_expr* expr) {
         expr->left->accept(expr->left, *this);
         expr->right->accept(expr->right, *this);
     }
 
-    void Resolver::visit(const shared_ptr<const Unary_expr>& expr) {
+    void Resolver::visit(const Unary_expr* expr) {
         expr->right->accept(expr->right, *this);
     }
 
@@ -245,7 +244,7 @@ namespace motts { namespace lox {
         // Not found; assume it is global
     }
 
-    void Resolver::resolve_function(const std::shared_ptr<const Function_stmt>& stmt, Function_type function_type) {
+    void Resolver::resolve_function(const Function_stmt* stmt, Function_type function_type) {
         scopes_.push_back({});
         const auto _ = finally([&] () {
             scopes_.pop_back();
