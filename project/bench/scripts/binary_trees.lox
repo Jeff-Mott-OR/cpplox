@@ -22,8 +22,8 @@ class Tree {
   }
 }
 
-var minDepth = 4;
-var maxDepth = 12;
+var minDepth = 1;
+var maxDepth = 4;
 var stretchDepth = maxDepth + 1;
 
 var start = clock();
