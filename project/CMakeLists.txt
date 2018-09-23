@@ -80,20 +80,20 @@ if(ENABLE_TESTING)
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
     )
 
-    find_program(VALGRIND_COMMAND valgrind)
-    message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
-    if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
-        add_test(
-            NAME valgrind
-            COMMAND "${VALGRIND_COMMAND}"
-                "$<TARGET_FILE:cpplox>"
-                "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
-        )
-        set_tests_properties(
-            valgrind PROPERTIES
-            PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
-        )
-    endif()
+    # find_program(VALGRIND_COMMAND valgrind)
+    # message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
+    # if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
+    #     add_test(
+    #         NAME valgrind
+    #         COMMAND "${VALGRIND_COMMAND}"
+    #             "$<TARGET_FILE:cpplox>"
+    #             "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
+    #     )
+    #     set_tests_properties(
+    #         valgrind PROPERTIES
+    #         PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts"
+    #     )
+    # endif()
 
     add_executable(bench_harness bench/main.cpp)
     target_compile_features(bench_harness PRIVATE cxx_std_14)
