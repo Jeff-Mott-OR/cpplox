@@ -45,10 +45,10 @@ namespace motts { namespace lox {
     Interpreter::Interpreter() {
         struct Clock_callable : Callable {
             Literal call(
-                const Callable* /*owner_this*/,
+                Callable* /*owner_this*/,
                 Interpreter&,
                 const vector<Literal>& /*arguments*/
-            ) const override {
+            ) override {
                 return Literal{narrow<double>(duration_cast<seconds>(system_clock::now().time_since_epoch()).count())};
             }
 
@@ -300,6 +300,10 @@ namespace motts { namespace lox {
         result_ = lookup_variable("this", *expr)->second;
     }
 
+    void Interpreter::visit(const Function_expr* expr) {
+        result_ = Literal{new (GC_MALLOC(sizeof(Function))) Function{expr, environment_}};
+    }
+
     void Interpreter::visit(const Expr_stmt* stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
@@ -383,8 +387,8 @@ namespace motts { namespace lox {
 
             for (const auto& method : stmt->methods) {
                 methods.push_back({
-                    method->name.lexeme,
-                    new (GC_MALLOC(sizeof(Function))) Function{method, environment_, method->name.lexeme == "init"}
+                    method->expr->name->lexeme,
+                    new (GC_MALLOC(sizeof(Function))) Function{method->expr, environment_, method->expr->name->lexeme == "init"}
                 });
             }
         }
@@ -393,7 +397,7 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const Function_stmt* stmt) {
-        environment_->find_own_or_make(stmt->name.lexeme) = Literal{new (GC_MALLOC(sizeof(Function))) Function{stmt, environment_}};
+        environment_->find_own_or_make(stmt->expr->name->lexeme) = Literal{new (GC_MALLOC(sizeof(Function))) Function{stmt->expr, environment_}};
     }
 
     void Interpreter::visit(const Return_stmt* stmt) {

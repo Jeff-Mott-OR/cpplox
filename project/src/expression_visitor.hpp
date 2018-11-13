@@ -17,6 +17,7 @@ namespace motts { namespace lox {
         virtual void visit(const Set_expr*) = 0;
         virtual void visit(const This_expr*) = 0;
         virtual void visit(const Super_expr*) = 0;
+        virtual void visit(const Function_expr*) = 0;
 
         // Base class boilerplate
         explicit Expr_visitor() = default;

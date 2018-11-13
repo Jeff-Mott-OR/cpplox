@@ -61,8 +61,8 @@ namespace motts { namespace lox {
 
         for (const auto& method : stmt->methods) {
             resolve_function(
-                method,
-                method->name.lexeme == "init" ?
+                method->expr,
+                method->expr->name->lexeme == "init" ?
                     Function_type::initializer :
                     Function_type::method
             );
@@ -106,10 +106,10 @@ namespace motts { namespace lox {
 
     void Resolver::visit(const Function_stmt* stmt) {
         if (!scopes_.empty()) {
-            declare_var(stmt->name).second = Var_binding::defined;
+            declare_var(*(stmt->expr->name)).second = Var_binding::defined;
         }
 
-        resolve_function(stmt, Function_type::function);
+        resolve_function(stmt->expr, Function_type::function);
     }
 
     void Resolver::visit(const Expr_stmt* stmt) {
@@ -187,6 +187,10 @@ namespace motts { namespace lox {
         resolve_local(*expr, expr->keyword.lexeme);
     }
 
+    void Resolver::visit(const Function_expr* expr) {
+        resolve_function(expr, Function_type::function);
+    }
+
     void Resolver::visit(const Grouping_expr* expr) {
         expr->expr->accept(expr->expr, *this);
     }
@@ -232,7 +236,7 @@ namespace motts { namespace lox {
         // Not found; assume it is global
     }
 
-    void Resolver::resolve_function(const Function_stmt* stmt, Function_type function_type) {
+    void Resolver::resolve_function(const Function_expr* expr, Function_type function_type) {
         scopes_.push_back({});
         const auto _ = finally([&] () {
             scopes_.pop_back();
@@ -244,10 +248,13 @@ namespace motts { namespace lox {
             current_function_type_ = enclosing_function_type;
         });
 
-        for (const auto& param : stmt->parameters) {
+        if (function_type == Function_type::function && expr->name) {
+            declare_var(*(expr->name)).second = Var_binding::defined;
+        }
+        for (const auto& param : expr->parameters) {
             declare_var(param).second = Var_binding::defined;
         }
-        for (const auto& statement : stmt->body) {
+        for (const auto& statement : expr->body) {
             statement->accept(statement, *this);
         }
     }

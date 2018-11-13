@@ -2,8 +2,11 @@
 
 #include <vector>
 
+#include <boost/optional.hpp>
+
 #include "expression.hpp"
 #include "literal.hpp"
+#include "statement.hpp"
 #include "token.hpp"
 
 namespace motts { namespace lox {
@@ -114,6 +117,19 @@ namespace motts { namespace lox {
         Token method;
 
         explicit Super_expr(Token&& keyword, Token&& method);
+        void accept(const Expr* owner_this, Expr_visitor&) const override;
+    };
+
+    struct Function_expr : Expr {
+        boost::optional<Token> name;
+        std::vector<Token> parameters;
+        std::vector<const Stmt*> body;
+
+        explicit Function_expr(
+            boost::optional<Token>&& name,
+            std::vector<Token>&& parameters,
+            std::vector<const Stmt*>&& body
+        );
         void accept(const Expr* owner_this, Expr_visitor&) const override;
     };
 }}

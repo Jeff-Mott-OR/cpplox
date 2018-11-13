@@ -26,8 +26,8 @@ namespace motts { namespace lox {
         methods_ {move(methods)}
     {}
 
-    Literal Class::call(const Callable* owner_this, Interpreter& interpreter, const vector<Literal>& arguments) const {
-        auto instance = new (GC_MALLOC(sizeof(Instance))) Instance{static_cast<const Class*>(owner_this)};
+    Literal Class::call(Callable* owner_this, Interpreter& interpreter, const vector<Literal>& arguments) {
+        auto instance = new (GC_MALLOC(sizeof(Instance))) Instance{static_cast<Class*>(owner_this)};
 
         const auto found_init = find_if(methods_.cbegin(), methods_.cend(), [] (const auto& method) {
             return method.first == "init";

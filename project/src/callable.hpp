@@ -11,10 +11,10 @@
 namespace motts { namespace lox {
     struct Callable {
         virtual Literal call(
-            const Callable* owner_this,
+            Callable* owner_this,
             Interpreter&,
             const std::vector<Literal>& arguments
-        ) const = 0;
+        ) = 0;
         virtual int arity() const = 0;
         virtual std::string to_string() const = 0;
 

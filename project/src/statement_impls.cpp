@@ -90,14 +90,8 @@ namespace motts { namespace lox {
         struct Function_stmt
     */
 
-    Function_stmt::Function_stmt(
-        Token&& name_arg,
-        vector<Token>&& parameters_arg,
-        vector<const Stmt*>&& body_arg
-    ) :
-        name {move(name_arg)},
-        parameters {move(parameters_arg)},
-        body {move(body_arg)}
+    Function_stmt::Function_stmt(const Function_expr* expr_arg) :
+        expr {move(expr_arg)}
     {}
 
     void Function_stmt::accept(const Stmt* owner_this, Stmt_visitor& visitor) const {

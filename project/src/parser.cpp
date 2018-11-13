@@ -14,6 +14,8 @@ using std::string;
 using std::to_string;
 using std::vector;
 
+using boost::optional;
+
 // Allow the internal linkage section to access names
 using namespace motts::lox;
 
@@ -85,7 +87,20 @@ namespace {
 
             const Function_stmt* consume_function_declaration() {
                 auto name = consume(Token_type::identifier, "Expected function name.");
+                return new (GC_MALLOC(sizeof(Function_stmt))) Function_stmt{consume_finish_function(move(name))};
+            }
 
+            const Function_expr* consume_function_expression() {
+                optional<Token> name;
+                if (token_iter_->type == Token_type::identifier) {
+                    name = *move(token_iter_);
+                    ++token_iter_;
+                }
+
+                return consume_finish_function(std::move(name));
+            }
+
+            const Function_expr* consume_finish_function(optional<Token>&& name) {
                 consume(Token_type::left_paren, "Expected '(' after function name.");
                 vector<Token> parameters;
                 if (token_iter_->type != Token_type::right_paren) {
@@ -102,7 +117,7 @@ namespace {
                 consume(Token_type::left_brace, "Expected '{' before function body.");
                 auto body = consume_block_statement();
 
-                return new (GC_MALLOC(sizeof(Function_stmt))) Function_stmt{move(name), move(parameters), move(body)};
+                return new (GC_MALLOC(sizeof(Function_expr))) Function_expr{std::move(name), move(parameters), move(body)};
             }
 
             const Stmt* consume_statement() {
@@ -414,6 +429,10 @@ namespace {
                     auto keyword = *move(token_iter_);
                     ++token_iter_;
                     return new (GC_MALLOC(sizeof(This_expr))) This_expr{move(keyword)};
+                }
+
+                if (advance_if_match(Token_type::fun_)) {
+                    return consume_function_expression();
                 }
 
                 if (token_iter_->type == Token_type::identifier) {

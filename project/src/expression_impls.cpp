@@ -6,6 +6,8 @@
 using std::move;
 using std::vector;
 
+using boost::optional;
+
 namespace motts { namespace lox {
     /*
         struct Binary_expr
@@ -185,5 +187,23 @@ namespace motts { namespace lox {
 
     void Super_expr::accept(const Expr* owner_this, Expr_visitor& visitor) const {
         visitor.visit(static_cast<const Super_expr*>(owner_this));
+    }
+
+    /*
+        struct Function_expr
+    */
+
+    Function_expr::Function_expr(
+        optional<Token>&& name_arg,
+        vector<Token>&& parameters_arg,
+        vector<const Stmt*>&& body_arg
+    ) :
+        name {std::move(name_arg)},
+        parameters {move(parameters_arg)},
+        body {move(body_arg)}
+    {}
+
+    void Function_expr::accept(const Expr* owner_this, Expr_visitor& visitor) const {
+        visitor.visit(static_cast<const Function_expr*>(owner_this));
     }
 }}

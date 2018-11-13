@@ -15,7 +15,7 @@ using gsl::narrow;
 
 namespace motts { namespace lox {
     Function::Function(
-        const Function_stmt* declaration,
+        const Function_expr* declaration,
         Environment* enclosed,
         bool is_initializer
     ) :
@@ -25,11 +25,14 @@ namespace motts { namespace lox {
     {}
 
     Literal Function::call(
-        const Callable* /*owner_this*/,
+        Callable* owner_this,
         Interpreter& interpreter,
         const vector<Literal>& arguments
-    ) const {
+    ) {
         auto environment = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
+        if (declaration_->name) {
+            environment->find_own_or_make(declaration_->name->lexeme) = Literal{owner_this};
+        }
         for (auto i = declaration_->parameters.cbegin(); i != declaration_->parameters.cend(); ++i) {
             environment->find_own_or_make(i->lexeme) = arguments.at(i - declaration_->parameters.cbegin());
         }
@@ -55,7 +58,7 @@ namespace motts { namespace lox {
     }
 
     string Function::to_string() const {
-        return "<fn " + declaration_->name.lexeme + ">";
+        return "<fn " + (declaration_->name ? declaration_->name->lexeme : "[[anonymous]]") + ">";
     }
 
     Function* Function::bind(Instance* instance) const {

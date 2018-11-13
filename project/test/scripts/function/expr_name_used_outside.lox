@@ -1,0 +1,2 @@
+var f = fun ff() {};
+print ff; // expect runtime error: Undefined variable 'ff'.

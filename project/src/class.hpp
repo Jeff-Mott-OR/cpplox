@@ -20,10 +20,10 @@ namespace motts { namespace lox {
                 std::vector<std::pair<std::string, Function*>>&& methods
             );
             Literal call(
-                const Callable* owner_this,
+                Callable* owner_this,
                 Interpreter&,
                 const std::vector<Literal>& arguments
-            ) const override;
+            ) override;
             int arity() const override;
             std::string to_string() const override;
             Literal get(Instance* instance_to_bind, const std::string& name) const;

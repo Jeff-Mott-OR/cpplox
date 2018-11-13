@@ -1,0 +1,4 @@
+var f = fun ff() {
+    print ff; // expect: <fn ff>
+};
+f();

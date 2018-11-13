@@ -268,7 +268,6 @@ BOOST_AUTO_TEST_CASE(field_undefined_test) { expect_script_file_out_to_be("field
 
 BOOST_AUTO_TEST_CASE(for_class_in_body_test) { expect_script_file_out_to_be("for/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(for_closure_in_body_test) { expect_script_file_out_to_be("for/closure_in_body.lox", "1\n2\n3\n"); }
-BOOST_AUTO_TEST_CASE(for_fun_in_body_test) { expect_script_file_out_to_be("for/fun_in_body.lox", "", "[Line 2] Error at 'fun': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(for_return_closure_test) { expect_script_file_out_to_be("for/return_closure.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(for_return_inside_test) { expect_script_file_out_to_be("for/return_inside.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(for_scope_test) { expect_script_file_out_to_be("for/scope.lox", "0\n-1\nafter\n0\n"); }
@@ -280,6 +279,10 @@ BOOST_AUTO_TEST_CASE(for_var_in_body_test) { expect_script_file_out_to_be("for/v
 
 BOOST_AUTO_TEST_CASE(function_body_must_be_block_test) { expect_script_file_out_to_be("function/body_must_be_block.lox", "", "[Line 3] Error at '123': Expected '{' before function body.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_empty_body_test) { expect_script_file_out_to_be("function/empty_body.lox", "nil\n"); }
+BOOST_AUTO_TEST_CASE(function_expr_empty_body_test) { expect_script_file_out_to_be("function/expr_empty_body.lox", "nil\n"); }
+BOOST_AUTO_TEST_CASE(function_expr_name_test) { expect_script_file_out_to_be("function/expr_name.lox", "<fn [[anonymous]]>\n"); }
+BOOST_AUTO_TEST_CASE(function_expr_name_used_inside_test) { expect_script_file_out_to_be("function/expr_name_used_inside.lox", "<fn ff>\n"); }
+BOOST_AUTO_TEST_CASE(function_expr_name_used_outside_test) { expect_script_file_out_to_be("function/expr_name_used_outside.lox", "", "Undefined variable 'ff'.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_extra_arguments_test) { expect_script_file_out_to_be("function/extra_arguments.lox", "", "[Line 6] Error at ')': Expected 2 arguments but got 4.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_local_mutual_recursion_test) { expect_script_file_out_to_be("function/local_mutual_recursion.lox", "", "Undefined variable 'isOdd'.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_local_recursion_test) { expect_script_file_out_to_be("function/local_recursion.lox", "21\n"); }
@@ -296,8 +299,6 @@ BOOST_AUTO_TEST_CASE(if_class_in_else_test) { expect_script_file_out_to_be("if/c
 BOOST_AUTO_TEST_CASE(if_class_in_then_test) { expect_script_file_out_to_be("if/class_in_then.lox", "", "[Line 2] Error at 'class': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(if_dangling_else_test) { expect_script_file_out_to_be("if/dangling_else.lox", "good\n"); }
 BOOST_AUTO_TEST_CASE(if_else_test) { expect_script_file_out_to_be("if/else.lox", "good\ngood\nblock\n"); }
-BOOST_AUTO_TEST_CASE(if_fun_in_else_test) { expect_script_file_out_to_be("if/fun_in_else.lox", "", "[Line 2] Error at 'fun': Expected expression.\n", EXIT_FAILURE); }
-BOOST_AUTO_TEST_CASE(if_fun_in_then_test) { expect_script_file_out_to_be("if/fun_in_then.lox", "", "[Line 2] Error at 'fun': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(if_if_test) { expect_script_file_out_to_be("if/if.lox", "good\nblock\ntrue\n"); }
 BOOST_AUTO_TEST_CASE(if_truth_test) { expect_script_file_out_to_be("if/truth.lox", "false\nnil\ntrue\n0\nempty\n"); }
 BOOST_AUTO_TEST_CASE(if_var_in_else_test) { expect_script_file_out_to_be("if/var_in_else.lox", "", "[Line 2] Error at 'var': Expected expression.\n", EXIT_FAILURE); }
@@ -435,7 +436,6 @@ BOOST_AUTO_TEST_CASE(variable_use_this_as_var_test) { expect_script_file_out_to_
 
 BOOST_AUTO_TEST_CASE(while_class_in_body_test) { expect_script_file_out_to_be("while/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(while_closure_in_body_test) { expect_script_file_out_to_be("while/closure_in_body.lox", "1\n2\n3\n"); }
-BOOST_AUTO_TEST_CASE(while_fun_in_body_test) { expect_script_file_out_to_be("while/fun_in_body.lox", "", "[Line 2] Error at 'fun': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(while_return_closure_test) { expect_script_file_out_to_be("while/return_closure.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(while_return_inside_test) { expect_script_file_out_to_be("while/return_inside.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(while_syntax_test) { expect_script_file_out_to_be("while/syntax.lox", "1\n2\n3\n0\n1\n2\n"); }

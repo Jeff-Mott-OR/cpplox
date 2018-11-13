@@ -37,6 +37,7 @@ namespace motts { namespace lox {
             void visit(const Set_expr*) override;
             void visit(const Super_expr*) override;
             void visit(const This_expr*) override;
+            void visit(const Function_expr*) override;
 
             void visit(const Expr_stmt*) override;
             void visit(const If_stmt*) override;

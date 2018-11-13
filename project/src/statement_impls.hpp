@@ -59,15 +59,9 @@ namespace motts { namespace lox {
     };
 
     struct Function_stmt : Stmt {
-        Token name;
-        std::vector<Token> parameters;
-        std::vector<const Stmt*> body;
+        const Function_expr* expr {};
 
-        explicit Function_stmt(
-            Token&& name,
-            std::vector<Token>&& parameters,
-            std::vector<const Stmt*>&& body
-        );
+        explicit Function_stmt(const Function_expr* expr);
         void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 

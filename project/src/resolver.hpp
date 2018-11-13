@@ -37,6 +37,7 @@ namespace motts { namespace lox {
             void visit(const Set_expr*) override;
             void visit(const Super_expr*) override;
             void visit(const This_expr*) override;
+            void visit(const Function_expr*) override;
             void visit(const Grouping_expr*) override;
             void visit(const Literal_expr*) override;
             void visit(const Logical_expr*) override;
@@ -49,7 +50,7 @@ namespace motts { namespace lox {
             std::function<void (const Expr*, int depth)> on_resolve_local_;
 
             std::pair<std::string, Var_binding>& declare_var(const Token& name);
-            void resolve_function(const Function_stmt*, Function_type);
+            void resolve_function(const Function_expr*, Function_type);
             void resolve_local(const Expr&, const std::string& name);
     };
 
