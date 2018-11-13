@@ -1,19 +1,17 @@
 #define BOOST_TEST_MODULE CppLox Test
 
-// C standard headers
 #include <cstdlib>
-// C++ standard headers
+
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <string>
-// Third-party headers
+
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/predef.h>
 #include <boost/process.hpp>
 #include <boost/program_options.hpp>
 #include <boost/test/unit_test.hpp>
-// This project's headers
 
 using std::cout;
 using std::exit;

@@ -1,10 +1,5 @@
 #pragma once
 
-// Related header
-// C standard headers
-// C++ standard headers
-// Third-party headers
-// This project's headers
 #include "exception.hpp"
 #include "expression_visitor_fwd.hpp"
 #include "token.hpp"
@@ -15,7 +10,6 @@ namespace motts { namespace lox {
         Here we run into a couple other Java-to-C++ conundrums.
 
         1.
-
             We want the `accept` method to be able to return any type. After all, a printer visitor will want to return
             a string, but a linter visitor may want to return a list. In Nystrom's Java code, he achieved this by making
             the method -- just the method -- generic, where the return type was a type variable.
@@ -25,19 +19,18 @@ namespace motts { namespace lox {
             pointer, so if a virtual function could be templated, then a class would contain some unknown number of
             function pointers. So how does Java pull this off?
 
-            Turns out Java's type variables de-sugar to `Object`. That is, given the Java method declaration `<R> R
-            accept(Visitor<R> visitor);`, rather than generating a new method for each type as C++ templates do, Java
-            instead implements just a single method as if it were `Object accept(Visitor visitor);`.
+            Turns out Java's type variables de-sugar to `Object`. That is, given the Java method declaration
+            `<R> R accept(Visitor<R> visitor);`, rather than generating a new method for each type as C++ templates do,
+            Java instead implements just a single method as if it were `Object accept(Visitor visitor);`.
 
             So we face the same problem we did in token.hpp. Java's `Object` can be assigned any value of any type,
             whereas C++ has no universal base class. In an earlier commit, I settled on Boost.Any. It seemed to most
             closely match the Java implementation; it's ultimately a pointer to an arbitrary heap object. Later I
             decided to shift toward static types, where the type correctness is provable at compile-time. The new
-            solution below matches the implementation found in the GoF book. The `accept` methods return void, and
-            instead the visitor accumulates the result in its private state.
+            solution below matches the implementation found in the GoF book. That is, the `accept` methods return void,
+            and instead the visitor accumulates the result in its private state.
 
         2.
-
             One thing Java and C++ have in common is if we invoke `accept` on a base `Expr`, then `this` inside each
             `accept` definition will nonetheless be of the appropriate derived type. But what Java and C++ do not have
             in common is the ownership of `this`.
@@ -53,7 +46,8 @@ namespace motts { namespace lox {
         */
         virtual void accept(const Expr* owner_this, Expr_visitor&) const = 0;
 
-        // To avoid dynamic_cast tests, implement lvalue-ness polymorphically
+        // Some derived expression types can be lvalues; some can't. To avoid
+        // dynamic_cast tests, implement lvalue-ness polymorphically.
         virtual const Expr* make_assignment_expression(
             const Expr* lhs_expr,
             const Expr* rhs_expr,

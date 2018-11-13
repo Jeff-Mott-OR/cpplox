@@ -1,22 +1,17 @@
-// Related header
 #include "interpreter.hpp"
-// C standard headers
+
 #include <cstddef>
-// C++ standard headers
+
 #include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <iterator>
-#include <string>
-#include <unordered_map>
-#include <utility>
-// Third-party headers
+
 #include <boost/variant.hpp>
-#include <gc.h>
-#include <gsl/gsl_util>
-// This project's headers
+
+#include "callable.hpp"
 #include "class.hpp"
-#include "literal.hpp"
+#include "function.hpp"
 #include "utility.hpp"
 
 using std::back_inserter;
@@ -25,144 +20,29 @@ using std::chrono::seconds;
 using std::chrono::system_clock;
 using std::cout;
 using std::find_if;
-using std::make_pair;
+using std::function;
+using std::make_unique;
 using std::move;
 using std::nullptr_t;
 using std::pair;
 using std::string;
 using std::to_string;
 using std::transform;
-using std::unordered_map;
+using std::unique_ptr;
 using std::vector;
 
 using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
 using gsl::finally;
+using gsl::final_action;
 using gsl::narrow;
 
 // For the occasional explicit qualification, mostly just to aid us human readers
 namespace lox = motts::lox;
 
 namespace motts { namespace lox {
-    class Environment {
-        // This is conceptually an unordered map, but prefer vector as default container
-        vector<pair<string, Literal>> values_;
-
-        Environment* enclosed_ {};
-
-        public:
-            explicit Environment() = default;
-
-            explicit Environment(Environment* enclosed) :
-                enclosed_ {move(enclosed)}
-            {}
-
-            vector<pair<string, Literal>>::iterator find_in_chain(const string& var_name, int depth = 0) {
-                if (depth) {
-                    auto enclosed_at_depth = this;
-                    for (; depth; --depth) {
-                        enclosed_at_depth = enclosed_at_depth->enclosed_;
-                    }
-
-                    const auto found_at_depth = enclosed_at_depth->find_in_chain(var_name);
-                    if (found_at_depth != enclosed_at_depth->end()) {
-                        return found_at_depth;
-                    }
-
-                    return end();
-                }
-
-                const auto found_own = find_if(values_.begin(), values_.end(), [&] (const auto& value) {
-                    return value.first == var_name;
-                });
-                if (found_own != end()) return found_own;
-
-                if (enclosed_) {
-                    const auto found_enclosed = enclosed_->find_in_chain(var_name);
-                    if (found_enclosed != enclosed_->end()) {
-                        return found_enclosed;
-                    }
-                }
-
-                return end();
-            }
-
-            Literal& find_own_or_make(const string& var_name) {
-                const auto found_own = find_if(values_.begin(), values_.end(), [&] (const auto& value) {
-                    return value.first == var_name;
-                });
-                if (found_own != end()) return found_own->second;
-
-                values_.push_back(make_pair(var_name, Literal{}));
-
-                return values_.back().second;
-            }
-
-            vector<pair<string, Literal>>::iterator end() {
-                return values_.end();
-            }
-    };
-
-    Function::Function(
-        const Function_stmt* declaration,
-        Environment* enclosed,
-        bool is_initializer
-    ) :
-        declaration_ {move(declaration)},
-        enclosed_ {move(enclosed)},
-        is_initializer_ {is_initializer}
-    {}
-
-    Literal Function::call(
-        const Callable* /*owner_this*/,
-        Interpreter& interpreter,
-        const vector<Literal>& arguments
-    ) const {
-        auto caller_environment = move(interpreter.environment_);
-        interpreter.environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
-        const auto _ = finally([&] () {
-            interpreter.environment_ = move(caller_environment);
-        });
-
-        for (decltype(declaration_->parameters.size()) i {0}; i < declaration_->parameters.size(); ++i) {
-            interpreter.environment_->find_own_or_make(declaration_->parameters.at(i).lexeme) = arguments.at(i);
-        }
-
-        for (const auto& statement : declaration_->body) {
-            statement->accept(statement, interpreter);
-
-            if (interpreter.returning_) {
-                interpreter.returning_ = false;
-                return move(interpreter.result_);
-            }
-        }
-
-        if (is_initializer_) {
-            return enclosed_->find_in_chain("this")->second;
-        }
-
-        return Literal{};
-    }
-
-    int Function::arity() const {
-        return narrow<int>(declaration_->parameters.size());
-    }
-
-    string Function::to_string() const {
-        return "<fn " + declaration_->name.lexeme + ">";
-    }
-
-    Function* Function::bind(Instance* instance) const {
-        auto this_environment = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
-        this_environment->find_own_or_make("this") = Literal{instance};
-        return new (GC_MALLOC(sizeof(Function))) Function{declaration_, this_environment, is_initializer_};
-    }
-
-    Interpreter::Interpreter() :
-        environment_ {new (GC_MALLOC(sizeof(Environment))) Environment{}},
-        globals_ {environment_}
-    {
+    Interpreter::Interpreter() {
         struct Clock_callable : Callable {
             Literal call(
                 const Callable* /*owner_this*/,
@@ -192,7 +72,7 @@ namespace motts { namespace lox {
         expr->expr->accept(expr->expr, *this);
     }
 
-    // False and nil are falsey, everything else is truthy
+    // Only false and nil are falsey, everything else is truthy
     struct Is_truthy_visitor : static_visitor<bool> {
         auto operator()(bool value) const {
             return value;
@@ -211,23 +91,23 @@ namespace motts { namespace lox {
     void Interpreter::visit(const Unary_expr* expr) {
         const auto unary_result = lox::apply_visitor(*this, expr->right);
 
-        try {
-            switch (expr->op.type) {
-                case Token_type::minus:
-                    result_ = Literal{ - get<double>(unary_result.value)};
-                    break;
+        result_ = ([&] () {
+            try {
+                switch (expr->op.type) {
+                    case Token_type::minus:
+                        return Literal{ - get<double>(unary_result.value)};
 
-                case Token_type::bang:
-                    result_ = Literal{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
-                    break;
+                    case Token_type::bang:
+                        return Literal{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
 
-                default:
-                    throw Interpreter_error{"Unreachable.", expr->op};
+                    default:
+                        throw Interpreter_error{"Unreachable.", expr->op};
+                }
+            } catch (const bad_get&) {
+                // Convert a boost variant error into a Lox error
+                throw Interpreter_error{"Operands must be numbers.", expr->op};
             }
-        } catch (const bad_get&) {
-            // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Operands must be numbers.", expr->op};
-        }
+        })();
     }
 
     struct Plus_visitor : static_visitor<Literal> {
@@ -264,73 +144,57 @@ namespace motts { namespace lox {
         const auto left_result = lox::apply_visitor(*this, expr->left);
         const auto right_result = lox::apply_visitor(*this, expr->right);
 
-        try {
-            switch (expr->op.type) {
-                case Token_type::greater:
-                    result_ = Literal{get<double>(left_result.value) > get<double>(right_result.value)};
-                    break;
+        result_ = ([&] () {
+            try {
+                switch (expr->op.type) {
+                    case Token_type::greater:
+                        return Literal{get<double>(left_result.value) > get<double>(right_result.value)};
 
-                case Token_type::greater_equal:
-                    result_ = Literal{get<double>(left_result.value) >= get<double>(right_result.value)};
-                    break;
+                    case Token_type::greater_equal:
+                        return Literal{get<double>(left_result.value) >= get<double>(right_result.value)};
 
-                case Token_type::less:
-                    result_ = Literal{get<double>(left_result.value) < get<double>(right_result.value)};
-                    break;
+                    case Token_type::less:
+                        return Literal{get<double>(left_result.value) < get<double>(right_result.value)};
 
-                case Token_type::less_equal:
-                    result_ = Literal{get<double>(left_result.value) <= get<double>(right_result.value)};
-                    break;
+                    case Token_type::less_equal:
+                        return Literal{get<double>(left_result.value) <= get<double>(right_result.value)};
 
-                case Token_type::bang_equal:
-                    result_ = Literal{
-                        ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
-                    };
-                    break;
+                    case Token_type::bang_equal:
+                        return Literal{
+                            ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
+                        };
 
-                case Token_type::equal_equal:
-                    result_ = Literal{boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
-                    break;
+                    case Token_type::equal_equal:
+                        return Literal{boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
 
-                case Token_type::minus:
-                    result_ = Literal{get<double>(left_result.value) - get<double>(right_result.value)};
-                    break;
+                    case Token_type::minus:
+                        return Literal{get<double>(left_result.value) - get<double>(right_result.value)};
 
-                case Token_type::plus:
-                    result_ = boost::apply_visitor(Plus_visitor{}, left_result.value, right_result.value);
-                    break;
+                    case Token_type::plus:
+                        return boost::apply_visitor(Plus_visitor{}, left_result.value, right_result.value);
 
-                case Token_type::slash:
-                    result_ = Literal{get<double>(left_result.value) / get<double>(right_result.value)};
-                    break;
+                    case Token_type::slash:
+                        return Literal{get<double>(left_result.value) / get<double>(right_result.value)};
 
-                case Token_type::star:
-                    result_ = Literal{get<double>(left_result.value) * get<double>(right_result.value)};
-                    break;
+                    case Token_type::star:
+                        return Literal{get<double>(left_result.value) * get<double>(right_result.value)};
 
-                default:
-                    throw Interpreter_error{"Unreachable.", expr->op};
+                    default:
+                        throw Interpreter_error{"Unreachable.", expr->op};
+                }
+            } catch (const bad_get&) {
+                // Convert a boost variant error into a Lox error
+                throw Interpreter_error{"Operands must be numbers.", expr->op};
             }
-        } catch (const bad_get&) {
-            // Convert a boost variant error into a Lox error
-            throw Interpreter_error{"Operands must be numbers.", expr->op};
-        }
+        })();
     }
 
     void Interpreter::visit(const Var_expr* expr) {
-        const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
-        if (var_binding == environment_->end()) {
-            throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
-        }
-        result_ = var_binding->second;
+        result_ = lookup_variable(expr->name.lexeme, *expr)->second;
     }
 
     void Interpreter::visit(const Assign_expr* expr) {
-        const auto var_binding = lookup_variable(expr->name.lexeme, *expr);
-        if (var_binding == environment_->end()) {
-            throw Interpreter_error{"Undefined variable '" + expr->name.lexeme + "'."};
-        }
-        result_ = var_binding->second = lox::apply_visitor(*this, expr->value);
+        result_ = lookup_variable(expr->name.lexeme, *expr)->second = lox::apply_visitor(*this, expr->value);
     }
 
     void Interpreter::visit(const Logical_expr* expr) {
@@ -386,15 +250,15 @@ namespace motts { namespace lox {
             };
         }
 
-        vector<Literal> arguments_results;
+        vector<Literal> arguments;
         transform(
-            expr->arguments.cbegin(), expr->arguments.cend(), back_inserter(arguments_results),
+            expr->arguments.cbegin(), expr->arguments.cend(), back_inserter(arguments),
             [&] (const auto& argument_expr) {
                 return lox::apply_visitor(*this, argument_expr);
             }
         );
 
-        result_ = callable->call(callable, *this, arguments_results);
+        result_ = callable->call(callable, *this, arguments);
     }
 
     void Interpreter::visit(const Get_expr* expr) {
@@ -433,27 +297,19 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const This_expr* expr) {
-        const auto var_binding = lookup_variable("this", *expr);
-        if (var_binding == environment_->end()) {
-            throw Interpreter_error{"Undefined variable '" + expr->keyword.lexeme + "'."};
-        }
-        result_ = var_binding->second;
+        result_ = lookup_variable("this", *expr)->second;
     }
 
     void Interpreter::visit(const Expr_stmt* stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Interpreter::visit(const If_stmt* if_stmt) {
-        const auto condition_result = lox::apply_visitor(*this, if_stmt->condition);
+    void Interpreter::visit(const If_stmt* stmt) {
+        const auto condition_result = lox::apply_visitor(*this, stmt->condition);
         if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
-            if_stmt->then_branch->accept(if_stmt->then_branch, *this);
-
-            if (returning_) {
-                return;
-            }
-        } else if (if_stmt->else_branch) {
-            if_stmt->else_branch->accept(if_stmt->else_branch, *this);
+            stmt->then_branch->accept(stmt->then_branch, *this);
+        } else if (stmt->else_branch) {
+            stmt->else_branch->accept(stmt->else_branch, *this);
         }
     }
 
@@ -558,8 +414,28 @@ namespace motts { namespace lox {
         return move(result_);
     }
 
-    void Interpreter::resolve(const Expr* expr, int depth) {
-        scope_depths_.push_back({expr, depth});
+    unique_ptr<Resolver> Interpreter::make_resolver() {
+        return make_unique<Resolver>([&] (const Expr* expr, int depth) {
+            scope_depths_.push_back({expr, depth});
+        });
+    }
+
+    bool Interpreter::_returning() const {
+        return returning_;
+    }
+
+    Literal&& Interpreter::_return_value() && {
+        returning_ = false;
+        return move(result_);
+    }
+
+    final_action<function<void ()>> Interpreter::_push_environment(Environment* new_environment) {
+        auto finally_pop_environment = finally(function<void ()>{[&, original_environment = move(environment_)] () {
+            environment_ = move(original_environment);
+        }});
+        environment_ = move(new_environment);
+
+        return finally_pop_environment;
     }
 
     vector<pair<string, Literal>>::iterator Interpreter::lookup_variable(const string& name, const Expr& expr) {
@@ -575,7 +451,7 @@ namespace motts { namespace lox {
             return found_global;
         }
 
-        return environment_->end();
+        throw Interpreter_error{"Undefined variable '" + name + "'."};
     }
 
     Interpreter_error::Interpreter_error(const string& what, const Token& token) :

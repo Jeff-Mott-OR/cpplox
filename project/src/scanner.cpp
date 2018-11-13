@@ -1,14 +1,12 @@
-// Related header
 #include "scanner.hpp"
-// C standard headers
+
 #include <cctype>
-// C++ standard headers
+
 #include <algorithm>
 #include <array>
 #include <utility>
-// Third-party headers
+
 #include <boost/lexical_cast.hpp>
-// This project's headers
 
 using std::isalnum;
 using std::isalpha;
@@ -149,8 +147,8 @@ namespace motts { namespace lox {
             token_end_ != source_->end() && *token_end_ ==  '.' &&
             (token_end_ + 1) != source_->end() && isdigit(*(token_end_ + 1))
         ) {
-            // Consume the "."
-            ++token_end_;
+            // Consume the "." and one digit
+            token_end_ += 2;
 
             while (token_end_ != source_->end() && isdigit(*token_end_)) {
                 ++token_end_;
@@ -165,7 +163,7 @@ namespace motts { namespace lox {
             ++token_end_;
         }
 
-        const auto identifier = string{token_begin_, token_end_};
+        const string identifier {token_begin_, token_end_};
         const auto found = find_if(reserved_words.cbegin(), reserved_words.cend(), [&] (const auto& pair) {
             return pair.first == identifier;
         });
@@ -174,7 +172,7 @@ namespace motts { namespace lox {
 
     Token Token_iterator::consume_token() {
         // Loop because we might skip some tokens
-        for (; token_begin_ != source_->end(); token_begin_ = token_end_) {
+        for (; token_end_ != source_->end(); token_begin_ = token_end_) {
             auto c = *token_end_;
             ++token_end_;
 

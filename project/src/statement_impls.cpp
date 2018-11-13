@@ -1,10 +1,5 @@
-// Related header
 #include "statement_impls.hpp"
-// C standard headers
-// C++ standard headers
 #include <utility>
-// Third-party headers
-// This project's headers
 #include "statement_visitor.hpp"
 
 using std::move;
@@ -128,7 +123,7 @@ namespace motts { namespace lox {
 
     Class_stmt::Class_stmt(
         Token&& name_arg,
-        Var_expr* superclass_arg,
+        const Var_expr* superclass_arg,
         vector<const Function_stmt*>&& methods_arg
     ) :
         name {move(name_arg)},

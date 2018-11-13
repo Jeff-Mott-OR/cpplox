@@ -1,11 +1,6 @@
-// Related header
 #include "expression_impls.hpp"
-// C standard headers
-// C++ standard headers
 #include <utility>
-// Third-party headers
 #include <gc.h>
-// This project's headers
 #include "expression_visitor.hpp"
 
 using std::move;

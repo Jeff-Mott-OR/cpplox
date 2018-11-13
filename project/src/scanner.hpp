@@ -1,12 +1,8 @@
 #pragma once
 
-// Related header
-// C standard headers
-// C++ standard headers
 #include <iterator>
 #include <string>
-// Third-party headers
-// This project's headers
+
 #include "exception.hpp"
 #include "token.hpp"
 
@@ -18,9 +14,9 @@ namespace motts { namespace lox {
     would lose all control over its private data. And if I returned a const array reference, then I'd again be making an
     unnecessary copy for calling code that needs a mutable array.
 
-    The new solution below instead uses the iterator pattern. Rather than return a complete list of tokens, instead I
+    The new solution below instead uses the iterator pattern. Rather than return a complete list of tokens, I instead
     provide an interface to iterate through the tokens. The call site can then populate an array or any other data
-    structure with the begin and end iterators.
+    structure using the begin and end iterators.
     */
     class Token_iterator : public std::iterator<std::forward_iterator_tag, Token> {
         public:
@@ -42,12 +38,13 @@ namespace motts { namespace lox {
             const Token* operator->() const;
 
         private:
+            // WARNING! Non-owning. The call-site must ensure the string is alive for as long as this iterator is alive.
             const std::string* source_ {};
 
             // Nystrom tracks the substring of a token with two indexes, named `start` and `current`. But in C++, it's
-            // considered better style to track positions with iterators. After I changed the type of `start` and
-            // `current` to `string::iterator`, it made sense to rename them based on iterator terminology, so I renamed
-            // `start` and `current` to `token_begin` and `token_end` respectively.
+            // considered better style to track positions with iterators. After I changed the types of `start` and
+            // `current` to `string::iterator`, then it made sense to rename them based on iterator terminology --
+            // `token_begin` and `token_end` respectively.
             std::string::const_iterator token_begin_;
             std::string::const_iterator token_end_;
 

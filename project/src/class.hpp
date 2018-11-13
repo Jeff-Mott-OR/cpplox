@@ -1,15 +1,13 @@
 #pragma once
 
-// Related header
 #include "class_fwd.hpp"
-// C standard headers
-// C++ standard headers
+
 #include <string>
 #include <utility>
 #include <vector>
-// Third-party headers
-// This project's headers
+
 #include "callable.hpp"
+#include "function_fwd.hpp"
 #include "interpreter_fwd.hpp"
 #include "literal.hpp"
 
@@ -34,8 +32,6 @@ namespace motts { namespace lox {
             std::string name_;
             Class* superclass_ {};
             std::vector<std::pair<std::string, Function*>> methods_;
-
-            friend class Instance;
     };
 
     class Instance {

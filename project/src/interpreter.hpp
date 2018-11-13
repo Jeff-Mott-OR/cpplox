@@ -1,24 +1,26 @@
 #pragma once
 
-// Related header
 #include "interpreter_fwd.hpp"
-// C standard headers
-// C++ standard headers
+
+#include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-// Third-party headers
-// This project's headers
-#include "callable.hpp"
-#include "class.hpp"
+
+#include <gc.h>
+#include <gsl/gsl_util>
+
+#include "environment.hpp"
 #include "exception.hpp"
+#include "expression.hpp"
 #include "expression_visitor.hpp"
+#include "literal.hpp"
+#include "resolver.hpp"
 #include "statement_visitor.hpp"
 #include "token.hpp"
 
 namespace motts { namespace lox {
-    class Environment;
-
     class Interpreter : public Expr_visitor, public Stmt_visitor {
         public:
             explicit Interpreter();
@@ -49,41 +51,22 @@ namespace motts { namespace lox {
             const Literal& result() const &;
             Literal&& result() &&;
 
-            void resolve(const Expr*, int depth);
+            std::unique_ptr<Resolver> make_resolver();
 
-            friend class Function;
+        /*package_private:*/
+            bool _returning() const;
+            Literal&& _return_value() &&;
+            gsl::final_action<std::function<void ()>> _push_environment(Environment*);
 
         private:
-            std::vector<std::pair<std::string, Literal>>::iterator lookup_variable(const std::string& name, const Expr&);
-
             Literal result_;
             bool returning_ {false};
 
-            Environment* environment_ {};
-            Environment* globals_ {};
+            Environment* environment_ {new (GC_MALLOC(sizeof(Environment))) Environment{}};
+            Environment* globals_ {environment_};
             std::vector<std::pair<const Expr*, int>> scope_depths_;
-    };
 
-    class Function : public Callable {
-        public:
-            explicit Function(
-                const Function_stmt* declaration,
-                Environment* enclosed,
-                bool is_initializer = false
-            );
-            Literal call(
-                const Callable* /*owner_this*/,
-                Interpreter& interpreter,
-                const std::vector<Literal>& arguments
-            ) const override;
-            int arity() const override;
-            std::string to_string() const override;
-            Function* bind(Instance*) const;
-
-        private:
-            const Function_stmt* declaration_ {};
-            Environment* enclosed_ {};
-            bool is_initializer_;
+            std::vector<std::pair<std::string, Literal>>::iterator lookup_variable(const std::string& name, const Expr&);
     };
 
     struct Interpreter_error : Runtime_error {

@@ -1,11 +1,6 @@
 #pragma once
 
-// Related header
 #include "expression_visitor_fwd.hpp"
-// C standard headers
-// C++ standard headers
-// Third-party headers
-// This project's headers
 #include "expression_impls.hpp"
 
 namespace motts { namespace lox {

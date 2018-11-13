@@ -1,13 +1,10 @@
 #pragma once
 
-// Related header
 #include "callable_fwd.hpp"
-// C standard headers
-// C++ standard headers
+
 #include <string>
 #include <vector>
-// Third-party headers
-// This project's headers
+
 #include "interpreter_fwd.hpp"
 #include "literal.hpp"
 

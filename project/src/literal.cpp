@@ -1,13 +1,10 @@
-// Related header
 #include "literal.hpp"
-// C standard headers
-// C++ standard headers
+
 #include <ios>
-// Third-party headers
-// This project's headers
+
 #include "callable.hpp"
 #include "class.hpp"
-#include "interpreter.hpp"
+#include "function.hpp"
 
 using std::boolalpha;
 using std::nullptr_t;

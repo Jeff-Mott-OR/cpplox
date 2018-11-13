@@ -1,18 +1,14 @@
-// Related header
-// C standard headers
 #include <cstdlib>
-// C++ standard headers
+
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <string>
-#include <vector>
-// Third-party headers
-#include <boost/algorithm/string/join.hpp>
+
 #include <gc.h>
 #include <gsl/span>
-// This project's headers
+
 #include "exception.hpp"
 #include "interpreter.hpp"
 #include "parser.hpp"
@@ -28,29 +24,30 @@ using std::getline;
 using std::ifstream;
 using std::istreambuf_iterator;
 using std::string;
-using std::vector;
 
-using boost::algorithm::join;
 using gsl::span;
 
 namespace lox = motts::lox;
 
 auto run(const string& source, lox::Interpreter& interpreter) {
-    GC_INIT();
-
     const auto statements = lox::parse(lox::Token_iterator{source});
 
-    lox::Resolver resolver {interpreter};
-    vector<string> resolver_errors;
-    for (const auto& statement : statements) {
-        try {
-            statement->accept(statement, resolver);
-        } catch (const lox::Resolver_error& error) {
-            resolver_errors.push_back(error.what());
+    {
+        auto resolver = interpreter.make_resolver();
+        string resolver_errors;
+        for (const auto& statement : statements) {
+            try {
+                statement->accept(statement, *resolver);
+            } catch (const lox::Resolver_error& error) {
+                if (!resolver_errors.empty()) {
+                    resolver_errors += '\n';
+                }
+                resolver_errors += error.what();
+            }
         }
-    }
-    if (resolver_errors.size()) {
-        throw lox::Resolver_error{join(resolver_errors, "\n")};
+        if (!resolver_errors.empty()) {
+            throw lox::Resolver_error{resolver_errors};
+        }
     }
 
     for (const auto& statement : statements) {
@@ -94,6 +91,8 @@ auto run_prompt() {
 
 int main(int argc, const char* argv[]) {
     try {
+        GC_INIT();
+
         // STL container-like interface to argv
         span<const char*> argv_span {argv, argc};
 

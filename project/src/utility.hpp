@@ -1,11 +1,6 @@
 #pragma once
 
-// Related header
-// C standard headers
-// C++ standard headers
 #include <utility>
-// Third-party headers
-// This project's headers
 
 namespace motts { namespace lox {
     /*

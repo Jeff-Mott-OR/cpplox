@@ -1,11 +1,7 @@
 #pragma once
 
-// Related header
-// C standard headers
-// C++ standard headers
 #include <vector>
-// Third-party headers
-// This project's headers
+
 #include "expression.hpp"
 #include "expression_impls.hpp"
 #include "statement.hpp"
@@ -85,12 +81,12 @@ namespace motts { namespace lox {
 
     struct Class_stmt : Stmt {
         Token name;
-        Var_expr* superclass {};
+        const Var_expr* superclass {};
         std::vector<const Function_stmt*> methods;
 
         explicit Class_stmt(
             Token&& name,
-            Var_expr* superclass,
+            const Var_expr* superclass,
             std::vector<const Function_stmt*>&& methods
         );
         void accept(const Stmt* owner_this, Stmt_visitor&) const override;

@@ -1,23 +1,24 @@
-// Related header
 #include "resolver.hpp"
-// C standard headers
-// C++ standard headers
+
 #include <algorithm>
-// Third-party headers
+#include <functional>
+
 #include <gsl/gsl_util>
-// This project's headers
 
 using std::find_if;
+using std::function;
+using std::move;
 using std::pair;
 using std::string;
 using std::to_string;
 
+using gsl::final_action;
 using gsl::finally;
 using gsl::narrow;
 
 namespace motts { namespace lox {
-    Resolver::Resolver(Interpreter& interpreter) :
-        interpreter_ {interpreter}
+    Resolver::Resolver(function<void (const Expr*, int depth)>&& on_resolve_local) :
+        on_resolve_local_ {move(on_resolve_local)}
     {}
 
     void Resolver::visit(const Block_stmt* stmt) {
@@ -31,27 +32,24 @@ namespace motts { namespace lox {
     }
 
     void Resolver::visit(const Class_stmt* stmt) {
-        if (scopes_.size()) {
+        if (!scopes_.empty()) {
             declare_var(stmt->name).second = Var_binding::defined;
         }
 
-        const auto enclosing_class_type_ = current_class_type_;
+        const auto enclosing_class_type = current_class_type_;
         current_class_type_ = Class_type::class_;
         const auto _ = finally([&] () {
-            current_class_type_ = enclosing_class_type_;
+            current_class_type_ = enclosing_class_type;
         });
 
+        final_action<function<void ()>> _2 {[] () {}};
         if (stmt->superclass) {
             current_class_type_ = Class_type::subclass;
             stmt->superclass->accept(stmt->superclass, *this);
             scopes_.push_back({});
-        }
-        const auto _2 = finally([&] () {
-            if (stmt->superclass) {
+            _2 = finally(function<void ()>{[&] () {
                 scopes_.pop_back();
-            }
-        });
-        if (stmt->superclass) {
+            }});
             scopes_.back().push_back({"super", Var_binding::defined});
         }
 
@@ -72,17 +70,7 @@ namespace motts { namespace lox {
     }
 
     void Resolver::visit(const Var_stmt* stmt) {
-        if (scopes_.size()) {
-            const auto found_in_scope = find_if(
-                scopes_.back().cbegin(), scopes_.back().cend(),
-                [&] (const auto& var_binding) {
-                    return var_binding.first == stmt->name.lexeme;
-                }
-            );
-            if (found_in_scope != scopes_.back().cend()) {
-                throw Resolver_error{"Variable with this name already declared in this scope.", stmt->name};
-            }
-
+        if (!scopes_.empty()) {
             declare_var(stmt->name);
         }
 
@@ -90,13 +78,13 @@ namespace motts { namespace lox {
             stmt->initializer->accept(stmt->initializer, *this);
         }
 
-        if (scopes_.size()) {
+        if (!scopes_.empty()) {
             scopes_.back().back().second = Var_binding::defined;
         }
     }
 
     void Resolver::visit(const Var_expr* expr) {
-        if (scopes_.size()) {
+        if (!scopes_.empty()) {
             const auto found_declared_in_scope = find_if(
                 scopes_.back().cbegin(), scopes_.back().cend(),
                 [&] (const auto& var_binding) {
@@ -117,7 +105,7 @@ namespace motts { namespace lox {
     }
 
     void Resolver::visit(const Function_stmt* stmt) {
-        if (scopes_.size()) {
+        if (!scopes_.empty()) {
             declare_var(stmt->name).second = Var_binding::defined;
         }
 
@@ -236,7 +224,7 @@ namespace motts { namespace lox {
                 return var_binding.first == name;
             });
             if (found_in_scope != scope->cend()) {
-                interpreter_.resolve(&expr, narrow<int>(scope - scopes_.crbegin()));
+                on_resolve_local_(&expr, narrow<int>(scope - scopes_.crbegin()));
                 return;
             }
         }
@@ -250,10 +238,10 @@ namespace motts { namespace lox {
             scopes_.pop_back();
         });
 
-        const auto enclosing_function_type_ = current_function_type_;
+        const auto enclosing_function_type = current_function_type_;
         current_function_type_ = function_type;
         const auto _2 = finally([&] () {
-            current_function_type_ = enclosing_function_type_;
+            current_function_type_ = enclosing_function_type;
         });
 
         for (const auto& param : stmt->parameters) {

@@ -1,11 +1,6 @@
-// Related header
 #include "ast_printer.hpp"
-// C standard headers
-// C++ standard headers
 #include <utility>
-// Third-party headers
 #include <boost/lexical_cast.hpp>
-// This project's headers
 
 using std::move;
 using std::string;

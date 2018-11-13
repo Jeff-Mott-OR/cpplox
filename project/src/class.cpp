@@ -1,13 +1,12 @@
-// Related header
 #include "class.hpp"
-// C standard headers
-// C++ standard headers
+
 #include <algorithm>
 #include <utility>
-// Third-party headers
+
 #include <gc.h>
-// This project's headers
+
 #include "exception.hpp"
+#include "function.hpp"
 #include "interpreter.hpp"
 
 using std::find_if;

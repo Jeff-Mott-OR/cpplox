@@ -1,14 +1,12 @@
-// Related header
-// C standard headers
-// C++ standard headers
+#pragma once
+
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
-// Third-party headers
-// This project's headers
+
 #include "expression_impls.hpp"
 #include "expression_visitor.hpp"
-#include "interpreter.hpp"
 #include "statement_impls.hpp"
 #include "statement_visitor.hpp"
 #include "token.hpp"
@@ -20,7 +18,7 @@ namespace motts { namespace lox {
 
     class Resolver : public Expr_visitor, public Stmt_visitor {
         public:
-            explicit Resolver(Interpreter&);
+            explicit Resolver(std::function<void (const Expr*, int depth)>&& on_resolve_local);
 
             void visit(const Block_stmt*) override;
             void visit(const Class_stmt*) override;
@@ -45,14 +43,14 @@ namespace motts { namespace lox {
             void visit(const Unary_expr*) override;
 
         private:
-            std::pair<std::string, Var_binding>& declare_var(const Token& name);
-            void resolve_function(const Function_stmt*, Function_type);
-            void resolve_local(const Expr&, const std::string& name);
-
             std::vector<std::vector<std::pair<std::string, Var_binding>>> scopes_;
             Function_type current_function_type_ {Function_type::none};
             Class_type current_class_type_ {Class_type::none};
-            Interpreter& interpreter_;
+            std::function<void (const Expr*, int depth)> on_resolve_local_;
+
+            std::pair<std::string, Var_binding>& declare_var(const Token& name);
+            void resolve_function(const Function_stmt*, Function_type);
+            void resolve_local(const Expr&, const std::string& name);
     };
 
     struct Resolver_error : Runtime_error {

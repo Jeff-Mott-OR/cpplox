@@ -1,42 +1,37 @@
-// Related header
 #include "parser.hpp"
-// C standard headers
-// C++ standard headers
+
+#include <functional>
 #include <utility>
-// Third-party headers
-#include <boost/algorithm/string/join.hpp>
+
 #include <gc.h>
-// This project's headers
+
 #include "expression_impls.hpp"
 #include "statement_impls.hpp"
 
+using std::function;
 using std::move;
 using std::string;
 using std::to_string;
 using std::vector;
-
-using boost::algorithm::join;
 
 // Allow the internal linkage section to access names
 using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
+    // There's no invariant being maintained here; this class exists primarily to avoid lots of manual argument passing
     class Parser {
         Token_iterator token_iter_;
-        vector<string> parser_errors_;
+        function<void (const Parser_error&)> on_resumable_error_;
 
         public:
-            Parser(Token_iterator&& token_iter) :
-                token_iter_ {move(token_iter)}
+            Parser(Token_iterator&& token_iter, function<void (const Parser_error&)>&& on_resumable_error) :
+                token_iter_ {move(token_iter)},
+                on_resumable_error_ {move(on_resumable_error)}
             {}
 
             const Token_iterator& token_iter() {
                 return token_iter_;
-            }
-
-            const vector<string>& parser_errors() {
-                return parser_errors_;
             }
 
             const Stmt* consume_declaration() {
@@ -47,7 +42,7 @@ namespace {
 
                     return consume_statement();
                 } catch (const Parser_error& error) {
-                    parser_errors_.push_back(error.what());
+                    on_resumable_error_(error);
                     recover_to_synchronization_point();
 
                     return {};
@@ -460,8 +455,8 @@ namespace {
                     // After a semicolon, we're probably finished with a statement; use it as a synchronization point
                     if (advance_if_match(Token_type::semicolon)) return;
 
-                    // Most statements start with a keyword -- for, if, return, var, etc. Use them as synchronization
-                    // points.
+                    // Most statements start with a keyword -- for, if, return, var, etc. Use them
+                    // as synchronization points.
                     if (
                         token_iter_->type == Token_type::class_ ||
                         token_iter_->type == Token_type::fun_ ||
@@ -487,15 +482,21 @@ namespace motts { namespace lox {
     vector<const Stmt*> parse(Token_iterator&& token_iter) {
         vector<const Stmt*> statements;
 
-        Parser parser {move(token_iter)};
+        string parser_errors;
+        Parser parser {move(token_iter), [&] (const Parser_error& error) {
+            if (!parser_errors.empty()) {
+                parser_errors += '\n';
+            }
+            parser_errors += error.what();
+        }};
         while (parser.token_iter()->type != Token_type::eof) {
             auto declaration = parser.consume_declaration();
             if (declaration) {
                 statements.push_back(move(declaration));
             }
         }
-        if (parser.parser_errors().size()) {
-            throw Runtime_error{join(parser.parser_errors(), "\n")};
+        if (!parser_errors.empty()) {
+            throw Runtime_error{parser_errors};
         }
 
         return statements;

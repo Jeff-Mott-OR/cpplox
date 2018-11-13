@@ -1,10 +1,5 @@
 #pragma once
 
-// Related header
-// C standard headers
-// C++ standard headers
-// Third-party headers
-// This project's headers
 #include "statement_impls.hpp"
 
 namespace motts { namespace lox {
