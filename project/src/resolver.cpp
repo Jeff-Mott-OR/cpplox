@@ -147,6 +147,16 @@ namespace motts { namespace lox {
         stmt->body->accept(stmt->body, *this);
     }
 
+    void Resolver::visit(const For_stmt* stmt) {
+        stmt->condition->accept(stmt->condition, *this);
+        stmt->increment->accept(stmt->increment, *this);
+        stmt->body->accept(stmt->body, *this);
+    }
+
+    void Resolver::visit(const Break_stmt* stmt) {}
+
+    void Resolver::visit(const Continue_stmt* stmt) {}
+
     void Resolver::visit(const Binary_expr* expr) {
         expr->left->accept(expr->left, *this);
         expr->right->accept(expr->right, *this);

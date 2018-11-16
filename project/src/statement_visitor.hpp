@@ -8,11 +8,14 @@ namespace motts { namespace lox {
         virtual void visit(const Print_stmt*) = 0;
         virtual void visit(const Var_stmt*) = 0;
         virtual void visit(const While_stmt*) = 0;
+        virtual void visit(const For_stmt*) = 0;
         virtual void visit(const Block_stmt*) = 0;
         virtual void visit(const If_stmt*) = 0;
         virtual void visit(const Function_stmt*) = 0;
         virtual void visit(const Return_stmt*) = 0;
         virtual void visit(const Class_stmt*) = 0;
+        virtual void visit(const Break_stmt*) = 0;
+        virtual void visit(const Continue_stmt*) = 0;
 
         // Base class boilerplate
         explicit Stmt_visitor() = default;

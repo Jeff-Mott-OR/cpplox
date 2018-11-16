@@ -132,6 +132,8 @@ namespace {
                 }
                 if (advance_if_match(Token_type::while_)) return consume_while_statement();
                 if (advance_if_match(Token_type::left_brace)) return new (GC_MALLOC(sizeof(Block_stmt))) Block_stmt{consume_block_statement()};
+                if (advance_if_match(Token_type::break_)) return consume_break_statement();
+                if (advance_if_match(Token_type::continue_)) return consume_continue_statement();
 
                 return consume_expression_statement();
             }
@@ -165,31 +167,23 @@ namespace {
                     initializer = consume_expression_statement();
                 }
 
-                const Expr* condition {};
-                if (token_iter_->type != Token_type::semicolon) {
-                    condition = consume_expression();
-                }
+                const Expr* condition {
+                    token_iter_->type != Token_type::semicolon ?
+                        consume_expression() :
+                        new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{true}}
+                };
                 consume(Token_type::semicolon, "Expected ';' after loop condition.");
 
-                const Expr* increment {};
-                if (token_iter_->type != Token_type::right_paren) {
-                    increment = consume_expression();
-                }
+                const Expr* increment {
+                    token_iter_->type != Token_type::right_paren ?
+                        consume_expression() :
+                        new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{}}
+                };
                 consume(Token_type::right_paren, "Expected ')' after for clauses.");
 
                 auto body = consume_statement();
 
-                if (increment) {
-                    vector<const Stmt*> stmts;
-                    stmts.push_back(move(body));
-                    stmts.push_back(new (GC_MALLOC(sizeof(Expr_stmt))) Expr_stmt{move(increment)});
-                    body = new (GC_MALLOC(sizeof(Block_stmt))) Block_stmt{move(stmts)};
-                }
-
-                if (!condition) {
-                    condition = new (GC_MALLOC(sizeof(Literal_expr))) Literal_expr{Literal{true}};
-                }
-                body = new (GC_MALLOC(sizeof(While_stmt))) While_stmt{move(condition), move(body)};
+                body = new (GC_MALLOC(sizeof(For_stmt))) For_stmt{move(condition), move(increment), move(body)};
 
                 if (initializer) {
                     vector<const Stmt*> stmts;
@@ -241,6 +235,16 @@ namespace {
                 consume(Token_type::semicolon, "Expected ';' after return value.");
 
                 return new (GC_MALLOC(sizeof(Return_stmt))) Return_stmt{move(keyword), move(value)};
+            }
+
+            const Stmt* consume_break_statement() {
+                consume(Token_type::semicolon, "Expected ';' after 'break'.");
+                return new (GC_MALLOC(sizeof(Break_stmt))) Break_stmt{};
+            }
+
+            const Stmt* consume_continue_statement() {
+                consume(Token_type::semicolon, "Expected ';' after 'continue'.");
+                return new (GC_MALLOC(sizeof(Continue_stmt))) Continue_stmt{};
             }
 
             const Expr* consume_expression() {

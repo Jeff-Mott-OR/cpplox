@@ -37,7 +37,7 @@ namespace motts { namespace lox {
         /* These are real reserved words in C++, so mangle their names in some way */ \
         X(and_) X(class_) X(else_) X(false_) X(fun_) X(for_) \
         X(if_) X(nil_) X(or_) X(print_) X(return_) X(super_) \
-        X(this_) X(true_) X(var_) X(while_) \
+        X(this_) X(true_) X(var_) X(while_) X(break_) X(continue_)\
         \
         X(eof)
 

@@ -57,6 +57,20 @@ namespace motts { namespace lox {
     }
 
     /*
+        struct For_stmt
+    */
+
+    For_stmt::For_stmt(const Expr* condition_arg, const Expr* increment_arg, const Stmt* body_arg) :
+        condition {move(condition_arg)},
+        increment {move(increment_arg)},
+        body {move(body_arg)}
+    {}
+
+    void For_stmt::accept(const Stmt* owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_cast<const For_stmt*>(owner_this));
+    }
+
+    /*
         struct Block_stmt
     */
 
@@ -127,5 +141,25 @@ namespace motts { namespace lox {
 
     void Class_stmt::accept(const Stmt* owner_this, Stmt_visitor& visitor) const {
         visitor.visit(static_cast<const Class_stmt*>(owner_this));
+    }
+
+    /*
+        struct Break_stmt
+    */
+
+    Break_stmt::Break_stmt() = default;
+
+    void Break_stmt::accept(const Stmt* owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_cast<const Break_stmt*>(owner_this));
+    }
+
+    /*
+        struct Continue_stmt
+    */
+
+    Continue_stmt::Continue_stmt() = default;
+
+    void Continue_stmt::accept(const Stmt* owner_this, Stmt_visitor& visitor) const {
+        visitor.visit(static_cast<const Continue_stmt*>(owner_this));
     }
 }}

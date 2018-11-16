@@ -38,6 +38,15 @@ namespace motts { namespace lox {
         void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 
+    struct For_stmt : Stmt {
+        const Expr* condition {};
+        const Expr* increment {};
+        const Stmt* body {};
+
+        explicit For_stmt(const Expr* condition, const Expr* increment, const Stmt* body);
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
+    };
+
     struct Block_stmt : Stmt {
         std::vector<const Stmt*> statements;
 
@@ -83,6 +92,16 @@ namespace motts { namespace lox {
             const Var_expr* superclass,
             std::vector<const Function_stmt*>&& methods
         );
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
+    };
+
+    struct Break_stmt : Stmt {
+        explicit Break_stmt();
+        void accept(const Stmt* owner_this, Stmt_visitor&) const override;
+    };
+
+    struct Continue_stmt : Stmt {
+        explicit Continue_stmt();
         void accept(const Stmt* owner_this, Stmt_visitor&) const override;
     };
 }}

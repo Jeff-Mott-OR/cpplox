@@ -43,6 +43,9 @@ namespace motts { namespace lox {
             void visit(const If_stmt*) override;
             void visit(const Print_stmt*) override;
             void visit(const While_stmt*) override;
+            void visit(const For_stmt*) override;
+            void visit(const Break_stmt*) override;
+            void visit(const Continue_stmt*) override;
             void visit(const Var_stmt*) override;
             void visit(const Block_stmt*) override;
             void visit(const Class_stmt*) override;

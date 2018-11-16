@@ -317,6 +317,9 @@ namespace motts { namespace lox {
         }
     }
 
+    class Break {};
+    class Continue {};
+
     void Interpreter::visit(const While_stmt* stmt) {
         while (
             // IIFE so I can execute multiple statements inside while condition
@@ -325,12 +328,58 @@ namespace motts { namespace lox {
                 return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
             })()
         ) {
-            stmt->body->accept(stmt->body, *this);
+            try {
+                stmt->body->accept(stmt->body, *this);
+            } catch (const Break&) {
+                break;
+            } catch (const Continue&) {
+                continue;
+            }
 
             if (returning_) {
                 return;
             }
         }
+    }
+
+    void Interpreter::visit(const For_stmt* stmt) {
+        for (
+            ;
+
+            // IIFE so I can execute multiple statements inside condition
+            ([&] () {
+                const auto condition_result = lox::apply_visitor(*this, stmt->condition);
+                return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
+            })();
+
+            lox::apply_visitor(*this, stmt->increment)
+        ) {
+            try {
+                stmt->body->accept(stmt->body, *this);
+            } catch (const Break&) {
+                break;
+            } catch (const Continue&) {
+                continue;
+            }
+
+            if (returning_) {
+                return;
+            }
+        }
+    }
+
+    void Interpreter::visit(const Break_stmt*) {
+        // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
+        // happen to offer exactly the behavior we need. We need to traverse an unknown call stack depth to get back to
+        // the nearest loop statement.
+        throw Break{};
+    }
+
+    void Interpreter::visit(const Continue_stmt*) {
+        // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
+        // happen to offer exactly the behavior we need. We need to traverse an unknown call stack depth to get back to
+        // the nearest loop statement.
+        throw Continue{};
     }
 
     void Interpreter::visit(const Print_stmt* stmt) {
@@ -347,10 +396,10 @@ namespace motts { namespace lox {
 
     void Interpreter::visit(const Block_stmt* stmt) {
         auto enclosed = move(environment_);
-        environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
         const auto _ = finally([&] () {
             environment_ = move(enclosed);
         });
+        environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
 
         for (const auto& statement : stmt->statements) {
             statement->accept(statement, *this);

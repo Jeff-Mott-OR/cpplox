@@ -26,7 +26,7 @@ using namespace motts::lox;
 
 // Not exported (internal linkage)
 namespace {
-    const array<pair<const char*, Token_type>, 16> reserved_words {{
+    const array<pair<const char*, Token_type>, 18> reserved_words {{
         {"and", Token_type::and_},
         {"class", Token_type::class_},
         {"else", Token_type::else_},
@@ -42,7 +42,9 @@ namespace {
         {"this", Token_type::this_},
         {"true", Token_type::true_},
         {"var", Token_type::var_},
-        {"while", Token_type::while_}
+        {"while", Token_type::while_},
+        {"break", Token_type::break_},
+        {"continue", Token_type::continue_}
     }};
 }
 
