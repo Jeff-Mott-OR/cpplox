@@ -51,6 +51,17 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 # anything that isn't MSVC is GNU or GNU- compatible.
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
+# The up-and-coming byte code compiler and interpreter
+add_executable(cpplox_bytecode src/main_bytecode.cpp)
+target_compile_features(cpplox_bytecode PRIVATE cxx_std_14)
+target_link_libraries(cpplox_bytecode PRIVATE Boost::boost)
+target_compile_options(
+    cpplox_bytecode PRIVATE
+        "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
+)
+install(TARGETS cpplox_bytecode DESTINATION ./)
+
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     target_compile_features(test_harness PRIVATE cxx_std_14)
