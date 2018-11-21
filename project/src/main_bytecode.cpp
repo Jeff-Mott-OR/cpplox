@@ -1,25 +1,46 @@
+#include <cstdlib>
+
+#include <algorithm>
 #include <array>
+#include <exception>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <ostream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
+#include <gsl/span>
+
+#include "exception.hpp"
+#include "scanner.hpp"
 
 using std::array;
+using std::cerr;
+using std::cin;
 using std::cout;
-using std::string;
+using std::exception;
+using std::exit;
+using std::for_each;
+using std::getline;
+using std::ifstream;
+using std::istreambuf_iterator;
 using std::logic_error;
 using std::ostream;
 using std::setfill;
 using std::setw;
+using std::string;
 using std::vector;
 
 using boost::is_any_of;
 using boost::to_upper;
 using boost::trim_right_if;
+using gsl::span;
+
+namespace lox = motts::lox;
 
 // X-macro technique
 #define MOTTS_LOX_OPCODE_NAMES \
@@ -96,14 +117,33 @@ class VM {
     const Chunk* chunk_ {};
     vector<int>::const_iterator ip_;
     array<double, 256> stack_;
-    array<double, 256>::iterator stack_top_ {stack_.begin()};
+    decltype(stack_)::iterator stack_top_ {stack_.begin()};
 
     void push(double value);
     double pop();
 
     public:
+        void compile(const string& source);
         void interpret(const Chunk&);
 };
+
+void VM::compile(const string& source) {
+    auto prev_line = -1;
+    // Nystrom started writing a new scanner, partly because he was writing in a new language, and partly because he
+    // wanted a new feature, scanning on demand. In my case, however, I didn't need to switch languages, and my scanner
+    // already scans on demand. That my scanner already scans on demand was a happy accident from structuring the
+    // scanner as an iterator. That means I don't need to re-implement the scanner at all. I can reuse the one I already
+    // have.
+    for_each(lox::Token_iterator{source}, lox::Token_iterator{}, [&] (const auto& token) {
+        if (token.line != prev_line) {
+            cout << setw(4) << token.line << " ";
+            prev_line = token.line;
+        } else {
+            cout << "   | ";
+        }
+        cout << token.type << " '" << token.lexeme << "'\n";
+    });
+}
 
 void VM::interpret(const Chunk& chunk) {
     chunk_ = &chunk;
@@ -166,38 +206,61 @@ double VM::pop() {
     return *stack_top_;
 }
 
-int main(/*int argc, const char* argv[]*/) {
-    Chunk chunk;
+auto run(const string& source, VM& vm) {
+    vm.compile(source);
+}
 
-    chunk.constants.push_back(1.2);
-    chunk.code.push_back(static_cast<int>(Opcode::constant));
-    chunk.code.push_back(chunk.constants.cend() - chunk.constants.cbegin() - 1);
-    chunk.lines.push_back(123);
-    chunk.lines.push_back(123);
-
-    chunk.constants.push_back(3.4);
-    chunk.code.push_back(static_cast<int>(Opcode::constant));
-    chunk.code.push_back(chunk.constants.cend() - chunk.constants.cbegin() - 1);
-    chunk.lines.push_back(123);
-    chunk.lines.push_back(123);
-
-    chunk.code.push_back(static_cast<int>(Opcode::add));
-    chunk.lines.push_back(123);
-
-    chunk.constants.push_back(5.6);
-    chunk.code.push_back(static_cast<int>(Opcode::constant));
-    chunk.code.push_back(chunk.constants.cend() - chunk.constants.cbegin() - 1);
-    chunk.lines.push_back(123);
-    chunk.lines.push_back(123);
-
-    chunk.code.push_back(static_cast<int>(Opcode::divide));
-    chunk.lines.push_back(123);
-
-    chunk.code.push_back(static_cast<int>(Opcode::return_));
-    chunk.lines.push_back(123);
-
-    disassemble_chunk(chunk);
-
+auto run(const string& source) {
     VM vm;
-    vm.interpret(chunk);
+    run(source, vm);
+}
+
+auto run_file(const string& path) {
+    // IIFE to limit scope of ifstream
+    const auto source = ([&] () {
+        ifstream in {path};
+        in.exceptions(ifstream::failbit | ifstream::badbit);
+        return string{istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
+    })();
+
+    run(source);
+}
+
+auto run_prompt() {
+    VM vm;
+
+    while (true) {
+        cout << "> ";
+
+        string source_line;
+        getline(cin, source_line);
+
+        // If the user makes a mistake, it shouldn't kill their entire session
+        try {
+            run(source_line, vm);
+        } catch (const lox::Runtime_error& error) {
+            cerr << error.what() << "\n";
+        }
+    }
+}
+
+int main(int argc, const char* argv[]) {
+    try {
+        // STL container-like interface to argv
+        span<const char*> argv_span {argv, argc};
+
+        if (argv_span.size() > 2) {
+            cout << "Usage: cpploxbc [script]\n";
+        } else if (argv_span.size() == 2) {
+            run_file(argv_span.at(1));
+        } else {
+            run_prompt();
+        }
+    } catch (const exception& error) {
+        cerr << error.what() << "\n";
+        exit(EXIT_FAILURE);
+    } catch (...) {
+        cerr << "An unknown error occurred.\n";
+        exit(EXIT_FAILURE);
+    }
 }

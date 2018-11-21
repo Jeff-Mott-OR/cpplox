@@ -51,16 +51,30 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 # anything that isn't MSVC is GNU or GNU- compatible.
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
-# The up-and-coming byte code compiler and interpreter
-add_executable(cpplox_bytecode src/main_bytecode.cpp)
-target_compile_features(cpplox_bytecode PRIVATE cxx_std_14)
-target_link_libraries(cpplox_bytecode PRIVATE Boost::boost)
-target_compile_options(
-    cpplox_bytecode PRIVATE
-        "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
-        $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
+# The up-and-coming bytecode compiler and interpreter
+add_executable(cpploxbc
+    src/main_bytecode.cpp
+    src/class.cpp
+    src/environment.cpp
+    src/function.cpp
+    src/interpreter.cpp
+    src/literal.cpp
+    src/resolver.cpp
+    src/scanner.cpp
+    src/token.cpp
 )
-install(TARGETS cpplox_bytecode DESTINATION ./)
+target_compile_features(cpploxbc PRIVATE cxx_std_14)
+target_link_libraries(cpploxbc PRIVATE
+    Boost::boost
+    "${HBOEHM_GC_INSTALL_DIR}/lib/$<IF:$<BOOL:${CMAKE_HOST_UNIX}>,libgc.a,gc-lib.lib>"
+    $<$<BOOL:${CMAKE_HOST_UNIX}>:pthread>
+)
+target_compile_options(cpploxbc PRIVATE
+    "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
+    $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
+)
+target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}" "${HBOEHM_GC_INSTALL_DIR}/include")
+install(TARGETS cpploxbc DESTINATION ./)
 
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
