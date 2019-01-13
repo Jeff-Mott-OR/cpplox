@@ -56,11 +56,16 @@ add_executable(cpploxbc
     src/main_bytecode.cpp
     src/class.cpp
     src/environment.cpp
+    src/expression.cpp
+    src/expression_impls.cpp
     src/function.cpp
     src/interpreter.cpp
     src/literal.cpp
+    src/parser.cpp
+    src/parser_bc.cpp
     src/resolver.cpp
     src/scanner.cpp
+    src/statement_impls.cpp
     src/token.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)

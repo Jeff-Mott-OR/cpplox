@@ -16,6 +16,8 @@
 #include <gsl/span>
 
 #include "exception.hpp"
+#include "parser.hpp"
+#include "parser_bc.hpp"
 #include "scanner.hpp"
 
 using std::array;
@@ -35,6 +37,7 @@ using std::setw;
 using std::string;
 using std::vector;
 
+using boost::get;
 using boost::is_any_of;
 using boost::to_upper;
 using boost::trim_right_if;
@@ -42,23 +45,12 @@ using gsl::span;
 
 namespace lox = motts::lox;
 
-// X-macro technique
-#define MOTTS_LOX_OPCODE_NAMES \
-    X(return_) X(constant) X(negate) \
-    X(add) X(subtract) X(multiply) X(divide)
-
-enum class Opcode {
-    #define X(name) name,
-    MOTTS_LOX_OPCODE_NAMES
-    #undef X
-};
-
-ostream& operator<<(ostream& os, Opcode opcode) {
+ostream& operator<<(ostream& os, lox::Opcode opcode) {
     // IIFE so I can use return rather than assign-and-break
     string name {([&] () {
         switch (opcode) {
             #define X(name) \
-                case Opcode::name: \
+                case lox::Opcode::name: \
                     return #name;
             MOTTS_LOX_OPCODE_NAMES
             #undef X
@@ -77,13 +69,7 @@ ostream& operator<<(ostream& os, Opcode opcode) {
     return os;
 }
 
-struct Chunk {
-    vector<int> code;
-    vector<double> constants;
-    vector<int> lines;
-};
-
-auto disassemble_instruction(const Chunk& chunk, vector<int>::const_iterator ip) {
+auto disassemble_instruction(const lox::Chunk& chunk, vector<int>::const_iterator ip) {
     const auto index = ip - chunk.code.cbegin();
 
     cout << setw(4) << setfill('0') << index << " ";
@@ -93,28 +79,25 @@ auto disassemble_instruction(const Chunk& chunk, vector<int>::const_iterator ip)
         cout << setw(4) << setfill(' ') << '|';
     }
 
-    const auto opcode = static_cast<Opcode>(*(ip++));
+    const auto opcode = static_cast<lox::Opcode>(*(ip++));
     cout << " " << opcode;
-    switch (opcode) {
-        case Opcode::constant: {
-            const auto constnat_index = *(ip++);
-            cout << " " << constnat_index << " " << chunk.constants.at(constnat_index);
-            break;
-        }
+    if (opcode == lox::Opcode::constant) {
+        const auto constnat_index = *(ip++);
+        cout << " " << constnat_index << " " << chunk.constants.at(constnat_index);
     }
     cout << "\n";
 
     return ip;
 }
 
-void disassemble_chunk(const Chunk& chunk) {
+void disassemble_chunk(const lox::Chunk& chunk) {
     for (auto i = chunk.code.cbegin(); i != chunk.code.cend(); ) {
         i = disassemble_instruction(chunk, i);
     }
 }
 
 class VM {
-    const Chunk* chunk_ {};
+    const lox::Chunk* chunk_ {};
     vector<int>::const_iterator ip_;
     array<double, 256> stack_;
     decltype(stack_)::iterator stack_top_ {stack_.begin()};
@@ -123,29 +106,22 @@ class VM {
     double pop();
 
     public:
-        void compile(const string& source);
-        void interpret(const Chunk&);
+        lox::Chunk compile(const string& source);
+        void interpret(const string& source);
 };
 
-void VM::compile(const string& source) {
-    auto prev_line = -1;
-    // Nystrom started writing a new scanner, partly because he was writing in a new language, and partly because he
-    // wanted a new feature, scanning on demand. In my case, however, I didn't need to switch languages, and my scanner
-    // already scans on demand. That my scanner already scans on demand was a happy accident from structuring the
-    // scanner as an iterator. That means I don't need to re-implement the scanner at all. I can reuse the one I already
-    // have.
-    for_each(lox::Token_iterator{source}, lox::Token_iterator{}, [&] (const auto& token) {
-        if (token.line != prev_line) {
-            cout << setw(4) << token.line << " ";
-            prev_line = token.line;
-        } else {
-            cout << "   | ";
-        }
-        cout << token.type << " '" << token.lexeme << "'\n";
-    });
+lox::Chunk VM::compile(const string& source) {
+    auto chunk = lox::parse_bc(lox::Token_iterator{source});
+
+    chunk.code.push_back(static_cast<int>(lox::Opcode::return_));
+    chunk.lines.push_back(-1);
+
+    return chunk;
 }
 
-void VM::interpret(const Chunk& chunk) {
+void VM::interpret(const string& source) {
+    const auto chunk = compile(source);
+
     chunk_ = &chunk;
     ip_ = chunk.code.cbegin();
 
@@ -159,37 +135,41 @@ void VM::interpret(const Chunk& chunk) {
             disassemble_instruction(chunk, ip_);
         #endif
 
-        const auto instruction = static_cast<Opcode>(*(ip_++));
+        const auto instruction = static_cast<lox::Opcode>(*(ip_++));
 
         switch (instruction) {
-            case Opcode::return_: {
-                cout << pop() << "\n";
+            case lox::Opcode::return_: {
                 return;
             }
 
-            case Opcode::constant: {
+            case lox::Opcode::constant: {
                 const auto constant = chunk.constants.at(*(ip_++));
                 push(constant);
                 break;
             }
 
-            case Opcode::negate: {
+            case lox::Opcode::negate: {
                 push(-pop());
                 break;
             }
 
-            case Opcode::add: push(pop() + pop()); break;
-            case Opcode::multiply: push(pop() * pop()); break;
-            case Opcode::subtract: {
+            case lox::Opcode::add: push(pop() + pop()); break;
+            case lox::Opcode::multiply: push(pop() * pop()); break;
+            case lox::Opcode::subtract: {
                 const auto b = pop();
                 const auto a = pop();
                 push(a - b);
                 break;
             }
-            case Opcode::divide: {
+            case lox::Opcode::divide: {
                 const auto b = pop();
                 const auto a = pop();
                 push(a / b);
+                break;
+            }
+
+            case lox::Opcode::print: {
+                cout << pop() << "\n";
                 break;
             }
         }
@@ -207,7 +187,7 @@ double VM::pop() {
 }
 
 auto run(const string& source, VM& vm) {
-    vm.compile(source);
+    vm.interpret(source);
 }
 
 auto run(const string& source) {
