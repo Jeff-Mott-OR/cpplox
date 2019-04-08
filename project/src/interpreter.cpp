@@ -12,7 +12,6 @@
 #include "callable.hpp"
 #include "class.hpp"
 #include "function.hpp"
-#include "utility.hpp"
 
 using std::back_inserter;
 using std::chrono::duration_cast;
@@ -20,57 +19,49 @@ using std::chrono::seconds;
 using std::chrono::system_clock;
 using std::cout;
 using std::find_if;
-using std::function;
-using std::make_unique;
 using std::move;
 using std::nullptr_t;
 using std::pair;
 using std::string;
 using std::to_string;
 using std::transform;
-using std::unique_ptr;
 using std::vector;
 
 using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
+using deferred_heap_t = gcpp::deferred_heap;
+using gcpp::deferred_ptr;
 using gsl::finally;
-using gsl::final_action;
 using gsl::narrow;
 
-// For the occasional explicit qualification, mostly just to aid us human readers
-namespace lox = motts::lox;
+// Allow the internal linkage section to access names
+using namespace motts::lox;
 
-namespace motts { namespace lox {
-    Interpreter::Interpreter() {
-        struct Clock_callable : Callable {
-            Literal call(
-                Callable* /*owner_this*/,
-                Interpreter&,
-                const vector<Literal>& /*arguments*/
-            ) override {
-                return Literal{narrow<double>(duration_cast<seconds>(system_clock::now().time_since_epoch()).count())};
-            }
+// Not exported (internal linkage)
+namespace {
+    /*
+    A helper function so that...
 
-            int arity() const override {
-                return 0;
-            }
+        Visitor visitor;
+        expr->accept(expr, visitor);
+        visitor.result()
 
-            string to_string() const override {
-                return "<fn clock>";
-            }
-        };
+    ...can instead be written as...
 
-        globals_->find_own_or_make("clock") = Literal{new (GC_MALLOC(sizeof(Clock_callable))) Clock_callable{}};
-    }
+        apply_visitor<Visitor>(expr)
+    */
+    template<typename Visitor, typename Operand>
+        auto apply_visitor(Visitor& visitor, const Operand& operand) {
+            operand->accept(operand, visitor);
+            return std::move(visitor).result();
+        }
 
-    void Interpreter::visit(const Literal_expr* expr) {
-        result_ = expr->value;
-    }
-
-    void Interpreter::visit(const Grouping_expr* expr) {
-        expr->expr->accept(expr->expr, *this);
-    }
+    template<typename Visitor, typename Operand>
+        auto apply_visitor(const Operand& operand) {
+            Visitor visitor;
+            return apply_visitor(visitor, operand);
+        }
 
     // Only false and nil are falsey, everything else is truthy
     struct Is_truthy_visitor : static_visitor<bool> {
@@ -87,28 +78,6 @@ namespace motts { namespace lox {
                 return true;
             }
     };
-
-    void Interpreter::visit(const Unary_expr* expr) {
-        const auto unary_result = lox::apply_visitor(*this, expr->right);
-
-        result_ = ([&] () {
-            try {
-                switch (expr->op.type) {
-                    case Token_type::minus:
-                        return Literal{ - get<double>(unary_result.value)};
-
-                    case Token_type::bang:
-                        return Literal{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
-
-                    default:
-                        throw Interpreter_error{"Unreachable.", expr->op};
-                }
-            } catch (const bad_get&) {
-                // Convert a boost variant error into a Lox error
-                throw Interpreter_error{"Operands must be numbers.", expr->op};
-            }
-        })();
-    }
 
     struct Plus_visitor : static_visitor<Literal> {
         auto operator()(const string& lhs, const string& rhs) const {
@@ -140,9 +109,85 @@ namespace motts { namespace lox {
             }
     };
 
-    void Interpreter::visit(const Binary_expr* expr) {
-        const auto left_result = lox::apply_visitor(*this, expr->left);
-        const auto right_result = lox::apply_visitor(*this, expr->right);
+    struct Get_callable_visitor : static_visitor<deferred_ptr<Callable>> {
+        deferred_ptr<Callable> operator()(const deferred_ptr<Callable>& callable) const {
+            return callable;
+        }
+
+        deferred_ptr<Callable> operator()(const deferred_ptr<Function>& callable) const {
+            return callable;
+        }
+
+        deferred_ptr<Callable> operator()(const deferred_ptr<Class>& callable) const {
+            return callable;
+        }
+
+        // All other types are not callables
+        template<typename T>
+            deferred_ptr<Callable> operator()(const T&) const {
+                throw Interpreter_error{"Can only call functions and classes."};
+            }
+    };
+
+    class Break {};
+    class Continue {};
+}
+
+// Exported (external linkage)
+namespace motts { namespace lox {
+    Interpreter::Interpreter(deferred_heap_t& deferred_heap) :
+        deferred_heap_ {deferred_heap}
+    {
+        struct Clock_callable : Callable {
+            Literal call(const deferred_ptr<Callable>& /*owner_this*/, const vector<Literal>& /*arguments*/) override {
+                return Literal{narrow<double>(duration_cast<seconds>(system_clock::now().time_since_epoch()).count())};
+            }
+
+            int arity() const override {
+                return 0;
+            }
+
+            string to_string() const override {
+                return "<fn clock>";
+            }
+        };
+
+        globals_->find_own_or_make("clock") = Literal{deferred_heap_.make<Clock_callable>()};
+    }
+
+    void Interpreter::visit(const deferred_ptr<const Literal_expr>& expr) {
+        result_ = expr->value;
+    }
+
+    void Interpreter::visit(const deferred_ptr<const Grouping_expr>& expr) {
+        expr->expr->accept(expr->expr, *this);
+    }
+
+    void Interpreter::visit(const deferred_ptr<const Unary_expr>& expr) {
+        const auto unary_result = ::apply_visitor(*this, expr->right);
+
+        result_ = ([&] () {
+            try {
+                switch (expr->op.type) {
+                    case Token_type::minus:
+                        return Literal{ - get<double>(unary_result.value)};
+
+                    case Token_type::bang:
+                        return Literal{ ! boost::apply_visitor(Is_truthy_visitor{}, unary_result.value)};
+
+                    default:
+                        throw Interpreter_error{"Unreachable.", expr->op};
+                }
+            } catch (const bad_get&) {
+                // Convert a boost variant error into a Lox error
+                throw Interpreter_error{"Operands must be numbers.", expr->op};
+            }
+        })();
+    }
+
+    void Interpreter::visit(const deferred_ptr<const Binary_expr>& expr) {
+        const auto left_result = ::apply_visitor(*this, expr->left);
+        const auto right_result = ::apply_visitor(*this, expr->right);
 
         result_ = ([&] () {
             try {
@@ -160,9 +205,7 @@ namespace motts { namespace lox {
                         return Literal{get<double>(left_result.value) <= get<double>(right_result.value)};
 
                     case Token_type::bang_equal:
-                        return Literal{
-                            ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)
-                        };
+                        return Literal{ ! boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
 
                     case Token_type::equal_equal:
                         return Literal{boost::apply_visitor(Is_equal_visitor{}, left_result.value, right_result.value)};
@@ -189,16 +232,16 @@ namespace motts { namespace lox {
         })();
     }
 
-    void Interpreter::visit(const Var_expr* expr) {
+    void Interpreter::visit(const deferred_ptr<const Var_expr>& expr) {
         result_ = lookup_variable(expr->name.lexeme, *expr)->second;
     }
 
-    void Interpreter::visit(const Assign_expr* expr) {
-        result_ = lookup_variable(expr->name.lexeme, *expr)->second = lox::apply_visitor(*this, expr->value);
+    void Interpreter::visit(const deferred_ptr<const Assign_expr>& expr) {
+        result_ = lookup_variable(expr->name.lexeme, *expr)->second = ::apply_visitor(*this, expr->value);
     }
 
-    void Interpreter::visit(const Logical_expr* expr) {
-        auto left_result = lox::apply_visitor(*this, expr->left);
+    void Interpreter::visit(const deferred_ptr<const Logical_expr>& expr) {
+        auto left_result = ::apply_visitor(*this, expr->left);
 
         // Short circuit if possible
         if (expr->op.type == Token_type::or_) {
@@ -218,28 +261,8 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
-    struct Get_callable_visitor : static_visitor<Callable*> {
-        Callable* operator()(Callable* callable) const {
-            return callable;
-        }
-
-        Callable* operator()(Function* callable) const {
-            return callable;
-        }
-
-        Callable* operator()(Class* callable) const {
-            return callable;
-        }
-
-        // All other types are not callables
-        template<typename T>
-            Callable* operator()(const T&) const {
-                throw Interpreter_error{"Can only call functions and classes."};
-            }
-    };
-
-    void Interpreter::visit(const Call_expr* expr) {
-        auto callee_result = lox::apply_visitor(*this, expr->callee);
+    void Interpreter::visit(const deferred_ptr<const Call_expr>& expr) {
+        auto callee_result = ::apply_visitor(*this, expr->callee);
         const auto callable = boost::apply_visitor(Get_callable_visitor{}, callee_result.value);
 
         if (narrow<int>(expr->arguments.size()) != callable->arity()) {
@@ -254,17 +277,17 @@ namespace motts { namespace lox {
         transform(
             expr->arguments.cbegin(), expr->arguments.cend(), back_inserter(arguments),
             [&] (const auto& argument_expr) {
-                return lox::apply_visitor(*this, argument_expr);
+                return ::apply_visitor(*this, argument_expr);
             }
         );
 
-        result_ = callable->call(callable, *this, arguments);
+        result_ = callable->call(callable, arguments);
     }
 
-    void Interpreter::visit(const Get_expr* expr) {
-        const auto object_result = lox::apply_visitor(*this, expr->object);
+    void Interpreter::visit(const deferred_ptr<const Get_expr>& expr) {
+        const auto object_result = ::apply_visitor(*this, expr->object);
         try {
-            const auto instance = get<Instance*>(object_result.value);
+            const auto instance = get<deferred_ptr<Instance>>(object_result.value);
             result_ = instance->get(instance, expr->name.lexeme);
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
@@ -272,12 +295,12 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const Set_expr* expr) {
-        auto object_result = lox::apply_visitor(*this, expr->object);
-        auto value_result = lox::apply_visitor(*this, expr->value);
+    void Interpreter::visit(const deferred_ptr<const Set_expr>& expr) {
+        auto object_result = ::apply_visitor(*this, expr->object);
+        auto value_result = ::apply_visitor(*this, expr->value);
 
         try {
-            get<Instance*>(object_result.value)->set(expr->name.lexeme, Literal{value_result});
+            get<deferred_ptr<Instance>>(object_result.value)->set(expr->name.lexeme, Literal{value_result});
         } catch (const bad_get&) {
             // Convert a boost variant error into a Lox error
             throw Interpreter_error{"Only instances have fields.", expr->name};
@@ -286,30 +309,30 @@ namespace motts { namespace lox {
         result_ = move(value_result);
     }
 
-    void Interpreter::visit(const Super_expr* expr) {
+    void Interpreter::visit(const deferred_ptr<const Super_expr>& expr) {
         const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-            return depth.first == expr;
+            return depth.first == expr.get();
         });
-        auto superclass = get<Class*>(environment_->find_in_chain("super", found_depth->second)->second.value);
-        auto instance = get<Instance*>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
+        auto superclass = get<deferred_ptr<Class>>(environment_->find_in_chain("super", found_depth->second)->second.value);
+        auto instance = get<deferred_ptr<Instance>>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
 
         result_ = superclass->get(instance, expr->method.lexeme);
     }
 
-    void Interpreter::visit(const This_expr* expr) {
+    void Interpreter::visit(const deferred_ptr<const This_expr>& expr) {
         result_ = lookup_variable("this", *expr)->second;
     }
 
-    void Interpreter::visit(const Function_expr* expr) {
-        result_ = Literal{new (GC_MALLOC(sizeof(Function))) Function{expr, environment_}};
+    void Interpreter::visit(const deferred_ptr<const Function_expr>& expr) {
+        result_ = Literal{deferred_heap_.make<Function>(deferred_heap_, *this, expr, environment_)};
     }
 
-    void Interpreter::visit(const Expr_stmt* stmt) {
+    void Interpreter::visit(const deferred_ptr<const Expr_stmt>& stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Interpreter::visit(const If_stmt* stmt) {
-        const auto condition_result = lox::apply_visitor(*this, stmt->condition);
+    void Interpreter::visit(const deferred_ptr<const If_stmt>& stmt) {
+        const auto condition_result = ::apply_visitor(*this, stmt->condition);
         if (boost::apply_visitor(Is_truthy_visitor{}, condition_result.value)) {
             stmt->then_branch->accept(stmt->then_branch, *this);
         } else if (stmt->else_branch) {
@@ -317,14 +340,11 @@ namespace motts { namespace lox {
         }
     }
 
-    class Break {};
-    class Continue {};
-
-    void Interpreter::visit(const While_stmt* stmt) {
+    void Interpreter::visit(const deferred_ptr<const While_stmt>& stmt) {
         while (
             // IIFE so I can execute multiple statements inside while condition
             ([&] () {
-                const auto condition_result = lox::apply_visitor(*this, stmt->condition);
+                const auto condition_result = ::apply_visitor(*this, stmt->condition);
                 return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
             })()
         ) {
@@ -342,17 +362,17 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const For_stmt* stmt) {
+    void Interpreter::visit(const deferred_ptr<const For_stmt>& stmt) {
         for (
             ;
 
             // IIFE so I can execute multiple statements inside condition
             ([&] () {
-                const auto condition_result = lox::apply_visitor(*this, stmt->condition);
+                const auto condition_result = ::apply_visitor(*this, stmt->condition);
                 return boost::apply_visitor(Is_truthy_visitor{}, condition_result.value);
             })();
 
-            lox::apply_visitor(*this, stmt->increment)
+            ::apply_visitor(*this, stmt->increment)
         ) {
             try {
                 stmt->body->accept(stmt->body, *this);
@@ -368,94 +388,69 @@ namespace motts { namespace lox {
         }
     }
 
-    void Interpreter::visit(const Break_stmt*) {
+    void Interpreter::visit(const deferred_ptr<const Break_stmt>&) {
         // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
         // happen to offer exactly the behavior we need. We need to traverse an unknown call stack depth to get back to
         // the nearest loop statement.
         throw Break{};
     }
 
-    void Interpreter::visit(const Continue_stmt*) {
+    void Interpreter::visit(const deferred_ptr<const Continue_stmt>&) {
         // Yes, this is using exceptions for control flow. Yes, that's usually a bad thing. In this case, exceptions
         // happen to offer exactly the behavior we need. We need to traverse an unknown call stack depth to get back to
         // the nearest loop statement.
         throw Continue{};
     }
 
-    void Interpreter::visit(const Print_stmt* stmt) {
-        cout << lox::apply_visitor(*this, stmt->expr) << "\n";
+    void Interpreter::visit(const deferred_ptr<const Print_stmt>& stmt) {
+        cout << ::apply_visitor(*this, stmt->expr) << "\n";
     }
 
-    void Interpreter::visit(const Var_stmt* stmt) {
+    void Interpreter::visit(const deferred_ptr<const Var_stmt>& stmt) {
         environment_->find_own_or_make(stmt->name.lexeme) = (
             stmt->initializer ?
-                lox::apply_visitor(*this, stmt->initializer) :
+                ::apply_visitor(*this, stmt->initializer) :
                 Literal{}
         );
     }
 
-    void Interpreter::visit(const Block_stmt* stmt) {
-        auto enclosed = move(environment_);
-        const auto _ = finally([&] () {
-            environment_ = move(enclosed);
-        });
-        environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
-
-        for (const auto& statement : stmt->statements) {
-            statement->accept(statement, *this);
-
-            if (returning_) {
-                return;
-            }
-        }
+    void Interpreter::visit(const deferred_ptr<const Block_stmt>& stmt) {
+        execute_block(stmt->statements, deferred_heap_.make<Environment>(environment_));
     }
 
-    void Interpreter::visit(const Class_stmt* stmt) {
-        Class* superclass {};
-        vector<pair<string, Function*>> methods;
+    void Interpreter::visit(const deferred_ptr<const Class_stmt>& stmt) {
+        deferred_ptr<Class> superclass;
+        deferred_ptr<Environment> method_environment {environment_};
+        vector<pair<string, deferred_ptr<Function>>> methods;
 
-        {
-            Environment* enclosed {};
-            if (stmt->superclass) {
-                try {
-                    superclass = get<Class*>(lox::apply_visitor(*this, stmt->superclass).value);
-                } catch (const bad_get&) {
-                    // Convert a boost variant error into a Lox error
-                    throw Interpreter_error{"Superclass must be a class.", stmt->superclass->name};
-                }
-
-                enclosed = move(environment_);
-                environment_ = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed};
-                environment_->find_own_or_make("super") = Literal{superclass};
+        if (stmt->superclass) {
+            try {
+                superclass = get<deferred_ptr<Class>>(::apply_visitor(*this, stmt->superclass).value);
+            } catch (const bad_get&) {
+                // Convert a boost variant error into a Lox error
+                throw Interpreter_error{"Superclass must be a class.", stmt->superclass->name};
             }
-            const auto _ = finally([&] () {
-                if (enclosed) {
-                    environment_ = move(enclosed);
-                }
+
+            method_environment = deferred_heap_.make<Environment>(environment_);
+            method_environment->find_own_or_make("super") = Literal{superclass};
+        }
+
+        for (const auto& method : stmt->methods) {
+            methods.push_back({
+                method->expr->name->lexeme,
+                deferred_heap_.make<Function>(deferred_heap_, *this, method->expr, method_environment, method->expr->name->lexeme == "init")
             });
-
-            for (const auto& method : stmt->methods) {
-                methods.push_back({
-                    method->expr->name->lexeme,
-                    new (GC_MALLOC(sizeof(Function))) Function{method->expr, environment_, method->expr->name->lexeme == "init"}
-                });
-            }
         }
 
-        environment_->find_own_or_make(stmt->name.lexeme) = Literal{new (GC_MALLOC(sizeof(Class))) Class{stmt->name.lexeme, move(superclass), move(methods)}};
+        environment_->find_own_or_make(stmt->name.lexeme) = Literal{deferred_heap_.make<Class>(deferred_heap_, stmt->name.lexeme, move(superclass), move(methods))};
     }
 
-    void Interpreter::visit(const Function_stmt* stmt) {
-        environment_->find_own_or_make(stmt->expr->name->lexeme) = Literal{new (GC_MALLOC(sizeof(Function))) Function{stmt->expr, environment_}};
+    void Interpreter::visit(const deferred_ptr<const Function_stmt>& stmt) {
+        environment_->find_own_or_make(stmt->expr->name->lexeme) = Literal{deferred_heap_.make<Function>(deferred_heap_, *this, stmt->expr, environment_)};
     }
 
-    void Interpreter::visit(const Return_stmt* stmt) {
-        Literal value;
-        if (stmt->value) {
-            value = lox::apply_visitor(*this, stmt->value);
-        }
-
-        result_ = move(value);
+    void Interpreter::visit(const deferred_ptr<const Return_stmt>& stmt) {
+        result_ = stmt->value ? ::apply_visitor(*this, stmt->value) : Literal{};
         returning_ = true;
     }
 
@@ -465,30 +460,6 @@ namespace motts { namespace lox {
 
     Literal&& Interpreter::result() && {
         return move(result_);
-    }
-
-    unique_ptr<Resolver> Interpreter::make_resolver() {
-        return make_unique<Resolver>([&] (const Expr* expr, int depth) {
-            scope_depths_.push_back({expr, depth});
-        });
-    }
-
-    bool Interpreter::_returning() const {
-        return returning_;
-    }
-
-    Literal&& Interpreter::_return_value() && {
-        returning_ = false;
-        return move(result_);
-    }
-
-    final_action<function<void ()>> Interpreter::_push_environment(Environment* new_environment) {
-        auto finally_pop_environment = finally(function<void ()>{[&, original_environment = move(environment_)] () {
-            environment_ = move(original_environment);
-        }});
-        environment_ = move(new_environment);
-
-        return finally_pop_environment;
     }
 
     vector<pair<string, Literal>>::iterator Interpreter::lookup_variable(const string& name, const Expr& expr) {
@@ -505,6 +476,34 @@ namespace motts { namespace lox {
         }
 
         throw Interpreter_error{"Undefined variable '" + name + "'."};
+    }
+
+    void Interpreter::resolve(const Expr* expr, int depth) {
+        scope_depths_.push_back({expr, depth});
+    }
+
+    void Interpreter::execute_block(const vector<deferred_ptr<const Stmt>>& statements, const deferred_ptr<Environment>& environment) {
+        const auto original_environment = move(environment_);
+        const auto _ = finally([&] () {
+            environment_ = move(original_environment);
+        });
+        environment_ = environment;
+
+        for (const auto& statement : statements) {
+            statement->accept(statement, *this);
+
+            if (returning_) {
+                return;
+            }
+        }
+    }
+
+    bool Interpreter::returning() const {
+        return returning_;
+    }
+
+    void Interpreter::returning(bool returning) {
+        returning_ = returning;
     }
 
     Interpreter_error::Interpreter_error(const string& what, const Token& token) :

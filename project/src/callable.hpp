@@ -5,14 +5,16 @@
 #include <string>
 #include <vector>
 
-#include "interpreter_fwd.hpp"
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
+
 #include "literal.hpp"
 
 namespace motts { namespace lox {
     struct Callable {
         virtual Literal call(
-            Callable* owner_this,
-            Interpreter&,
+            const gcpp::deferred_ptr<Callable>& owner_this,
             const std::vector<Literal>& arguments
         ) = 0;
         virtual int arity() const = 0;

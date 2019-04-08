@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
+
 #include "exception.hpp"
 #include "scanner.hpp"
 #include "statement.hpp"
@@ -18,7 +22,7 @@ namespace motts { namespace lox {
     iterator directly rather than on a vector of tokens. This way I was able to eliminate the intermediate data
     structure altogether.
     */
-    std::vector<const Stmt*> parse(Token_iterator&&);
+    std::vector<gcpp::deferred_ptr<const Stmt>> parse(gcpp::deferred_heap&, Token_iterator&&);
 
     struct Parser_error : Runtime_error {
         explicit Parser_error(const std::string& what, const Token&);

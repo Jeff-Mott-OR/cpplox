@@ -6,13 +6,10 @@
 #include <iterator>
 #include <string>
 
-#include <gc.h>
 #include <gsl/span>
 
 #include "exception.hpp"
-#include "interpreter.hpp"
-#include "parser.hpp"
-#include "resolver.hpp"
+#include "lox.hpp"
 #include "scanner.hpp"
 
 using std::cerr;
@@ -27,37 +24,34 @@ using std::string;
 
 using gsl::span;
 
-namespace lox = motts::lox;
+namespace loxns = motts::lox;
 
-auto run(const string& source, lox::Interpreter& interpreter) {
-    const auto statements = lox::parse(lox::Token_iterator{source});
+auto run(const string& source, loxns::Lox& lox) {
+    const auto statements = lox.parse(loxns::Token_iterator{source});
 
-    {
-        auto resolver = interpreter.make_resolver();
-        string resolver_errors;
-        for (const auto& statement : statements) {
-            try {
-                statement->accept(statement, *resolver);
-            } catch (const lox::Resolver_error& error) {
-                if (!resolver_errors.empty()) {
-                    resolver_errors += '\n';
-                }
-                resolver_errors += error.what();
+    string resolver_errors;
+    for (const auto& statement : statements) {
+        try {
+            statement->accept(statement, lox.resolver);
+        } catch (const loxns::Resolver_error& error) {
+            if (!resolver_errors.empty()) {
+                resolver_errors += '\n';
             }
+            resolver_errors += error.what();
         }
-        if (!resolver_errors.empty()) {
-            throw lox::Resolver_error{resolver_errors};
-        }
+    }
+    if (!resolver_errors.empty()) {
+        throw loxns::Resolver_error{resolver_errors};
     }
 
     for (const auto& statement : statements) {
-        statement->accept(statement, interpreter);
+        statement->accept(statement, lox.interpreter);
     }
 }
 
 auto run(const string& source) {
-    lox::Interpreter interpreter;
-    run(source, interpreter);
+    loxns::Lox lox;
+    run(source, lox);
 }
 
 auto run_file(const string& path) {
@@ -72,7 +66,7 @@ auto run_file(const string& path) {
 }
 
 auto run_prompt() {
-    lox::Interpreter interpreter;
+    loxns::Lox lox;
 
     while (true) {
         cout << "> ";
@@ -82,8 +76,8 @@ auto run_prompt() {
 
         // If the user makes a mistake, it shouldn't kill their entire session
         try {
-            run(source_line, interpreter);
-        } catch (const lox::Runtime_error& error) {
+            run(source_line, lox);
+        } catch (const loxns::Runtime_error& error) {
             cerr << error.what() << "\n";
         }
     }
@@ -91,8 +85,6 @@ auto run_prompt() {
 
 int main(int argc, const char* argv[]) {
     try {
-        GC_INIT();
-
         // STL container-like interface to argv
         span<const char*> argv_span {argv, argc};
 

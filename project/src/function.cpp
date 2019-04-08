@@ -1,49 +1,45 @@
 #include "function.hpp"
-
-#include <gc.h>
 #include <gsl/gsl_util>
-
-#include "interpreter.hpp"
 #include "literal.hpp"
 
 using std::move;
 using std::string;
 using std::vector;
 
+using deferred_heap_t = gcpp::deferred_heap;
+using gcpp::deferred_ptr;
 using gsl::finally;
 using gsl::narrow;
 
 namespace motts { namespace lox {
     Function::Function(
-        const Function_expr* declaration,
-        Environment* enclosed,
+        deferred_heap_t& deferred_heap,
+        Interpreter& interpreter,
+        const deferred_ptr<const Function_expr>& declaration,
+        const deferred_ptr<Environment>& enclosed,
         bool is_initializer
     ) :
-        declaration_ {move(declaration)},
-        enclosed_ {move(enclosed)},
+        deferred_heap_ {deferred_heap},
+        interpreter_ {interpreter},
+        declaration_ {declaration},
+        enclosed_ {enclosed},
         is_initializer_ {is_initializer}
     {}
 
-    Literal Function::call(
-        Callable* owner_this,
-        Interpreter& interpreter,
-        const vector<Literal>& arguments
-    ) {
-        auto environment = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
+    Literal Function::call(const deferred_ptr<Callable>& owner_this, const vector<Literal>& arguments) {
+        auto environment = deferred_heap_.make<Environment>(enclosed_);
         if (declaration_->name) {
             environment->find_own_or_make(declaration_->name->lexeme) = Literal{owner_this};
         }
-        for (auto i = declaration_->parameters.cbegin(); i != declaration_->parameters.cend(); ++i) {
-            environment->find_own_or_make(i->lexeme) = arguments.at(i - declaration_->parameters.cbegin());
+        for (auto param_iter = declaration_->parameters.cbegin(); param_iter != declaration_->parameters.cend(); ++param_iter) {
+            environment->find_own_or_make(param_iter->lexeme) = arguments.at(param_iter - declaration_->parameters.cbegin());
         }
 
-        const auto _ = interpreter._push_environment(environment);
-        for (const auto& statement : declaration_->body) {
-            statement->accept(statement, interpreter);
+        interpreter_.execute_block(declaration_->body, environment);
 
-            if (interpreter._returning()) {
-                return move(interpreter)._return_value();
-            }
+        if (interpreter_.returning()) {
+            interpreter_.returning(false);
+            return move(interpreter_).result();
         }
 
         if (is_initializer_) {
@@ -61,9 +57,9 @@ namespace motts { namespace lox {
         return "<fn " + (declaration_->name ? declaration_->name->lexeme : "[[anonymous]]") + ">";
     }
 
-    Function* Function::bind(Instance* instance) const {
-        auto this_environment = new (GC_MALLOC(sizeof(Environment))) Environment{enclosed_};
+    deferred_ptr<Function> Function::bind(const deferred_ptr<Instance>& instance) const {
+        auto this_environment = deferred_heap_.make<Environment>(enclosed_);
         this_environment->find_own_or_make("this") = Literal{instance};
-        return new (GC_MALLOC(sizeof(Function))) Function{declaration_, this_environment, is_initializer_};
+        return deferred_heap_.make<Function>(deferred_heap_, interpreter_, declaration_, this_environment, is_initializer_);
     }
 }}

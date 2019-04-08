@@ -4,36 +4,33 @@ option(ENABLE_TESTING "Whether to build the test and bench harness and enable te
 
 find_package(Boost)
 find_path(GSL_INCLUDE_DIR gsl/gsl)
-find_path(HBOEHM_GC_INSTALL_DIR include/gc.h)
+find_path(GCPP_INCLUDE_DIR deferred_heap.h)
 if(ENABLE_TESTING)
     find_package(benchmark)
     set(Boost_USE_STATIC_LIBS TRUE)
     find_package(Boost COMPONENTS filesystem program_options unit_test_framework)
 endif()
 
-add_executable(cpplox
-    src/main.cpp
-    src/ast_printer.cpp
-    src/class.cpp
-    src/environment.cpp
-    src/expression.cpp
-    src/expression_impls.cpp
-    src/function.cpp
-    src/interpreter.cpp
-    src/literal.cpp
-    src/parser.cpp
-    src/resolver.cpp
-    src/scanner.cpp
-    src/statement_impls.cpp
-    src/token.cpp
+add_executable(
+    cpplox
+        src/main.cpp
+        src/ast_printer.cpp
+        src/class.cpp
+        src/environment.cpp
+        src/expression.cpp
+        src/expression_impls.cpp
+        src/function.cpp
+        src/interpreter.cpp
+        src/literal.cpp
+        src/parser.cpp
+        src/resolver.cpp
+        src/scanner.cpp
+        src/statement_impls.cpp
+        src/token.cpp
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
-target_link_libraries(cpplox PRIVATE
-    Boost::boost
-    "${HBOEHM_GC_INSTALL_DIR}/lib/$<IF:$<BOOL:${CMAKE_HOST_UNIX}>,libgc.a,gc-lib.lib>"
-    $<$<BOOL:${CMAKE_HOST_UNIX}>:pthread>
-)
-target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}" "${HBOEHM_GC_INSTALL_DIR}/include")
+target_link_libraries(cpplox PRIVATE Boost::boost)
+target_include_directories(cpplox PRIVATE "${GSL_INCLUDE_DIR}" "${GCPP_INCLUDE_DIR}")
 install(TARGETS cpplox DESTINATION ./)
 
 # CMake doesn't abstract warning options for us, so detect compiler. Assume
@@ -52,43 +49,44 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
 # The up-and-coming bytecode compiler and interpreter
-add_executable(cpploxbc
-    src/main_bytecode.cpp
-    src/class.cpp
-    src/environment.cpp
-    src/expression.cpp
-    src/expression_impls.cpp
-    src/function.cpp
-    src/interpreter.cpp
-    src/literal.cpp
-    src/parser.cpp
-    src/parser_bc.cpp
-    src/resolver.cpp
-    src/scanner.cpp
-    src/statement_impls.cpp
-    src/token.cpp
+add_executable(
+    cpploxbc
+        src/main_bytecode.cpp
+        src/class.cpp
+        src/environment.cpp
+        src/expression.cpp
+        src/expression_impls.cpp
+        src/function.cpp
+        src/interpreter.cpp
+        src/literal.cpp
+        src/parser.cpp
+        src/parser_bc.cpp
+        src/resolver.cpp
+        src/scanner.cpp
+        src/statement_impls.cpp
+        src/token.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)
-target_link_libraries(cpploxbc PRIVATE
-    Boost::boost
-    "${HBOEHM_GC_INSTALL_DIR}/lib/$<IF:$<BOOL:${CMAKE_HOST_UNIX}>,libgc.a,gc-lib.lib>"
-    $<$<BOOL:${CMAKE_HOST_UNIX}>:pthread>
-)
-target_compile_options(cpploxbc PRIVATE
-    "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
-    $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
-)
-target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}" "${HBOEHM_GC_INSTALL_DIR}/include")
+target_link_libraries(cpploxbc PRIVATE Boost::boost)
+target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}" "${GCPP_INCLUDE_DIR}")
 install(TARGETS cpploxbc DESTINATION ./)
+target_compile_options(
+    cpploxbc
+    PRIVATE
+        "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
+        $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
+)
 
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     target_compile_features(test_harness PRIVATE cxx_std_14)
-    target_link_libraries(test_harness PRIVATE
-        Boost::boost
-        Boost::filesystem
-        Boost::program_options
-        Boost::unit_test_framework
+    target_link_libraries(
+        test_harness
+        PRIVATE
+            Boost::boost
+            Boost::filesystem
+            Boost::program_options
+            Boost::unit_test_framework
     )
     enable_testing()
     add_test(
@@ -98,23 +96,25 @@ if(ENABLE_TESTING)
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
     )
 
-    # find_program(VALGRIND_COMMAND valgrind)
-    # message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
-    # if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
-    #     add_test(
-    #         NAME valgrind
-    #         COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
-    #     )
-    #     set_tests_properties(valgrind PROPERTIES PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts")
-    # endif()
+    find_program(VALGRIND_COMMAND valgrind)
+    message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
+    if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
+        add_test(
+            NAME valgrind
+            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
+        )
+        set_tests_properties(valgrind PROPERTIES PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts")
+    endif()
 
     add_executable(bench_harness bench/main.cpp)
     target_compile_features(bench_harness PRIVATE cxx_std_14)
-    target_link_libraries(bench_harness PRIVATE
-        benchmark::benchmark
-        Boost::boost
-        Boost::filesystem
-        Boost::program_options
+    target_link_libraries(
+        bench_harness
+        PRIVATE
+            benchmark::benchmark
+            Boost::boost
+            Boost::filesystem
+            Boost::program_options
     )
 
     find_file(JLOX_RUN_SCRIPT jlox_run.cmake)

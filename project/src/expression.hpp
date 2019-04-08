@@ -1,5 +1,9 @@
 #pragma once
 
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
+
 #include "exception.hpp"
 #include "expression_visitor_fwd.hpp"
 #include "token.hpp"
@@ -44,13 +48,14 @@ namespace motts { namespace lox {
             `owner_this` smart pointer parameter, and the definition of `accept` will need to cast that `owner_this` to
             the derived type that we know it really is.
         */
-        virtual void accept(const Expr* owner_this, Expr_visitor&) const = 0;
+        virtual void accept(const gcpp::deferred_ptr<const Expr>& owner_this, Expr_visitor&) const = 0;
 
         // Some derived expression types can be lvalues; some can't. To avoid
         // dynamic_cast tests, implement lvalue-ness polymorphically.
-        virtual const Expr* make_assignment_expression(
-            const Expr* lhs_expr,
-            const Expr* rhs_expr,
+        virtual gcpp::deferred_ptr<const Expr> make_assignment_expression(
+            gcpp::deferred_heap&,
+            gcpp::deferred_ptr<const Expr>&& lhs_expr,
+            gcpp::deferred_ptr<const Expr>&& rhs_expr,
             const Runtime_error& throwable_if_not_lvalue
         ) const;
 

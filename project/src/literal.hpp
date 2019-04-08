@@ -6,6 +6,9 @@
 #include <string>
 
 #include <boost/variant.hpp>
+#pragma warning(push, 0)
+    #include <deferred_heap.h>
+#pragma warning(pop)
 
 #include "callable_fwd.hpp"
 #include "class_fwd.hpp"
@@ -20,10 +23,10 @@ namespace motts { namespace lox {
             std::string,
             double,
             bool,
-            Callable*,
-            Function*,
-            Class*,
-            Instance*
+            gcpp::deferred_ptr<Callable>,
+            gcpp::deferred_ptr<Function>,
+            gcpp::deferred_ptr<Class>,
+            gcpp::deferred_ptr<Instance>
         > value;
     };
 

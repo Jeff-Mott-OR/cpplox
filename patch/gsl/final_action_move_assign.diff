@@ -1,0 +1,14 @@
+--- include/gsl/gsl_util
++++ include/gsl/gsl_util
+@@ -65,4 +65,11 @@
+     final_act(const final_act&) = delete;
+     final_act& operator=(const final_act&) = delete;
++    final_act& operator=(final_act&& other) noexcept
++    {
++        f_ = std::move(other.f_);
++        invoke_ = other.invoke_;
++        other.invoke_ = false;
++        return *this;
++    }
+
+     ~final_act() noexcept

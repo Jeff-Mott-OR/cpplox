@@ -13,8 +13,13 @@ using std::string;
 
 using boost::apply_visitor;
 using boost::static_visitor;
+using gcpp::deferred_ptr;
 
-namespace motts { namespace lox {
+// Allow the internal linkage section to access names
+using namespace motts::lox;
+
+// Not exported (internal linkage)
+namespace {
     struct Ostream_visitor : static_visitor<void> {
         ostream& os;
 
@@ -38,23 +43,26 @@ namespace motts { namespace lox {
             os << "nil";
         }
 
-        auto operator()(Callable* callable) {
+        auto operator()(const deferred_ptr<Callable>& callable) {
             os << callable->to_string();
         }
 
-        auto operator()(Function* callable) {
+        auto operator()(const deferred_ptr<Function>& callable) {
             os << callable->to_string();
         }
 
-        auto operator()(Class* callable) {
+        auto operator()(const deferred_ptr<Class>& callable) {
             os << callable->to_string();
         }
 
-        auto operator()(Instance* instance) {
+        auto operator()(const deferred_ptr<Instance>& instance) {
             os << instance->to_string();
         }
     };
+}
 
+// Exported (external linkage)
+namespace motts { namespace lox {
     ostream& operator<<(ostream& os, const Literal& literal) {
         Ostream_visitor ostream_visitor {os};
         apply_visitor(ostream_visitor, literal.value);

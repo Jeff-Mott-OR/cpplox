@@ -12,16 +12,17 @@ using std::pair;
 using std::string;
 using std::to_string;
 
-using gsl::final_action;
+using gcpp::deferred_ptr;
+using gsl::final_act;
 using gsl::finally;
 using gsl::narrow;
 
 namespace motts { namespace lox {
-    Resolver::Resolver(function<void (const Expr*, int depth)>&& on_resolve_local) :
-        on_resolve_local_ {move(on_resolve_local)}
+    Resolver::Resolver(Interpreter& interpreter) :
+        interpreter_ {interpreter}
     {}
 
-    void Resolver::visit(const Block_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Block_stmt>& stmt) {
         scopes_.push_back({});
         const auto _ = finally([&] () {
             scopes_.pop_back();
@@ -31,7 +32,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const Class_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Class_stmt>& stmt) {
         if (!scopes_.empty()) {
             declare_var(stmt->name).second = Var_binding::defined;
         }
@@ -42,14 +43,16 @@ namespace motts { namespace lox {
             current_class_type_ = enclosing_class_type;
         });
 
-        final_action<function<void ()>> _2 {[] () {}};
+        final_act<function<void()>> _2 {[] () {}};
         if (stmt->superclass) {
             current_class_type_ = Class_type::subclass;
             stmt->superclass->accept(stmt->superclass, *this);
+
             scopes_.push_back({});
-            _2 = finally(function<void ()>{[&] () {
+            _2 = finally(function<void()>{[&] () {
                 scopes_.pop_back();
             }});
+
             scopes_.back().push_back({"super", Var_binding::defined});
         }
 
@@ -69,7 +72,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const Var_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Var_stmt>& stmt) {
         if (!scopes_.empty()) {
             declare_var(stmt->name);
         }
@@ -83,7 +86,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const Var_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Var_expr>& expr) {
         if (!scopes_.empty()) {
             const auto found_declared_in_scope = find_if(
                 scopes_.back().cbegin(), scopes_.back().cend(),
@@ -96,15 +99,15 @@ namespace motts { namespace lox {
             }
         }
 
-        resolve_local(*expr, expr->name.lexeme);
+        resolve_local(expr, expr->name.lexeme);
     }
 
-    void Resolver::visit(const Assign_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Assign_expr>& expr) {
         expr->value->accept(expr->value, *this);
-        resolve_local(*expr, expr->name.lexeme);
+        resolve_local(expr, expr->name.lexeme);
     }
 
-    void Resolver::visit(const Function_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Function_stmt>& stmt) {
         if (!scopes_.empty()) {
             declare_var(*(stmt->expr->name)).second = Var_binding::defined;
         }
@@ -112,11 +115,11 @@ namespace motts { namespace lox {
         resolve_function(stmt->expr, Function_type::function);
     }
 
-    void Resolver::visit(const Expr_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Expr_stmt>& stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Resolver::visit(const If_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const If_stmt>& stmt) {
         stmt->condition->accept(stmt->condition, *this);
         stmt->then_branch->accept(stmt->then_branch, *this);
         if (stmt->else_branch) {
@@ -124,11 +127,11 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const Print_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Print_stmt>& stmt) {
         stmt->expr->accept(stmt->expr, *this);
     }
 
-    void Resolver::visit(const Return_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Return_stmt>& stmt) {
         if (current_function_type_ == Function_type::none) {
             throw Resolver_error{"Cannot return from top-level code.", stmt->keyword};
         }
@@ -142,43 +145,43 @@ namespace motts { namespace lox {
         }
     }
 
-    void Resolver::visit(const While_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const While_stmt>& stmt) {
         stmt->condition->accept(stmt->condition, *this);
         stmt->body->accept(stmt->body, *this);
     }
 
-    void Resolver::visit(const For_stmt* stmt) {
+    void Resolver::visit(const gcpp::deferred_ptr<const For_stmt>& stmt) {
         stmt->condition->accept(stmt->condition, *this);
         stmt->increment->accept(stmt->increment, *this);
         stmt->body->accept(stmt->body, *this);
     }
 
-    void Resolver::visit(const Break_stmt* stmt) {}
+    void Resolver::visit(const gcpp::deferred_ptr<const Break_stmt>& /*stmt*/) {}
 
-    void Resolver::visit(const Continue_stmt* stmt) {}
+    void Resolver::visit(const gcpp::deferred_ptr<const Continue_stmt>& /*stmt*/) {}
 
-    void Resolver::visit(const Binary_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Binary_expr>& expr) {
         expr->left->accept(expr->left, *this);
         expr->right->accept(expr->right, *this);
     }
 
-    void Resolver::visit(const Call_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Call_expr>& expr) {
         expr->callee->accept(expr->callee, *this);
         for (const auto& argument : expr->arguments) {
             argument->accept(argument, *this);
         }
     }
 
-    void Resolver::visit(const Get_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Get_expr>& expr) {
         expr->object->accept(expr->object, *this);
     }
 
-    void Resolver::visit(const Set_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Set_expr>& expr) {
         expr->value->accept(expr->value, *this);
         expr->object->accept(expr->object, *this);
     }
 
-    void Resolver::visit(const Super_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Super_expr>& expr) {
         if (current_class_type_ == Class_type::none) {
             throw Resolver_error{"Cannot use 'super' outside of a class.", expr->keyword};
         }
@@ -186,37 +189,37 @@ namespace motts { namespace lox {
             throw Resolver_error{"Cannot use 'super' in a class with no superclass.", expr->keyword};
         }
 
-        resolve_local(*expr, expr->keyword.lexeme);
+        resolve_local(expr, expr->keyword.lexeme);
     }
 
-    void Resolver::visit(const This_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const This_expr>& expr) {
         if (current_class_type_ == Class_type::none) {
             throw Resolver_error{"Cannot use 'this' outside of a class.", expr->keyword};
         }
 
-        resolve_local(*expr, expr->keyword.lexeme);
+        resolve_local(expr, expr->keyword.lexeme);
     }
 
-    void Resolver::visit(const Function_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Function_expr>& expr) {
         resolve_function(expr, Function_type::function);
     }
 
-    void Resolver::visit(const Grouping_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Grouping_expr>& expr) {
         expr->expr->accept(expr->expr, *this);
     }
 
-    void Resolver::visit(const Literal_expr*) {}
+    void Resolver::visit(const gcpp::deferred_ptr<const Literal_expr>&) {}
 
-    void Resolver::visit(const Logical_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Logical_expr>& expr) {
         expr->left->accept(expr->left, *this);
         expr->right->accept(expr->right, *this);
     }
 
-    void Resolver::visit(const Unary_expr* expr) {
+    void Resolver::visit(const gcpp::deferred_ptr<const Unary_expr>& expr) {
         expr->right->accept(expr->right, *this);
     }
 
-    pair<string, Var_binding>& Resolver::declare_var(const Token& name) {
+    Resolver::Binding& Resolver::declare_var(const Token& name) {
         const auto found_in_scope = find_if(
             scopes_.back().cbegin(), scopes_.back().cend(),
             [&] (const auto& var_binding) {
@@ -232,13 +235,13 @@ namespace motts { namespace lox {
         return scopes_.back().back();
     }
 
-    void Resolver::resolve_local(const Expr& expr, const string& name) {
+    void Resolver::resolve_local(const deferred_ptr<const Expr>& expr, const string& name) {
         for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
             const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
                 return var_binding.first == name;
             });
             if (found_in_scope != scope->cend()) {
-                on_resolve_local_(&expr, narrow<int>(scope - scopes_.crbegin()));
+                interpreter_.resolve(expr.get(), narrow<int>(scope - scopes_.crbegin()));
                 return;
             }
         }
@@ -246,7 +249,7 @@ namespace motts { namespace lox {
         // Not found; assume it is global
     }
 
-    void Resolver::resolve_function(const Function_expr* expr, Function_type function_type) {
+    void Resolver::resolve_function(const gcpp::deferred_ptr<const Function_expr>& expr, Function_type function_type) {
         scopes_.push_back({});
         const auto _ = finally([&] () {
             scopes_.pop_back();

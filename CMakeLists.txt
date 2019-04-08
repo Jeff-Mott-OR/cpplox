@@ -26,11 +26,11 @@ ExternalProject_Add(
     URL https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz
     EXCLUDE_FROM_ALL TRUE
     BUILD_IN_SOURCE TRUE
-    # If testing is enabled, then we need to configure and build several boost libraries. But if
-    # testing is not enabled, then we only depend on the header files.
+    # If testing is enabled, then we need to configure and build several boost libraries, but if
+    # testing is not enabled, then we only depend on the header files
     CONFIGURE_COMMAND $<$<BOOL:${ENABLE_TESTING}>:$<IF:$<BOOL:${CMAKE_HOST_UNIX}>,./bootstrap.sh,bootstrap.bat>>
-    # Conditional build command will come later. It had to be defined in a custom step so that
-    # special tokens such as <SOURCE_DIR> would work.
+    # Conditional build command will come later; it had to be defined in a custom step so that
+    # special tokens such as <SOURCE_DIR> would work
     BUILD_COMMAND ""
     INSTALL_COMMAND ""
 )
@@ -42,7 +42,7 @@ if(ENABLE_TESTING)
 
         COMMAND
             # An out-of-source install would be ideal, but that involves copying
-            # all the header files, which is super slow on windows.
+            # all the header files, which is super slow on windows
             ./b2 "--stagedir=<SOURCE_DIR>"
             --with-filesystem --with-program_options --with-test
             variant=$<IF:$<STREQUAL:${CMAKE_BUILD_TYPE},Debug>,debug,release>
@@ -66,62 +66,34 @@ set(python_patch_SOURCE_DIR "${SOURCE_DIR}")
 
 ExternalProject_Add(
     gsl
-    URL https://github.com/Microsoft/GSL/archive/1995e86d1ad70519465374fb4876c6ef7c9f8c61.zip
+    URL https://github.com/Microsoft/GSL/archive/1f87ef73f1477e8adafa8b10ccee042897612a20.zip
     DEPENDS python_patch
     EXCLUDE_FROM_ALL TRUE
     PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/patch/gsl/util_final_action_move_assign.diff"
+        "${CMAKE_CURRENT_SOURCE_DIR}/patch/gsl/final_action_move_assign.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
 ExternalProject_Get_Property(gsl SOURCE_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 
 ExternalProject_Add(
-    libatomic_ops
-    URL http://www.hboehm.info/gc/gc_source/libatomic_ops-7.6.2.tar.gz
+    gcpp
+    DEPENDS gsl python_patch
+    URL https://github.com/hsutter/gcpp/archive/3be430dd62fe29e92b42c66fd1f9ee3803edbca4.zip
     EXCLUDE_FROM_ALL TRUE
+    PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/patch/gcpp/static_pointer_cast.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
-ExternalProject_Get_Property(libatomic_ops SOURCE_DIR)
-set(libatomic_ops_SOURCE_DIR "${SOURCE_DIR}")
-
-# Build steps for unix and windows are different enough that it's easier to have separate targets
-ExternalProject_Add(
-    hboehm_gc_unix
-    URL http://www.hboehm.info/gc/gc_source/gc-7.6.4.tar.gz
-    DEPENDS libatomic_ops
-    EXCLUDE_FROM_ALL TRUE
-    BUILD_IN_SOURCE TRUE
-    PATCH_COMMAND "${CMAKE_COMMAND}" -E copy_directory "${libatomic_ops_SOURCE_DIR}" "<SOURCE_DIR>/libatomic_ops"
-    CONFIGURE_COMMAND ./configure "--prefix=<INSTALL_DIR>"
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install
-)
-ExternalProject_Get_Property(hboehm_gc_unix INSTALL_DIR)
-set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
-
-# Build steps for unix and windows are different enough that it's easier to have separate targets
-ExternalProject_Add(
-    hboehm_gc_win
-    URL http://www.hboehm.info/gc/gc_source/gc-7.6.4.tar.gz
-    DEPENDS libatomic_ops python_patch
-    EXCLUDE_FROM_ALL TRUE
-    PATCH_COMMAND "${CMAKE_COMMAND}" -E copy_directory "${libatomic_ops_SOURCE_DIR}" "<SOURCE_DIR>/libatomic_ops"
-    COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
-        "${CMAKE_CURRENT_SOURCE_DIR}/patch/hboehm_gc/cmake_install_targets.diff"
-    CMAKE_ARGS
-        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-)
-ExternalProject_Get_Property(hboehm_gc_win INSTALL_DIR)
-set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${INSTALL_DIR}")
+ExternalProject_Get_Property(gcpp SOURCE_DIR)
+set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 
 ExternalProject_Add(
     google_benchmark
     URL https://github.com/google/benchmark/archive/v1.3.0.tar.gz
     EXCLUDE_FROM_ALL TRUE
     CMAKE_ARGS
-        "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+        -DCMAKE_BUILD_TYPE=Release
         -DBENCHMARK_ENABLE_TESTING=FALSE
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
 )
@@ -149,9 +121,9 @@ if(ENABLE_TESTING)
     message(STATUS "Check for javac: ${JAVAC_COMMAND}")
 endif()
 
+# A convenience target; it lets us compile dependencies in a separate step from our project
 add_custom_target(deps DEPENDS
-    boost gsl
-    $<IF:$<BOOL:${CMAKE_HOST_UNIX}>,hboehm_gc_unix,hboehm_gc_win>
+    boost gsl gcpp
     $<$<BOOL:${ENABLE_TESTING}>:google_benchmark>
     $<$<AND:$<BOOL:${ENABLE_TESTING}>,$<NOT:$<STREQUAL:${JAVAC_COMMAND},JAVAC_COMMAND-NOTFOUND>>>:craftinginterpreters>
 )
@@ -167,7 +139,7 @@ ExternalProject_Add(
         "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
         "-DCMAKE_PREFIX_PATH=${INSTALLATION_PREFIXES}"
         "-DENABLE_TESTING=${ENABLE_TESTING}"
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/DIST"
     TEST_AFTER_INSTALL "${ENABLE_TESTING}"
     # Override test command so we can specify verbose, otherwise the test harness's output is suppressed
     TEST_COMMAND "${CMAKE_CTEST_COMMAND}" --build-config "${CMAKE_BUILD_TYPE}" --verbose
