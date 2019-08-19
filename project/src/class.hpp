@@ -3,7 +3,7 @@
 #include "class_fwd.hpp"
 
 #include <string>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include "callable.hpp"
@@ -17,7 +17,7 @@ namespace motts { namespace lox {
                 gcpp::deferred_heap&,
                 const std::string& name,
                 const gcpp::deferred_ptr<Class>& superclass,
-                const std::vector<std::pair<std::string, gcpp::deferred_ptr<Function>>>& methods
+                std::unordered_map<std::string, gcpp::deferred_ptr<Function>>&& methods
             );
             Literal call(const gcpp::deferred_ptr<Callable>& owner_this, const std::vector<Literal>& arguments) override;
             int arity() const override;
@@ -28,7 +28,7 @@ namespace motts { namespace lox {
             gcpp::deferred_heap& deferred_heap_;
             std::string name_;
             gcpp::deferred_ptr<Class> superclass_;
-            std::vector<std::pair<std::string, gcpp::deferred_ptr<Function>>> methods_;
+            std::unordered_map<std::string, gcpp::deferred_ptr<Function>> methods_;
     };
 
     class Instance {
@@ -40,6 +40,6 @@ namespace motts { namespace lox {
 
         private:
             gcpp::deferred_ptr<Class> class_;
-            std::vector<std::pair<std::string, Literal>> fields_;
+            std::unordered_map<std::string, Literal> fields_;
     };
 }}

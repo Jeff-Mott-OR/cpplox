@@ -5,10 +5,7 @@
 
 #include <gsl/gsl_util>
 
-using std::find_if;
 using std::function;
-using std::move;
-using std::pair;
 using std::string;
 using std::to_string;
 
@@ -34,7 +31,7 @@ namespace motts { namespace lox {
 
     void Resolver::visit(const gcpp::deferred_ptr<const Class_stmt>& stmt) {
         if (!scopes_.empty()) {
-            declare_var(stmt->name).second = Var_binding::defined;
+            declare_var(stmt->name) = Var_binding::defined;
         }
 
         const auto enclosing_class_type = current_class_type_;
@@ -53,14 +50,14 @@ namespace motts { namespace lox {
                 scopes_.pop_back();
             }});
 
-            scopes_.back().push_back({"super", Var_binding::defined});
+            scopes_.back()["super"] = Var_binding::defined;
         }
 
         scopes_.push_back({});
         const auto _3 = finally([&] () {
             scopes_.pop_back();
         });
-        scopes_.back().push_back({"this", Var_binding::defined});
+        scopes_.back()["this"] = Var_binding::defined;
 
         for (const auto& method : stmt->methods) {
             resolve_function(
@@ -82,19 +79,14 @@ namespace motts { namespace lox {
         }
 
         if (!scopes_.empty()) {
-            scopes_.back().back().second = Var_binding::defined;
+            scopes_.back()[stmt->name.lexeme] = Var_binding::defined;
         }
     }
 
     void Resolver::visit(const gcpp::deferred_ptr<const Var_expr>& expr) {
         if (!scopes_.empty()) {
-            const auto found_declared_in_scope = find_if(
-                scopes_.back().cbegin(), scopes_.back().cend(),
-                [&] (const auto& var_binding) {
-                    return var_binding.first == expr->name.lexeme && var_binding.second == Var_binding::declared;
-                }
-            );
-            if (found_declared_in_scope != scopes_.back().cend()) {
+            const auto found_declared_in_scope = scopes_.back().find(expr->name.lexeme);
+            if (found_declared_in_scope != scopes_.back().cend() && found_declared_in_scope->second == Var_binding::declared) {
                 throw Resolver_error{"Cannot read local variable in its own initializer.", expr->name};
             }
         }
@@ -109,7 +101,7 @@ namespace motts { namespace lox {
 
     void Resolver::visit(const gcpp::deferred_ptr<const Function_stmt>& stmt) {
         if (!scopes_.empty()) {
-            declare_var(*(stmt->expr->name)).second = Var_binding::defined;
+            declare_var(*(stmt->expr->name)) = Var_binding::defined;
         }
 
         resolve_function(stmt->expr, Function_type::function);
@@ -219,27 +211,18 @@ namespace motts { namespace lox {
         expr->right->accept(expr->right, *this);
     }
 
-    Resolver::Binding& Resolver::declare_var(const Token& name) {
-        const auto found_in_scope = find_if(
-            scopes_.back().cbegin(), scopes_.back().cend(),
-            [&] (const auto& var_binding) {
-                return var_binding.first == name.lexeme;
-            }
-        );
+    Resolver::Var_binding& Resolver::declare_var(const Token& name) {
+        const auto found_in_scope = scopes_.back().find(name.lexeme);
         if (found_in_scope != scopes_.back().cend()) {
             throw Resolver_error{"Variable with this name already declared in this scope.", name};
         }
 
-        scopes_.back().push_back({name.lexeme, Var_binding::declared});
-
-        return scopes_.back().back();
+        return scopes_.back()[name.lexeme] = Var_binding::declared;
     }
 
     void Resolver::resolve_local(const deferred_ptr<const Expr>& expr, const string& name) {
         for (auto scope = scopes_.crbegin(); scope != scopes_.crend(); ++scope) {
-            const auto found_in_scope = find_if(scope->cbegin(), scope->cend(), [&] (const auto& var_binding) {
-                return var_binding.first == name;
-            });
+            const auto found_in_scope = scope->find(name);
             if (found_in_scope != scope->cend()) {
                 interpreter_.resolve(expr.get(), narrow<int>(scope - scopes_.crbegin()));
                 return;
@@ -262,10 +245,10 @@ namespace motts { namespace lox {
         });
 
         if (function_type == Function_type::function && expr->name) {
-            declare_var(*(expr->name)).second = Var_binding::defined;
+            declare_var(*(expr->name)) = Var_binding::defined;
         }
         for (const auto& param : expr->parameters) {
-            declare_var(param).second = Var_binding::defined;
+            declare_var(param) = Var_binding::defined;
         }
         for (const auto& statement : expr->body) {
             statement->accept(statement, *this);

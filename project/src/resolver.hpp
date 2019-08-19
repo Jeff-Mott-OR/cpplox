@@ -3,7 +3,7 @@
 #include "resolver_fwd.hpp"
 
 #include <string>
-#include <utility>
+#include <unordered_map>
 #include <vector>
 
 #include "exception.hpp"
@@ -50,15 +50,14 @@ namespace motts { namespace lox {
             enum class Function_type { none, function, initializer, method };
             enum class Class_type { none, class_, subclass };
 
-            using Binding = std::pair<std::string, Var_binding>;
-            using Scope = std::vector<Binding>;
-
+            using Scope = std::unordered_map<std::string, Var_binding>;
             std::vector<Scope> scopes_;
+
             Function_type current_function_type_ {Function_type::none};
             Class_type current_class_type_ {Class_type::none};
             Interpreter& interpreter_;
 
-            Binding& declare_var(const Token& name);
+            Var_binding& declare_var(const Token& name);
             void resolve_function(const gcpp::deferred_ptr<const Function_expr>&, Function_type);
             void resolve_local(const gcpp::deferred_ptr<const Expr>&, const std::string& name);
     };

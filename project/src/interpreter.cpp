@@ -2,10 +2,10 @@
 
 #include <cstddef>
 
-#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <iterator>
+#include <unordered_map>
 
 #include <boost/variant.hpp>
 
@@ -18,13 +18,13 @@ using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::system_clock;
 using std::cout;
-using std::find_if;
 using std::move;
 using std::nullptr_t;
 using std::pair;
 using std::string;
 using std::to_string;
 using std::transform;
+using std::unordered_map;
 using std::vector;
 
 using boost::bad_get;
@@ -310,9 +310,7 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::visit(const deferred_ptr<const Super_expr>& expr) {
-        const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-            return depth.first == expr.get();
-        });
+        const auto found_depth = scope_depths_.find(expr.get());
         auto superclass = get<deferred_ptr<Class>>(environment_->find_in_chain("super", found_depth->second)->second.value);
         auto instance = get<deferred_ptr<Instance>>(environment_->find_in_chain("this", found_depth->second - 1)->second.value);
 
@@ -421,7 +419,7 @@ namespace motts { namespace lox {
     void Interpreter::visit(const deferred_ptr<const Class_stmt>& stmt) {
         deferred_ptr<Class> superclass;
         deferred_ptr<Environment> method_environment {environment_};
-        vector<pair<string, deferred_ptr<Function>>> methods;
+        unordered_map<string, deferred_ptr<Function>> methods;
 
         if (stmt->superclass) {
             try {
@@ -436,10 +434,7 @@ namespace motts { namespace lox {
         }
 
         for (const auto& method : stmt->methods) {
-            methods.push_back({
-                method->expr->name->lexeme,
-                deferred_heap_.make<Function>(deferred_heap_, *this, method->expr, method_environment, method->expr->name->lexeme == "init")
-            });
+            methods[method->expr->name->lexeme] = deferred_heap_.make<Function>(deferred_heap_, *this, method->expr, method_environment, method->expr->name->lexeme == "init");
         }
 
         environment_->find_own_or_make(stmt->name.lexeme) = Literal{deferred_heap_.make<Class>(deferred_heap_, stmt->name.lexeme, move(superclass), move(methods))};
@@ -462,10 +457,8 @@ namespace motts { namespace lox {
         return move(result_);
     }
 
-    vector<pair<string, Literal>>::iterator Interpreter::lookup_variable(const string& name, const Expr& expr) {
-        const auto found_depth = find_if(scope_depths_.cbegin(), scope_depths_.cend(), [&] (const auto& depth) {
-            return depth.first == &expr;
-        });
+    Environment::iterator Interpreter::lookup_variable(const string& name, const Expr& expr) {
+        const auto found_depth = scope_depths_.find(&expr);
         if (found_depth != scope_depths_.cend()) {
             return environment_->find_in_chain(name, found_depth->second);
         }
@@ -479,7 +472,7 @@ namespace motts { namespace lox {
     }
 
     void Interpreter::resolve(const Expr* expr, int depth) {
-        scope_depths_.push_back({expr, depth});
+        scope_depths_[expr] = depth;
     }
 
     void Interpreter::execute_block(const vector<deferred_ptr<const Stmt>>& statements, const deferred_ptr<Environment>& environment) {

@@ -75,9 +75,9 @@ namespace motts { namespace lox {
     }
 
     deferred_ptr<const Expr> Var_expr::make_assignment_expression(
-        deferred_heap_t& deferred_heap,
         deferred_ptr<const Expr>&& lhs_expr,
         deferred_ptr<const Expr>&& rhs_expr,
+        deferred_heap_t& deferred_heap,
         const Runtime_error& /*throwable_if_not_lvalue*/
     ) const {
         return deferred_heap.make<Assign_expr>(Token{static_pointer_cast<const Var_expr>(lhs_expr)->name}, move(rhs_expr));
@@ -142,9 +142,9 @@ namespace motts { namespace lox {
     }
 
     deferred_ptr<const Expr> Get_expr::make_assignment_expression(
-        deferred_heap_t& deferred_heap,
         deferred_ptr<const Expr>&& lhs_expr,
         deferred_ptr<const Expr>&& rhs_expr,
+        deferred_heap_t& deferred_heap,
         const Runtime_error& /*throwable_if_not_lvalue*/
     ) const {
         return deferred_heap.make<Set_expr>(

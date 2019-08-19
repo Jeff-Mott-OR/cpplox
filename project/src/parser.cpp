@@ -247,9 +247,9 @@ namespace {
                 // Var_expr will make and return an Assign_expr, and a virtual call through a Get_expr will make and
                 // return a Set_expr.
                 return left_expr->make_assignment_expression(
-                    deferred_heap,
                     move(left_expr),
                     move(right_expr),
+                    deferred_heap,
                     Parser_error{"Invalid assignment target.", op}
                 );
             }
@@ -493,10 +493,8 @@ namespace motts { namespace lox {
             deferred_heap,
             token_iter,
             [&] (const Parser_error& error) {
-                if (!parser_errors.empty()) {
-                    parser_errors += '\n';
-                }
                 parser_errors += error.what();
+                parser_errors += "\n";
             }
         };
 

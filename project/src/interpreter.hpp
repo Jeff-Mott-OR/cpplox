@@ -1,8 +1,7 @@
 #pragma once
 
 #include <string>
-#include <utility>
-#include <vector>
+#include <unordered_map>
 
 #include <gsl/gsl_util>
 #pragma warning(push, 0)
@@ -62,8 +61,8 @@ namespace motts { namespace lox {
             Literal result_;
             bool returning_ {false};
 
-            std::vector<std::pair<const Expr*, int>> scope_depths_;
-            std::vector<std::pair<std::string, Literal>>::iterator lookup_variable(const std::string& name, const Expr&);
+            std::unordered_map<const Expr*, int> scope_depths_;
+            Environment::iterator lookup_variable(const std::string& name, const Expr&);
 
             // Even though Resolver has access to everything, it's only intended to call the functions listed here
             friend Resolver;

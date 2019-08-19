@@ -34,10 +34,8 @@ auto run(const string& source, loxns::Lox& lox) {
         try {
             statement->accept(statement, lox.resolver);
         } catch (const loxns::Resolver_error& error) {
-            if (!resolver_errors.empty()) {
-                resolver_errors += '\n';
-            }
             resolver_errors += error.what();
+            resolver_errors += "\n";
         }
     }
     if (!resolver_errors.empty()) {

@@ -1,15 +1,10 @@
 #include "class.hpp"
 
-#include <algorithm>
-#include <utility>
-
 #include "function.hpp"
 #include "interpreter.hpp"
 
-using std::find_if;
-using std::move;
-using std::pair;
 using std::string;
+using std::unordered_map;
 using std::vector;
 
 using gcpp::deferred_heap;
@@ -25,20 +20,18 @@ namespace motts { namespace lox {
         deferred_heap& deferred_heap_arg,
         const string& name,
         const deferred_ptr<Class>& superclass,
-        const vector<pair<string, deferred_ptr<Function>>>& methods
+        unordered_map<string, deferred_ptr<Function>>&& methods
     ) :
         deferred_heap_ {deferred_heap_arg},
         name_ {name},
         superclass_ {superclass},
-        methods_ {methods}
+        methods_ {move(methods)}
     {}
 
     Literal Class::call(const deferred_ptr<Callable>& owner_this, const vector<Literal>& arguments) {
         auto instance = deferred_heap_.make<Instance>(static_pointer_cast<Class>(owner_this));
 
-        const auto found_init = find_if(methods_.cbegin(), methods_.cend(), [] (const auto& method) {
-            return method.first == "init";
-        });
+        const auto found_init = methods_.find("init");
         if (found_init != methods_.cend()) {
             const auto bound_init = found_init->second->bind(instance);
             bound_init->call(bound_init, arguments);
@@ -48,14 +41,10 @@ namespace motts { namespace lox {
     }
 
     int Class::arity() const {
-        const auto found_init = find_if(methods_.cbegin(), methods_.cend(), [] (const auto& method) {
-            return method.first == "init";
-        });
-
+        const auto found_init = methods_.find("init");
         if (found_init == methods_.cend()) {
             return 0;
         }
-
         return found_init->second->arity();
     }
 
@@ -64,9 +53,7 @@ namespace motts { namespace lox {
     }
 
     Literal Class::get(const deferred_ptr<Instance>& instance_to_bind, const string& name) const {
-        const auto found_method = find_if(methods_.cbegin(), methods_.cend(), [&] (const auto& method) {
-            return method.first == name;
-        });
+        const auto found_method = methods_.find(name);
         if (found_method != methods_.cend()) {
             return Literal{found_method->second->bind(instance_to_bind)};
         }
@@ -87,9 +74,7 @@ namespace motts { namespace lox {
     {}
 
     Literal Instance::get(const deferred_ptr<Instance>& owner_this, const string& name) {
-        const auto found_field = find_if(fields_.cbegin(), fields_.cend(), [&] (const auto& field) {
-            return field.first == name;
-        });
+        const auto found_field = fields_.find(name);
         if (found_field != fields_.cend()) {
             return found_field->second;
         }
@@ -98,13 +83,11 @@ namespace motts { namespace lox {
     }
 
     void Instance::set(const string& name, const Literal& value) {
-        const auto found = find_if(fields_.begin(), fields_.end(), [&] (const auto& field) {
-            return field.first == name;
-        });
+        const auto found = fields_.find(name);
         if (found != fields_.end()) {
             found->second = value;
         } else {
-            fields_.push_back({name, value});
+            fields_[name] = value;
         }
     }
 

@@ -47,9 +47,9 @@ namespace motts { namespace lox {
         explicit Var_expr(Token&& name);
         void accept(const gcpp::deferred_ptr<const Expr>& owner_this, Expr_visitor&) const override;
         gcpp::deferred_ptr<const Expr> make_assignment_expression(
-            gcpp::deferred_heap&,
             gcpp::deferred_ptr<const Expr>&& lhs_expr,
             gcpp::deferred_ptr<const Expr>&& rhs_expr,
+            gcpp::deferred_heap&,
             const Runtime_error& throwable_if_not_lvalue
         ) const override;
     };
@@ -91,9 +91,9 @@ namespace motts { namespace lox {
         explicit Get_expr(gcpp::deferred_ptr<const Expr>&& object, Token&& name);
         void accept(const gcpp::deferred_ptr<const Expr>& owner_this, Expr_visitor&) const override;
         gcpp::deferred_ptr<const Expr> make_assignment_expression(
-            gcpp::deferred_heap&,
             gcpp::deferred_ptr<const Expr>&& lhs_expr,
             gcpp::deferred_ptr<const Expr>&& rhs_expr,
+            gcpp::deferred_heap&,
             const Runtime_error& throwable_if_not_lvalue
         ) const override;
     };

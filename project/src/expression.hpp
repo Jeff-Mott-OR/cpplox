@@ -53,9 +53,9 @@ namespace motts { namespace lox {
         // Some derived expression types can be lvalues; some can't. To avoid
         // dynamic_cast tests, implement lvalue-ness polymorphically.
         virtual gcpp::deferred_ptr<const Expr> make_assignment_expression(
-            gcpp::deferred_heap&,
             gcpp::deferred_ptr<const Expr>&& lhs_expr,
             gcpp::deferred_ptr<const Expr>&& rhs_expr,
+            gcpp::deferred_heap&,
             const Runtime_error& throwable_if_not_lvalue
         ) const;
 
