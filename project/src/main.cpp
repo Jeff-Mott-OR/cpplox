@@ -26,64 +26,67 @@ using gsl::span;
 
 namespace loxns = motts::lox;
 
-auto run(const string& source, loxns::Lox& lox) {
-    const auto statements = lox.parse(loxns::Token_iterator{source});
+// Not exported (internal linkage)
+namespace {
+    auto run(const string& source, loxns::Lox& lox) {
+        const auto statements = lox.parse(loxns::Token_iterator{source});
 
-    string resolver_errors;
-    for (const auto& statement : statements) {
-        try {
-            statement->accept(statement, lox.resolver);
-        } catch (const loxns::Resolver_error& error) {
-            resolver_errors += error.what();
-            resolver_errors += "\n";
+        string resolver_errors;
+        for (const auto& statement : statements) {
+            try {
+                statement->accept(statement, lox.resolver);
+            } catch (const loxns::Resolver_error& error) {
+                resolver_errors += error.what();
+                resolver_errors += "\n";
+            }
+        }
+        if (!resolver_errors.empty()) {
+            throw loxns::Resolver_error{resolver_errors};
+        }
+
+        for (const auto& statement : statements) {
+            statement->accept(statement, lox.interpreter);
         }
     }
-    if (!resolver_errors.empty()) {
-        throw loxns::Resolver_error{resolver_errors};
+
+    auto run(const string& source) {
+        loxns::Lox lox;
+        run(source, lox);
     }
 
-    for (const auto& statement : statements) {
-        statement->accept(statement, lox.interpreter);
+    auto run_file(const string& path) {
+        // IIFE to limit scope of ifstream
+        const auto source = ([&] () {
+            ifstream in {path};
+            in.exceptions(ifstream::failbit | ifstream::badbit);
+            return string{istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
+        })();
+
+        run(source);
     }
-}
 
-auto run(const string& source) {
-    loxns::Lox lox;
-    run(source, lox);
-}
+    auto run_prompt() {
+        loxns::Lox lox;
 
-auto run_file(const string& path) {
-    // IIFE to limit scope of ifstream
-    const auto source = ([&] () {
-        ifstream in {path};
-        in.exceptions(ifstream::failbit | ifstream::badbit);
-        return string{istreambuf_iterator<char>{in}, istreambuf_iterator<char>{}};
-    })();
+        while (true) {
+            cout << "> ";
 
-    run(source);
-}
+            string source_line;
+            getline(cin, source_line);
 
-auto run_prompt() {
-    loxns::Lox lox;
-
-    while (true) {
-        cout << "> ";
-
-        string source_line;
-        getline(cin, source_line);
-
-        // If the user makes a mistake, it shouldn't kill their entire session
-        try {
-            run(source_line, lox);
-        } catch (const loxns::Runtime_error& error) {
-            cerr << error.what() << "\n";
+            // If the user makes a mistake, it shouldn't kill their entire session
+            try {
+                run(source_line, lox);
+            } catch (const loxns::Runtime_error& error) {
+                cerr << error.what() << "\n";
+            }
         }
     }
 }
 
 int main(int argc, const char* argv[]) {
     try {
-        // STL container-like interface to argv
+        // STL-like container interface to argv
         span<const char*> argv_span {argv, argc};
 
         if (argv_span.size() > 2) {
