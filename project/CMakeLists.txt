@@ -48,35 +48,6 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 # anything that isn't MSVC is GNU or GNU- compatible.
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
-# The up-and-coming bytecode compiler and interpreter
-add_executable(
-    cpploxbc
-        src/main_bytecode.cpp
-        src/class.cpp
-        src/environment.cpp
-        src/expression.cpp
-        src/expression_impls.cpp
-        src/function.cpp
-        src/interpreter.cpp
-        src/literal.cpp
-        src/parser.cpp
-        src/parser_bc.cpp
-        src/resolver.cpp
-        src/scanner.cpp
-        src/statement_impls.cpp
-        src/token.cpp
-)
-target_compile_features(cpploxbc PRIVATE cxx_std_14)
-target_link_libraries(cpploxbc PRIVATE Boost::boost)
-target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}" "${GCPP_INCLUDE_DIR}")
-install(TARGETS cpploxbc DESTINATION ./)
-target_compile_options(
-    cpploxbc
-    PRIVATE
-        "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
-        $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
-)
-
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     target_compile_features(test_harness PRIVATE cxx_std_14)
