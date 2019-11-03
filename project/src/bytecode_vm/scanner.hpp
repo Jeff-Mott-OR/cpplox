@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iterator>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -41,24 +42,47 @@ namespace motts { namespace lox {
         int line;
     };
 
-    class Scanner {
+    bool operator==(const Token&, const Token&);
+
+    class Token_iterator : public std::iterator<std::forward_iterator_tag, Token> {
         public:
-            Scanner(const std::string& source);
-            Token scan_token();
+            // Begin
+            explicit Token_iterator(const std::string& source);
+
+            // End
+            explicit Token_iterator();
+
+            Token_iterator& operator++();
+            Token_iterator operator++(int);
+
+            bool operator==(const Token_iterator&) const;
+            bool operator!=(const Token_iterator&) const;
+
+            const Token& operator*() const &;
+            Token&& operator*() &&;
+
+            const Token* operator->() const;
 
         private:
+            Token consume_token();
             void consume_whitespace();
+            Token consume_identifier();
+            Token consume_number();
+            Token consume_string();
+
             Token make_token(Token_type);
             bool advance_if_match(char expected);
-            Token consume_string();
-            Token consume_number();
-            Token consume_identifier();
             Token_type identifier_type();
-            Token_type check_keyword(std::string::const_iterator begin, const char* rest_keyword, Token_type type_if_match);
+            Token_type keyword_or_identifier(
+                std::string::const_iterator begin,
+                const char* rest_keyword,
+                Token_type type_if_match
+            );
 
             std::string::const_iterator token_begin_;
             std::string::const_iterator token_end_;
             std::string::const_iterator source_end_;
+            Token token_;
             int line_ {1};
     };
 

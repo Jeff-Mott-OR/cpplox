@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <stdexcept>
+#include <utility>
 
 #include <boost/algorithm/string.hpp>
 
@@ -9,6 +10,7 @@ using std::isalnum;
 using std::isalpha;
 using std::isdigit;
 using std::logic_error;
+using std::move;
 using std::ostream;
 using std::string;
 
@@ -41,21 +43,64 @@ namespace motts { namespace lox {
         return os;
     }
 
-    Scanner::Scanner(const string& source) :
+    bool operator==(const Token& lhs, const Token& rhs) {
+        return (
+            lhs.type == rhs.type &&
+            lhs.begin == rhs.begin && lhs.end == rhs.end &&
+            lhs.line == rhs.line
+        );
+    }
+
+    Token_iterator::Token_iterator(const string& source) :
         token_begin_ {source.cbegin()},
         token_end_ {source.cbegin()},
-        source_end_ {source.cend()}
+        source_end_ {source.cend()},
+        token_ {consume_token()}
     {}
 
-    Token Scanner::scan_token() {
+    Token_iterator::Token_iterator() :
+        token_ {Token_type::eof, {}, {}, {}}
+    {}
+
+    Token_iterator& Token_iterator::operator++() {
+        token_ = consume_token();
+        return *this;
+    }
+
+    Token_iterator Token_iterator::operator++(int) {
+        Token_iterator copy {*this};
+        operator++();
+
+        return copy;
+    }
+
+    bool Token_iterator::operator==(const Token_iterator& rhs) const {
+        return (token_.type == Token_type::eof && rhs.token_.type == Token_type::eof) || token_ == rhs.token_;
+    }
+
+    bool Token_iterator::operator!=(const Token_iterator& rhs) const {
+        return !(*this == rhs);
+    }
+
+    const Token& Token_iterator::operator*() const & {
+        return token_;
+    }
+
+    Token&& Token_iterator::operator*() && {
+        return move(token_);
+    }
+
+    const Token* Token_iterator::operator->() const {
+        return &token_;
+    }
+
+    Token Token_iterator::consume_token() {
         consume_whitespace();
-
-        token_begin_ = token_end_;
-
         if (token_end_ == source_end_) {
-            return make_token(Token_type::eof);
+            return Token{Token_type::eof, {}, {}, {}};
         }
 
+        token_begin_ = token_end_;
         const auto c = *token_end_++;
 
         if (isalpha(c) || c == '_') return consume_identifier();
@@ -88,7 +133,7 @@ namespace motts { namespace lox {
         throw Scanner_error{"Unexpected character."};
     }
 
-    void Scanner::consume_whitespace() {
+    void Token_iterator::consume_whitespace() {
         while (token_end_ != source_end_) {
             const auto c = *token_end_;
 
@@ -97,13 +142,11 @@ namespace motts { namespace lox {
                 case '\r':
                 case '\t':
                     ++token_end_;
-
                     continue;
 
                 case '\n':
                     ++line_;
                     ++token_end_;
-
                     continue;
 
                 case '/':
@@ -127,40 +170,15 @@ namespace motts { namespace lox {
         }
     }
 
-    Token Scanner::make_token(Token_type type) {
-        return Token{type, token_begin_, token_end_, line_};
-    }
-
-    bool Scanner::advance_if_match(char expected) {
-        if (token_end_ == source_end_ || *token_end_ != expected) {
-            return false;
-        }
-
-        ++token_end_;
-
-        return true;
-    }
-
-    Token Scanner::consume_string() {
-        while (token_end_ != source_end_ && *token_end_ != '"') {
-            if (*token_end_ == '\n') {
-                ++line_;
-            }
-
+    Token Token_iterator::consume_identifier() {
+        while (token_end_ != source_end_ && (isalnum(*token_end_) || *token_end_ == '_')) {
             ++token_end_;
         }
 
-        if (token_end_ == source_end_) {
-            throw Scanner_error{"Unterminated string."};
-        }
-
-        // The closing quote
-        ++token_end_;
-
-        return make_token(Token_type::string);
+        return make_token(identifier_type());
     }
 
-    Token Scanner::consume_number() {
+    Token Token_iterator::consume_number() {
         while (token_end_ != source_end_ && isdigit(*token_end_)) {
             ++token_end_;
         }
@@ -181,54 +199,82 @@ namespace motts { namespace lox {
         return make_token(Token_type::number);
     }
 
-    Token Scanner::consume_identifier() {
-        while (token_end_ != source_end_ && (isalnum(*token_end_) || *token_end_ == '_')) {
+    Token Token_iterator::consume_string() {
+        while (token_end_ != source_end_ && *token_end_ != '"') {
+            if (*token_end_ == '\n') {
+                ++line_;
+            }
             ++token_end_;
         }
 
-        return make_token(identifier_type());
+        if (token_end_ == source_end_) {
+            throw Scanner_error{"Unterminated string."};
+        }
+
+        // The closing quote
+        ++token_end_;
+
+        return make_token(Token_type::string);
     }
 
-    Token_type Scanner::identifier_type() {
+    Token Token_iterator::make_token(Token_type type) {
+        return Token{type, token_begin_, token_end_, line_};
+    }
+
+    bool Token_iterator::advance_if_match(char expected) {
+        if (token_end_ == source_end_ || *token_end_ != expected) {
+            return false;
+        }
+
+        ++token_end_;
+
+        return true;
+    }
+
+    Token_type Token_iterator::identifier_type() {
         switch (*token_begin_) {
-            case 'a': return check_keyword(token_begin_ + 1, "nd", Token_type::and_);
-            case 'c': return check_keyword(token_begin_ + 1, "lass", Token_type::class_);
-            case 'e': return check_keyword(token_begin_ + 1, "lse", Token_type::else_);
+            case 'a': return keyword_or_identifier(token_begin_ + 1, "nd", Token_type::and_);
+            case 'c': return keyword_or_identifier(token_begin_ + 1, "lass", Token_type::class_);
+            case 'e': return keyword_or_identifier(token_begin_ + 1, "lse", Token_type::else_);
             case 'f':
                 if ((token_begin_ + 1) != token_end_) {
                     switch (*(token_begin_ + 1)) {
-                        case 'a': return check_keyword(token_begin_ + 2, "lse", Token_type::false_);
-                        case 'o': return check_keyword(token_begin_ + 2, "r", Token_type::for_);
-                        case 'u': return check_keyword(token_begin_ + 2, "n", Token_type::fun);
+                        case 'a': return keyword_or_identifier(token_begin_ + 2, "lse", Token_type::false_);
+                        case 'o': return keyword_or_identifier(token_begin_ + 2, "r", Token_type::for_);
+                        case 'u': return keyword_or_identifier(token_begin_ + 2, "n", Token_type::fun);
                     }
                 }
 
                 break;
 
-            case 'i': return check_keyword(token_begin_ + 1, "f", Token_type::if_);
-            case 'n': return check_keyword(token_begin_ + 1, "il", Token_type::nil);
-            case 'o': return check_keyword(token_begin_ + 1, "r", Token_type::or_);
-            case 'p': return check_keyword(token_begin_ + 1, "rint", Token_type::print);
-            case 'r': return check_keyword(token_begin_ + 1, "eturn", Token_type::return_);
-            case 's': return check_keyword(token_begin_ + 1, "uper", Token_type::super);
+            case 'i': return keyword_or_identifier(token_begin_ + 1, "f", Token_type::if_);
+            case 'n': return keyword_or_identifier(token_begin_ + 1, "il", Token_type::nil);
+            case 'o': return keyword_or_identifier(token_begin_ + 1, "r", Token_type::or_);
+            case 'p': return keyword_or_identifier(token_begin_ + 1, "rint", Token_type::print);
+            case 'r': return keyword_or_identifier(token_begin_ + 1, "eturn", Token_type::return_);
+            case 's': return keyword_or_identifier(token_begin_ + 1, "uper", Token_type::super);
             case 't':
                 if ((token_begin_ + 1) != token_end_) {
                     switch (*(token_begin_ + 1)) {
-                        case 'h': return check_keyword(token_begin_ + 2, "is", Token_type::this_);
-                        case 'r': return check_keyword(token_begin_ + 2, "ue", Token_type::true_);
+                        case 'h': return keyword_or_identifier(token_begin_ + 2, "is", Token_type::this_);
+                        case 'r': return keyword_or_identifier(token_begin_ + 2, "ue", Token_type::true_);
                     }
                 }
 
                 break;
 
-            case 'v': return check_keyword(token_begin_ + 1, "ar", Token_type::var);
-            case 'w': return check_keyword(token_begin_ + 1, "hile", Token_type::while_);
+            case 'v': return keyword_or_identifier(token_begin_ + 1, "ar", Token_type::var);
+            case 'w': return keyword_or_identifier(token_begin_ + 1, "hile", Token_type::while_);
         }
 
         return Token_type::identifier;
     }
 
-    Token_type Scanner::check_keyword(string::const_iterator begin, const char* rest_keyword, Token_type type_if_match) {
+    Token_type Token_iterator::keyword_or_identifier(
+        string::const_iterator begin,
+        const char* rest_keyword,
+        Token_type type_if_match
+    ) {
         if (string{begin, token_end_} == rest_keyword) {
             return type_if_match;
         }

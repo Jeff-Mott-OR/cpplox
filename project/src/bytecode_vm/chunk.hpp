@@ -15,11 +15,12 @@ namespace motts { namespace lox {
     };
 
     struct Chunk {
-        std::vector<int> code;
+        std::vector<unsigned char> code;
         std::vector<int> lines;
         std::vector<Value> constants;
-    };
 
-    void write_chunk(Chunk&, Op_code, int line);
-    void write_chunk(Chunk&, int constant_offset, int line);
+        void bytecode_push_back(Op_code, int line);
+        void bytecode_push_back(unsigned char byte, int line);
+        std::vector<Value>::size_type constants_push_back(Value);
+    };
 }}

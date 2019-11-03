@@ -1,13 +1,22 @@
 #include "chunk.hpp"
+#include <gsl/gsl_util>
+
+using std::vector;
+using gsl::narrow;
 
 namespace motts { namespace lox {
-    void write_chunk(Chunk& chunk, Op_code opcode, int line) {
-        chunk.code.push_back(static_cast<int>(opcode));
-        chunk.lines.push_back(line);
+    void Chunk::bytecode_push_back(Op_code opcode, int line) {
+        bytecode_push_back(narrow<unsigned char>(static_cast<int>(opcode)), line);
     }
 
-    void write_chunk(Chunk& chunk, int constant_offset, int line) {
-        chunk.code.push_back(constant_offset);
-        chunk.lines.push_back(line);
+    void Chunk::bytecode_push_back(unsigned char byte, int line) {
+        code.push_back(byte);
+        lines.push_back(line);
+    }
+
+    vector<Value>::size_type Chunk::constants_push_back(Value value) {
+        const auto offset = constants.size();
+        constants.push_back(value);
+        return offset;
     }
 }}
