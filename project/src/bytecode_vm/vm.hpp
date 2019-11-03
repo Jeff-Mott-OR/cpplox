@@ -6,7 +6,6 @@
 namespace motts { namespace lox {
     class VM {
         public:
-            void interpret(const Chunk&);
             void interpret(const std::string& source);
 
         private:
