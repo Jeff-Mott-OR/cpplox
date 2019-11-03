@@ -1,14 +1,22 @@
 #include "vm.hpp"
+
 #include <iostream>
+
+#include "compiler.hpp"
 #include "debug.hpp"
 
 using std::cout;
+using std::string;
 
 namespace motts { namespace lox {
     void VM::interpret(const Chunk& chunk) {
         chunk_ = &chunk;
         ip_ = chunk.code.cbegin();
         run();
+    }
+
+    void VM::interpret(const string& source) {
+        compile(source);
     }
 
     void VM::run() {
