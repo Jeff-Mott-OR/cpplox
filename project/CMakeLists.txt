@@ -13,20 +13,20 @@ endif()
 
 add_executable(
     cpplox
-        src/main.cpp
-        src/ast_printer.cpp
-        src/class.cpp
-        src/environment.cpp
-        src/expression.cpp
-        src/expression_impls.cpp
-        src/function.cpp
-        src/interpreter.cpp
-        src/literal.cpp
-        src/parser.cpp
-        src/resolver.cpp
-        src/scanner.cpp
-        src/statement_impls.cpp
-        src/token.cpp
+        src/treewalk_interpreter/main.cpp
+        src/treewalk_interpreter/ast_printer.cpp
+        src/treewalk_interpreter/class.cpp
+        src/treewalk_interpreter/environment.cpp
+        src/treewalk_interpreter/expression.cpp
+        src/treewalk_interpreter/expression_impls.cpp
+        src/treewalk_interpreter/function.cpp
+        src/treewalk_interpreter/interpreter.cpp
+        src/treewalk_interpreter/literal.cpp
+        src/treewalk_interpreter/parser.cpp
+        src/treewalk_interpreter/resolver.cpp
+        src/treewalk_interpreter/scanner.cpp
+        src/treewalk_interpreter/statement_impls.cpp
+        src/treewalk_interpreter/token.cpp
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
 target_link_libraries(cpplox PRIVATE Boost::boost)
