@@ -51,11 +51,12 @@ In the VM, run:
 In the VM, open a command prompt and run:
 
     pushd \\vboxsvr\cpplox
+    cd /d %userprofile%
 
     mkdir build
     cd build
 
-    cmake .. -A x64
+    cmake z: -A x64
     cmake --build . --config Release
 
 ### Proxy
