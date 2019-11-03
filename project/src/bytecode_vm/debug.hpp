@@ -4,5 +4,6 @@
 #include "chunk.hpp"
 
 namespace motts { namespace lox {
-    void disassemble_chunk(const Chunk& chunk, const std::string& name);
+    int disassemble_instruction(const Chunk&, int offset);
+    void disassemble_chunk(const Chunk&, const std::string& name);
 }}

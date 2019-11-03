@@ -28,7 +28,10 @@ namespace {
 
         return code_offset + 2;
     }
+}
 
+// Exported (external linkage)
+namespace motts { namespace lox {
     int disassemble_instruction(const Chunk& chunk, int offset) {
         cout << setw(4) << setfill('0') << right << offset << " ";
         if (offset == 0 || chunk.lines.at(offset) != chunk.lines.at(offset - 1)) {
@@ -41,17 +44,28 @@ namespace {
         switch (instruction) {
             case Op_code::constant:
                 return constant_instruction("OP_CONSTANT", chunk, offset);
+
+            case Op_code::add:
+                return simple_instrunction("OP_ADD", offset);
+            case Op_code::subtract:
+                return simple_instrunction("OP_SUBTRACT", offset);
+            case Op_code::multiply:
+                return simple_instrunction("OP_MULTIPLY", offset);
+            case Op_code::divide:
+                return simple_instrunction("OP_DIVIDE", offset);
+
+            case Op_code::negate:
+                return simple_instrunction("OP_NEGATE", offset);
+
             case Op_code::return_:
                 return simple_instrunction("OP_RETURN", offset);
+
             default:
                 cout << "Unknown opcode " << static_cast<int>(instruction) << "\n";
                 return offset + 1;
         }
     }
-}
 
-// Exported (external linkage)
-namespace motts { namespace lox {
     void disassemble_chunk(const Chunk& chunk, const string& name) {
         cout << "== " << name << " ==\n";
 

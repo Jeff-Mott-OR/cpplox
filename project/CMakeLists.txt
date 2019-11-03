@@ -55,6 +55,7 @@ add_executable(
         src/bytecode_vm/chunk.cpp
         src/bytecode_vm/debug.cpp
         src/bytecode_vm/value.cpp
+        src/bytecode_vm/vm.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)
 install(TARGETS cpploxbc DESTINATION ./)

@@ -6,6 +6,11 @@
 namespace motts { namespace lox {
     enum class Op_code {
         constant,
+        add,
+        subtract,
+        multiply,
+        divide,
+        negate,
         return_
     };
 
@@ -14,4 +19,7 @@ namespace motts { namespace lox {
         std::vector<int> lines;
         std::vector<Value> constants;
     };
+
+    void write_chunk(Chunk&, Op_code, int line);
+    void write_chunk(Chunk&, int constant_offset, int line);
 }}
