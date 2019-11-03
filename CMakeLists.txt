@@ -55,6 +55,12 @@ endif()
 ExternalProject_Get_Property(boost SOURCE_DIR)
 set(INSTALLATION_PREFIXES "${INSTALLATION_PREFIXES}$<SEMICOLON>${SOURCE_DIR}")
 
+find_program(PYTHON_COMMAND python)
+if(PYTHON_COMMAND STREQUAL "PYTHON_COMMAND-NOTFOUND")
+    message(FATAL_ERROR "Check for python: PYTHON COMMAND NOT FOUND")
+else()
+    message(STATUS "Check for python: ${PYTHON_COMMAND}")
+endif()
 ExternalProject_Add(
     python_patch
     URL https://github.com/techtonik/python-patch/archive/1.16.tar.gz
