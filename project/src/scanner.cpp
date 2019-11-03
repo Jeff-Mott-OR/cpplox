@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <iterator>
 #include <utility>
 
 #include <boost/lexical_cast.hpp>
@@ -13,6 +14,8 @@ using std::isalpha;
 using std::isdigit;
 
 using std::array;
+using std::back_inserter;
+using std::copy_if;
 using std::find_if;
 using std::move;
 using std::pair;
@@ -135,8 +138,13 @@ namespace motts { namespace lox {
         // The closing "
         ++token_end_;
 
-        // Trim the surrounding quotes for literal value
-        return make_token(Token_type::string, Literal{string{token_begin_ + 1, token_end_ - 1}});
+        // Trim surrounding quotes and normalize line endings for literal value
+        string literal_value;
+        copy_if(token_begin_ + 1, token_end_ - 1, back_inserter(literal_value), [] (auto c) {
+            return c != '\r';
+        });
+
+        return make_token(Token_type::string, Literal{move(literal_value)});
     }
 
     Token Token_iterator::consume_number() {
