@@ -58,6 +58,14 @@ In the VM, open a command prompt and run:
     cmake .. -A x64
     cmake --build . --config Release
 
+### Proxy
+
+Are you behind a proxy? I feel your pain. Start by running:
+
+    vagrant plugin install vagrant-proxyconf
+
+Then in the `Vagrantfile`s, uncomment the `config.proxy` lines and enter your real proxy values.
+
 ## Copyright
 
 Copyright 2018 Jeff Mott. [MIT License](https://opensource.org/licenses/MIT).

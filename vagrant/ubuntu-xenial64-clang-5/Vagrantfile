@@ -6,6 +6,11 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure("2") do |config|
+  # To use the following lines, first run `vagrant plugin install vagrant-proxyconf`
+  # config.proxy.http = "http://192.168.0.2:3128/"
+  # config.proxy.https = "http://192.168.0.2:3128/"
+  # config.proxy.no_proxy = "localhost,127.0.0.1,.example.com"
+
   # The most common configuration options are documented and commented below.
   # For a complete reference, please see the online documentation at
   # https://docs.vagrantup.com.
