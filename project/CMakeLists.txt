@@ -13,20 +13,20 @@ endif()
 
 add_executable(
     cpplox
-        src/main.cpp
-        src/ast_printer.cpp
-        src/class.cpp
-        src/environment.cpp
-        src/expression.cpp
-        src/expression_impls.cpp
-        src/function.cpp
-        src/interpreter.cpp
-        src/literal.cpp
-        src/parser.cpp
-        src/resolver.cpp
-        src/scanner.cpp
-        src/statement_impls.cpp
-        src/token.cpp
+        src/treewalk_interpreter/main.cpp
+        src/treewalk_interpreter/ast_printer.cpp
+        src/treewalk_interpreter/class.cpp
+        src/treewalk_interpreter/environment.cpp
+        src/treewalk_interpreter/expression.cpp
+        src/treewalk_interpreter/expression_impls.cpp
+        src/treewalk_interpreter/function.cpp
+        src/treewalk_interpreter/interpreter.cpp
+        src/treewalk_interpreter/literal.cpp
+        src/treewalk_interpreter/parser.cpp
+        src/treewalk_interpreter/resolver.cpp
+        src/treewalk_interpreter/scanner.cpp
+        src/treewalk_interpreter/statement_impls.cpp
+        src/treewalk_interpreter/token.cpp
 )
 target_compile_features(cpplox PRIVATE cxx_std_14)
 target_link_libraries(cpplox PRIVATE Boost::boost)
@@ -48,34 +48,23 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 # anything that isn't MSVC is GNU or GNU- compatible.
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
-# The up-and-coming bytecode compiler and interpreter
+# Bytecode VM
 add_executable(
     cpploxbc
-        src/main_bytecode.cpp
-        src/class.cpp
-        src/environment.cpp
-        src/expression.cpp
-        src/expression_impls.cpp
-        src/function.cpp
-        src/interpreter.cpp
-        src/literal.cpp
-        src/parser.cpp
-        src/parser_bc.cpp
-        src/resolver.cpp
-        src/scanner.cpp
-        src/statement_impls.cpp
-        src/token.cpp
+        src/bytecode_vm/main.cpp
+        src/bytecode_vm/chunk.cpp
+        src/bytecode_vm/compiler.cpp
+        src/bytecode_vm/debug.cpp
+        src/bytecode_vm/scanner.cpp
+        src/bytecode_vm/value.cpp
+        src/bytecode_vm/vm.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)
 target_link_libraries(cpploxbc PRIVATE Boost::boost)
-target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}" "${GCPP_INCLUDE_DIR}")
+target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}")
 install(TARGETS cpploxbc DESTINATION ./)
-target_compile_options(
-    cpploxbc
-    PRIVATE
-        "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>"
-        $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>
-)
+target_compile_options(cpploxbc PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>")
+target_compile_options(cpploxbc PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
