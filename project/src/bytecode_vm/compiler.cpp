@@ -53,31 +53,31 @@ namespace {
             { nullptr,                     nullptr,                    Precedence::none },   // SEMICOLON
             { nullptr,                     &Compiler::compile_binary,  Precedence::factor }, // SLASH
             { nullptr,                     &Compiler::compile_binary,  Precedence::factor }, // STAR
-            { nullptr,                     nullptr,                    Precedence::none },   // BANG
-            { nullptr,                     nullptr,                    Precedence::none },   // BANG_EQUAL
+            { &Compiler::compile_unary,    nullptr,                    Precedence::none },   // BANG
+            { nullptr,                     &Compiler::compile_binary,  Precedence::equality },   // BANG_EQUAL
             { nullptr,                     nullptr,                    Precedence::none },   // EQUAL
-            { nullptr,                     nullptr,                    Precedence::none },   // EQUAL_EQUAL
-            { nullptr,                     nullptr,                    Precedence::none },   // GREATER
-            { nullptr,                     nullptr,                    Precedence::none },   // GREATER_EQUAL
-            { nullptr,                     nullptr,                    Precedence::none },   // LESS
-            { nullptr,                     nullptr,                    Precedence::none },   // LESS_EQUAL
+            { nullptr,                     &Compiler::compile_binary,  Precedence::equality },   // EQUAL_EQUAL
+            { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // GREATER
+            { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // GREATER_EQUAL
+            { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // LESS
+            { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // LESS_EQUAL
             { nullptr,                     nullptr,                    Precedence::none },   // IDENTIFIER
             { nullptr,                     nullptr,                    Precedence::none },   // STRING
             { &Compiler::compile_number,   nullptr,                    Precedence::none },   // NUMBER
             { nullptr,                     nullptr,                    Precedence::none },   // AND
             { nullptr,                     nullptr,                    Precedence::none },   // CLASS
             { nullptr,                     nullptr,                    Precedence::none },   // ELSE
-            { nullptr,                     nullptr,                    Precedence::none },   // FALSE
+            { &Compiler::compile_literal,  nullptr,                    Precedence::none },   // FALSE
             { nullptr,                     nullptr,                    Precedence::none },   // FOR
             { nullptr,                     nullptr,                    Precedence::none },   // FUN
             { nullptr,                     nullptr,                    Precedence::none },   // IF
-            { nullptr,                     nullptr,                    Precedence::none },   // NIL
+            { &Compiler::compile_literal,  nullptr,                    Precedence::none },   // NIL
             { nullptr,                     nullptr,                    Precedence::none },   // OR
             { nullptr,                     nullptr,                    Precedence::none },   // PRINT
             { nullptr,                     nullptr,                    Precedence::none },   // RETURN
             { nullptr,                     nullptr,                    Precedence::none },   // SUPER
             { nullptr,                     nullptr,                    Precedence::none },   // THIS
-            { nullptr,                     nullptr,                    Precedence::none },   // TRUE
+            { &Compiler::compile_literal,  nullptr,                    Precedence::none },   // TRUE
             { nullptr,                     nullptr,                    Precedence::none },   // VAR
             { nullptr,                     nullptr,                    Precedence::none },   // WHILE
             { nullptr,                     nullptr,                    Precedence::none },   // ERROR
@@ -123,7 +123,7 @@ namespace {
 
         void compile_number() {
             const auto value = lexical_cast<double>(string{token_iter_->begin, token_iter_->end});
-            const auto offset = chunk_.constants_push_back(value);
+            const auto offset = chunk_.constants_push_back(Value{value});
 
             chunk_.bytecode_push_back(Op_code::constant, token_iter_->line);
             chunk_.bytecode_push_back(narrow<unsigned char>(offset), token_iter_->line);
@@ -139,6 +139,10 @@ namespace {
             compile_precedence_or_higher(Precedence::unary);
 
             switch (op.type) {
+                case Token_type::bang:
+                    chunk_.bytecode_push_back(Op_code::not_, op.line);
+                    break;
+
                 case Token_type::minus:
                     chunk_.bytecode_push_back(Op_code::negate, op.line);
                     break;
@@ -158,6 +162,33 @@ namespace {
             compile_precedence_or_higher(higher_level_precedence);
 
             switch (op.type) {
+                case Token_type::bang_equal:
+                    chunk_.bytecode_push_back(Op_code::equal, op.line);
+                    chunk_.bytecode_push_back(Op_code::not_, op.line);
+                    break;
+
+                case Token_type::equal_equal:
+                    chunk_.bytecode_push_back(Op_code::equal, op.line);
+                    break;
+
+                case Token_type::greater:
+                    chunk_.bytecode_push_back(Op_code::greater, op.line);
+                    break;
+
+                case Token_type::greater_equal:
+                    chunk_.bytecode_push_back(Op_code::less, op.line);
+                    chunk_.bytecode_push_back(Op_code::not_, op.line);
+                    break;
+
+                case Token_type::less:
+                    chunk_.bytecode_push_back(Op_code::less, op.line);
+                    break;
+
+                case Token_type::less_equal:
+                    chunk_.bytecode_push_back(Op_code::greater, op.line);
+                    chunk_.bytecode_push_back(Op_code::not_, op.line);
+                    break;
+
                 case Token_type::plus:
                     chunk_.bytecode_push_back(Op_code::add, op.line);
                     break;
@@ -177,6 +208,27 @@ namespace {
                 default:
                     throw Compiler_error{op, "Unreachable."};
             }
+        }
+
+        void compile_literal() {
+            switch (token_iter_->type) {
+                case Token_type::false_:
+                    chunk_.bytecode_push_back(Op_code::false_, token_iter_->line);
+                    break;
+
+                case Token_type::nil:
+                    chunk_.bytecode_push_back(Op_code::nil, token_iter_->line);
+                    break;
+
+                case Token_type::true_:
+                    chunk_.bytecode_push_back(Op_code::true_, token_iter_->line);
+                    break;
+
+                default:
+                    throw Compiler_error{*token_iter_, "Unreachable."};
+            }
+
+            ++token_iter_;
         }
 
         void consume(Token_type type, const string& message) {

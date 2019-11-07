@@ -45,6 +45,20 @@ namespace motts { namespace lox {
             case Op_code::constant:
                 return constant_instruction("OP_CONSTANT", chunk, offset);
 
+            case Op_code::nil:
+                return simple_instrunction("OP_NIL", offset);
+            case Op_code::true_:
+                return simple_instrunction("OP_TRUE", offset);
+            case Op_code::false_:
+                return simple_instrunction("OP_FALSE", offset);
+
+            case Op_code::equal:
+                return simple_instrunction("OP_EQUAL", offset);
+            case Op_code::greater:
+                return simple_instrunction("OP_GREATER", offset);
+            case Op_code::less:
+                return simple_instrunction("OP_LESS", offset);
+
             case Op_code::add:
                 return simple_instrunction("OP_ADD", offset);
             case Op_code::subtract:
@@ -54,6 +68,8 @@ namespace motts { namespace lox {
             case Op_code::divide:
                 return simple_instrunction("OP_DIVIDE", offset);
 
+            case Op_code::not_:
+                return simple_instrunction("OP_NOT", offset);
             case Op_code::negate:
                 return simple_instrunction("OP_NEGATE", offset);
 

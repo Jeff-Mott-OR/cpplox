@@ -6,10 +6,17 @@
 namespace motts { namespace lox {
     enum class Op_code {
         constant,
+        nil,
+        true_,
+        false_,
+        equal,
+        greater,
+        less,
         add,
         subtract,
         multiply,
         divide,
+        not_,
         negate,
         return_
     };

@@ -79,11 +79,11 @@ namespace motts { namespace lox {
                 Token_type type_if_match
             );
 
+            int line_ {1};
             std::string::const_iterator token_begin_;
             std::string::const_iterator token_end_;
             std::string::const_iterator source_end_;
             Token token_;
-            int line_ {1};
     };
 
     struct Scanner_error : std::runtime_error {
