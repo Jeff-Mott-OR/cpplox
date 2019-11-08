@@ -16,6 +16,8 @@ using boost::apply_visitor;
 using boost::get;
 using boost::static_visitor;
 
+using namespace motts::lox;
+
 namespace {
     // Only false and nil are falsey, everything else is truthy
     struct Is_truthy_visitor : static_visitor<bool> {
@@ -44,6 +46,22 @@ namespace {
         template<typename T>
             auto operator()(const T& lhs, const T& rhs) const {
                 return lhs == rhs;
+            }
+    };
+
+    struct Plus_visitor : static_visitor<Value> {
+        auto operator()(const string& lhs, const string& rhs) const {
+            return Value{lhs + rhs};
+        }
+
+        auto operator()(double lhs, double rhs) const {
+            return Value{lhs + rhs};
+        }
+
+        // All other type combinations can't be '+'-ed together
+        template<typename T, typename U>
+            Value operator()(const T&, const U&) const {
+                throw VM_error{"Operands must be two numbers or two strings."};
             }
     };
 }
@@ -133,13 +151,13 @@ namespace motts { namespace lox {
                 }
 
                 case Op_code::add: {
-                    const auto right_value = get<double>(stack_.back().variant);
+                    const auto right_value = move(stack_.back());
                     stack_.pop_back();
 
-                    const auto left_value = get<double>(stack_.back().variant);
+                    const auto left_value = move(stack_.back());
                     stack_.pop_back();
 
-                    stack_.push_back(Value{left_value + right_value});
+                    stack_.push_back(apply_visitor(Plus_visitor{}, left_value.variant, right_value.variant));
 
                     break;
                 }

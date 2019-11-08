@@ -1,6 +1,8 @@
 #pragma once
 
+#include <stdexcept>
 #include <string>
+
 #include "chunk.hpp"
 
 namespace motts { namespace lox {
@@ -14,5 +16,9 @@ namespace motts { namespace lox {
             const Chunk* chunk_;
             std::vector<unsigned char>::const_iterator ip_;
             std::vector<Value> stack_;
+    };
+
+    struct VM_error : std::runtime_error {
+        using std::runtime_error::runtime_error;
     };
 }}

@@ -62,7 +62,7 @@ namespace {
             { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // LESS
             { nullptr,                     &Compiler::compile_binary,  Precedence::comparison },   // LESS_EQUAL
             { nullptr,                     nullptr,                    Precedence::none },   // IDENTIFIER
-            { nullptr,                     nullptr,                    Precedence::none },   // STRING
+            { &Compiler::compile_string,   nullptr,                    Precedence::none },   // STRING
             { &Compiler::compile_number,   nullptr,                    Precedence::none },   // NUMBER
             { nullptr,                     nullptr,                    Precedence::none },   // AND
             { nullptr,                     nullptr,                    Precedence::none },   // CLASS
@@ -124,6 +124,16 @@ namespace {
         void compile_number() {
             const auto value = lexical_cast<double>(string{token_iter_->begin, token_iter_->end});
             const auto offset = chunk_.constants_push_back(Value{value});
+
+            chunk_.bytecode_push_back(Op_code::constant, token_iter_->line);
+            chunk_.bytecode_push_back(narrow<unsigned char>(offset), token_iter_->line);
+
+            ++token_iter_;
+        }
+
+        void compile_string() {
+            // The +1 and -1 parts trim the leading and trailing quotation marks
+            const auto offset = chunk_.constants_push_back(Value{string{token_iter_->begin + 1, token_iter_->end - 1}});
 
             chunk_.bytecode_push_back(Op_code::constant, token_iter_->line);
             chunk_.bytecode_push_back(narrow<unsigned char>(offset), token_iter_->line);
