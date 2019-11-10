@@ -112,6 +112,41 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Op_code::pop: {
+                    stack_.pop_back();
+                    break;
+                }
+
+                case Op_code::get_global: {
+                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    const auto found_value = globals_.find(name);
+                    if (found_value == globals_.end()) {
+                        throw VM_error{"Undefined variable '" + name + "'"};
+                    }
+                    stack_.push_back(found_value->second);
+
+                    break;
+                }
+
+                case Op_code::set_global: {
+                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    const auto found_value = globals_.find(name);
+                    if (found_value == globals_.end()) {
+                        throw VM_error{"Undefined variable '" + name + "'"};
+                    }
+                    found_value->second = stack_.back();
+
+                    break;
+                }
+
+                case Op_code::define_global: {
+                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    globals_[name] = stack_.back();
+                    stack_.pop_back();
+
+                    break;
+                }
+
                 case Op_code::equal: {
                     const auto right_value = move(stack_.back());
                     stack_.pop_back();
@@ -215,11 +250,15 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Op_code::return_: {
+                case Op_code::print: {
                     print_value(stack_.back());
                     cout << "\n";
                     stack_.pop_back();
 
+                    break;
+                }
+
+                case Op_code::return_: {
                     return;
                 }
             }
