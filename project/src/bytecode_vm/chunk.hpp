@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "value.hpp"
@@ -27,16 +28,19 @@ namespace motts { namespace lox {
         not_,
         negate,
         print,
+        jump,
+        jump_if_false,
+        loop,
         return_
     };
 
     struct Chunk {
-        std::vector<unsigned char> code;
+        std::vector<std::uint8_t> code;
         std::vector<int> lines;
         std::vector<Value> constants;
 
         void bytecode_push_back(Op_code, int line);
-        void bytecode_push_back(unsigned char byte, int line);
+        void bytecode_push_back(std::uint8_t byte, int line);
         void bytecode_push_back(int byte, int line);
         void bytecode_push_back(std::size_t byte, int line);
         void bytecode_push_back(std::ptrdiff_t byte, int line);

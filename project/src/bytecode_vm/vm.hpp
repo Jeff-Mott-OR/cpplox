@@ -16,7 +16,7 @@ namespace motts { namespace lox {
             void run();
 
             const Chunk* chunk_;
-            std::vector<unsigned char>::const_iterator ip_;
+            std::vector<std::uint8_t>::const_iterator ip_;
             std::vector<Value> stack_;
             std::unordered_map<std::string, Value> globals_;
     };

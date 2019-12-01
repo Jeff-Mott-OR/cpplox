@@ -1,6 +1,7 @@
 #include "vm.hpp"
 
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <utility>
 
@@ -11,6 +12,7 @@ using std::cout;
 using std::move;
 using std::nullptr_t;
 using std::string;
+using std::uint16_t;
 
 using boost::apply_visitor;
 using boost::get;
@@ -264,6 +266,41 @@ namespace motts { namespace lox {
                     print_value(stack_.back());
                     cout << "\n";
                     stack_.pop_back();
+
+                    break;
+                }
+
+                case Op_code::jump: {
+                    // DANGER! Reinterpret cast: The two bytes following a jump_if_false instruction
+                    // are supposed to represent a single uint16 number
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
+                    ip_ += 2;
+
+                    ip_ += jump_length;
+
+                    break;
+                }
+
+                case Op_code::jump_if_false: {
+                    // DANGER! Reinterpret cast: The two bytes following a jump_if_false instruction
+                    // are supposed to represent a single uint16 number
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
+                    ip_ += 2;
+
+                    if (!apply_visitor(Is_truthy_visitor{}, stack_.back().variant)) {
+                        ip_ += jump_length;
+                    }
+
+                    break;
+                }
+
+                case Op_code::loop: {
+                    // DANGER! Reinterpret cast: The two bytes following a loop instruction
+                    // are supposed to represent a single uint16 number
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
+                    ip_ -= 1;
+
+                    ip_ -= jump_length;
 
                     break;
                 }

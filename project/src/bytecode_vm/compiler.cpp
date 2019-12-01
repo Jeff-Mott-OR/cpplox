@@ -1,6 +1,7 @@
 #include "compiler.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <utility>
 #include <vector>
@@ -16,10 +17,12 @@ using std::move;
 using std::runtime_error;
 using std::string;
 using std::to_string;
+using std::uint16_t;
 using std::vector;
 
 using boost::lexical_cast;
 using gsl::finally;
+using gsl::narrow;
 
 using namespace motts::lox;
 
@@ -68,7 +71,7 @@ namespace {
             { &Compiler::compile_variable, nullptr,                    Precedence::none },   // IDENTIFIER
             { &Compiler::compile_string,   nullptr,                    Precedence::none },   // STRING
             { &Compiler::compile_number,   nullptr,                    Precedence::none },   // NUMBER
-            { nullptr,                     nullptr,                    Precedence::none },   // AND
+            { nullptr,                     &Compiler::compile_and,     Precedence::and_ },   // AND
             { nullptr,                     nullptr,                    Precedence::none },   // CLASS
             { nullptr,                     nullptr,                    Precedence::none },   // ELSE
             { &Compiler::compile_literal,  nullptr,                    Precedence::none },   // FALSE
@@ -76,7 +79,7 @@ namespace {
             { nullptr,                     nullptr,                    Precedence::none },   // FUN
             { nullptr,                     nullptr,                    Precedence::none },   // IF
             { &Compiler::compile_literal,  nullptr,                    Precedence::none },   // NIL
-            { nullptr,                     nullptr,                    Precedence::none },   // OR
+            { nullptr,                     &Compiler::compile_or,      Precedence::or_ },   // OR
             { nullptr,                     nullptr,                    Precedence::none },   // PRINT
             { nullptr,                     nullptr,                    Precedence::none },   // RETURN
             { nullptr,                     nullptr,                    Precedence::none },   // SUPER
@@ -130,6 +133,34 @@ namespace {
             }
         }
 
+        void pop_stack_frame() {
+            while (!locals_.empty() && locals_.back().n_stack_frame == n_stack_frames_) {
+                chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+                locals_.pop_back();
+            }
+            --n_stack_frames_;
+        }
+
+        auto emit_jump(Op_code jump_kind) {
+            const auto jump_instruction_offset = chunk_.code.size();
+
+            chunk_.bytecode_push_back(jump_kind, token_iter_->line);
+            chunk_.bytecode_push_back(0xff, token_iter_->line);
+            chunk_.bytecode_push_back(0xff, token_iter_->line);
+
+            return jump_instruction_offset;
+        }
+
+        void patch_jump(int jump_instruction_offset) {
+            patch_jump(jump_instruction_offset, chunk_.code.size() - jump_instruction_offset - 3);
+        }
+
+        void patch_jump(int jump_instruction_offset, int jump_length) {
+            // DANGER! Reinterpret cast: After a jump instruction, there will be two adjacent bytes
+            // that are supposed to represent a single uint16 number
+            reinterpret_cast<uint16_t&>(chunk_.code.at(jump_instruction_offset + 1)) = narrow<uint16_t>(jump_length);
+        }
+
         void compile_declaration() {
             try {
                 if (token_iter_->type == Token_type::var) {
@@ -146,16 +177,16 @@ namespace {
         void compile_statement() {
             if (token_iter_->type == Token_type::print) {
                 compile_print_statement();
+            } else if (token_iter_->type == Token_type::for_) {
+                compile_for_statement();
+            } else if (token_iter_->type == Token_type::if_) {
+                compile_if_statement();
+            } else if (token_iter_->type == Token_type::while_) {
+                compile_while_statement();
             } else if (token_iter_->type == Token_type::left_brace) {
                 ++n_stack_frames_;
-
                 const auto _ = finally([&] () {
-                    while (!locals_.empty() && locals_.back().n_stack_frame == n_stack_frames_) {
-                        chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
-                        locals_.pop_back();
-                    }
-
-                    --n_stack_frames_;
+                    pop_stack_frame();
                 });
 
                 compile_block();
@@ -171,6 +202,26 @@ namespace {
             compile_expression();
             consume(Token_type::semicolon, "Expected ';' after value.");
             chunk_.bytecode_push_back(Op_code::print, line);
+        }
+
+        void compile_while_statement() {
+            const auto line = token_iter_->line;
+            ++token_iter_;
+
+            const auto loop_start_offset = chunk_.code.size();
+            consume(Token_type::left_paren, "Expected '(' after 'while'.");
+            compile_expression();
+            consume(Token_type::right_paren, "Expected ')' after condition.");
+            const auto exit_placeholder_offset = emit_jump(Op_code::jump_if_false);
+
+            chunk_.bytecode_push_back(Op_code::pop, line);
+            compile_statement();
+            const auto jump_length = chunk_.code.size() - loop_start_offset;
+            const auto loop_placeholder_offset = emit_jump(Op_code::loop);
+            patch_jump(loop_placeholder_offset, jump_length);
+
+            patch_jump(exit_placeholder_offset);
+            chunk_.bytecode_push_back(Op_code::pop, line);
         }
 
         void compile_expression() {
@@ -222,11 +273,123 @@ namespace {
             }
         }
 
+        void compile_and(bool /*can_assign*/) {
+            const auto exit_placeholder_offset = emit_jump(Op_code::jump_if_false);
+            chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+            compile_precedence_or_higher(Precedence::and_);
+            patch_jump(exit_placeholder_offset);
+        }
+
+        void compile_or(bool /*can_assign*/) {
+            const auto else_placeholder_offset = emit_jump(Op_code::jump_if_false);
+            const auto exit_placeholder_offset = emit_jump(Op_code::jump);
+
+            patch_jump(else_placeholder_offset);
+            chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+            compile_precedence_or_higher(Precedence::or_);
+
+            patch_jump(exit_placeholder_offset);
+        }
+
         void compile_expression_statement() {
             compile_expression();
             const auto line = token_iter_->line;
             consume(Token_type::semicolon, "Expected ';' after expression.");
             chunk_.bytecode_push_back(Op_code::pop, line);
+        }
+
+        void compile_for_statement() {
+            ++token_iter_;
+
+            // If a for statement declares a variable, that variable should be scoped to the loop body
+            ++n_stack_frames_;
+            const auto _ = finally([&] () {
+                pop_stack_frame();
+            });
+
+            consume(Token_type::left_paren, "Expected '(' after 'for'.");
+
+            if (consume_if_match(Token_type::semicolon)) {
+                // No initializer
+            } else if (token_iter_->type == Token_type::var) {
+                compile_var_declaration();
+            } else {
+                compile_expression_statement();
+            }
+
+            const auto condition_expression_offset = chunk_.code.size();
+            const auto empty_offset_sentinel = -1;
+
+            const auto jump_to_exit_offset = ([&] () {
+                if (consume_if_match(Token_type::semicolon)) {
+                    return empty_offset_sentinel;
+                }
+
+                compile_expression();
+                const auto jump_to_exit_offset = narrow<int>(emit_jump(Op_code::jump_if_false));
+                chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+                consume(Token_type::semicolon, "Expected ';' after loop condition.");
+
+                return jump_to_exit_offset;
+            })();
+
+            const auto increment_expression_offset = ([&] () {
+                if (consume_if_match(Token_type::right_paren)) {
+                    return empty_offset_sentinel;
+                }
+
+                const auto jump_to_body_offset = emit_jump(Op_code::jump);
+
+                const auto increment_expression_offset = narrow<int>(chunk_.code.size());
+                compile_expression();
+                chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+                consume(Token_type::right_paren, "Expected ')' after for clauses.");
+
+                const auto loop_to_condition_length = chunk_.code.size() - condition_expression_offset;
+                const auto loop_to_condition_offset = emit_jump(Op_code::loop);
+                patch_jump(loop_to_condition_offset, loop_to_condition_length);
+
+                patch_jump(jump_to_body_offset);
+
+                return increment_expression_offset;
+            })();
+
+            const auto line = token_iter_->line;
+            compile_statement();
+
+            const auto loop_length = chunk_.code.size() - (
+                increment_expression_offset != empty_offset_sentinel ?
+                    increment_expression_offset :
+                    condition_expression_offset
+            );
+            const auto loop_to_increment_offset = emit_jump(Op_code::loop);
+            patch_jump(loop_to_increment_offset, loop_length);
+
+            if (jump_to_exit_offset != empty_offset_sentinel) {
+                patch_jump(jump_to_exit_offset);
+                chunk_.bytecode_push_back(Op_code::pop, line);
+            }
+        }
+
+        void compile_if_statement() {
+            const auto line = token_iter_->line;
+            ++token_iter_;
+
+            consume(Token_type::left_paren, "Expected '(' after 'if'.");
+            compile_expression();
+            consume(Token_type::right_paren, "Expected ')' after 'condition'.");
+            const auto else_placeholder_offset = emit_jump(Op_code::jump_if_false);
+
+            chunk_.bytecode_push_back(Op_code::pop, line);
+            compile_statement();
+            const auto exit_placeholder_offset = emit_jump(Op_code::jump);
+
+            patch_jump(else_placeholder_offset);
+            chunk_.bytecode_push_back(Op_code::pop, line);
+            if (consume_if_match(Token_type::else_)) {
+                compile_statement();
+            }
+            patch_jump(exit_placeholder_offset);
         }
 
         void compile_grouping(bool /*can_assign*/) {
@@ -447,13 +610,13 @@ namespace motts { namespace lox {
             compiler.compile_declaration();
         }
         compiler.consume(Token_type::eof, "Expected end of expression.");
+        compiler.chunk_.bytecode_push_back(Op_code::return_, 0);
 
         if (!compiler_errors.empty()) {
             throw Compiler_error{compiler_errors};
         }
 
         disassemble_chunk(compiler.chunk_, "code");
-        compiler.chunk_.bytecode_push_back(Op_code::return_, 0);
 
         return move(compiler.chunk_);
     }
