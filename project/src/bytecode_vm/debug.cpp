@@ -28,6 +28,13 @@ namespace {
 
         return code_offset + 2;
     }
+
+    int byte_instruction(const string& name, const Chunk& chunk, int code_offset) {
+        const auto slot = chunk.code.at(code_offset + 1);
+  // printf("%-16s %4d\n", name, slot);
+        cout << name << " " << slot << "\n";
+        return code_offset + 2;
+    }
 }
 
 // Exported (external linkage)
@@ -52,6 +59,10 @@ namespace motts { namespace lox {
                 return simple_instrunction("OP_FALSE", offset);
             case Op_code::pop:
                 return simple_instrunction("OP_POP", offset);
+            case Op_code::get_local:
+                return byte_instruction("OP_GET_LOCAL", chunk, offset);
+            case Op_code::set_local:
+                return byte_instruction("OP_SET_LOCAL", chunk, offset);
             case Op_code::get_global:
                 return constant_instruction("OP_GET_GLOBAL", chunk, offset);
             case Op_code::define_global:

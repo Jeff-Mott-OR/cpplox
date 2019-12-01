@@ -117,6 +117,16 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Op_code::get_local: {
+                    stack_.push_back(stack_.at(*ip_++));
+                    break;
+                }
+
+                case Op_code::set_local: {
+                    stack_.at(*ip_++) = stack_.back();
+                    break;
+                }
+
                 case Op_code::get_global: {
                     const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
                     const auto found_value = globals_.find(name);

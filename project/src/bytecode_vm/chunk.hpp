@@ -12,6 +12,8 @@ namespace motts { namespace lox {
         true_,
         false_,
         pop,
+        get_local,
+        set_local,
         get_global,
         define_global,
         set_global,
@@ -37,6 +39,7 @@ namespace motts { namespace lox {
         void bytecode_push_back(unsigned char byte, int line);
         void bytecode_push_back(int byte, int line);
         void bytecode_push_back(std::size_t byte, int line);
+        void bytecode_push_back(std::ptrdiff_t byte, int line);
         std::vector<Value>::size_type constants_push_back(Value);
     };
 }}

@@ -1,13 +1,16 @@
 #include "compiler.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <utility>
 #include <vector>
 
 #include <boost/lexical_cast.hpp>
+#include <gsl/gsl_util>
 
 #include "debug.hpp"
 
+using std::find_if;
 using std::function;
 using std::move;
 using std::runtime_error;
@@ -16,6 +19,7 @@ using std::to_string;
 using std::vector;
 
 using boost::lexical_cast;
+using gsl::finally;
 
 using namespace motts::lox;
 
@@ -92,6 +96,13 @@ namespace {
         Chunk chunk_;
         function<void(const Compiler_error&)> on_resumable_error_;
 
+        struct Local {
+            Token name;
+            int n_stack_frame {};
+        };
+        vector<Local> locals_;
+        int n_stack_frames_ {};
+
         Compiler(const string& source, function<void(const Compiler_error&)> on_resumable_error) :
             token_iter_ {source},
             on_resumable_error_ {move(on_resumable_error)}
@@ -135,6 +146,19 @@ namespace {
         void compile_statement() {
             if (token_iter_->type == Token_type::print) {
                 compile_print_statement();
+            } else if (token_iter_->type == Token_type::left_brace) {
+                ++n_stack_frames_;
+
+                const auto _ = finally([&] () {
+                    while (!locals_.empty() && locals_.back().n_stack_frame == n_stack_frames_) {
+                        chunk_.bytecode_push_back(Op_code::pop, token_iter_->line);
+                        locals_.pop_back();
+                    }
+
+                    --n_stack_frames_;
+                });
+
+                compile_block();
             } else {
                 compile_expression_statement();
             }
@@ -153,13 +177,33 @@ namespace {
             compile_precedence_or_higher(Precedence::assignment);
         }
 
+        void compile_block() {
+            ++token_iter_;
+            while (token_iter_->type != Token_type::right_brace && token_iter_->type != Token_type::eof) {
+                compile_declaration();
+            }
+            consume(Token_type::right_brace, "Expected '}' after block.");
+        }
+
         void compile_var_declaration() {
             const auto line = token_iter_->line;
             ++token_iter_;
 
-            const auto identifier_offset = chunk_.constants_push_back(Value{
-                string{token_iter_->begin, token_iter_->end}
-            });
+            const auto var_name = string{token_iter_->begin, token_iter_->end};
+
+            // Stack frame 0 means global
+            if (n_stack_frames_ != 0) {
+                // It's an error to have two variables with the same name in the same local scope
+                const auto found_same_name = find_if(locals_.cbegin(), locals_.cend(), [&] (const auto& local) {
+                    return local.n_stack_frame == n_stack_frames_ && string{local.name.begin, local.name.end} == var_name;
+                });
+                if (found_same_name != locals_.cend()) {
+                    throw Compiler_error{*token_iter_, "Variable with this name already declared in this scope."};
+                }
+
+                locals_.push_back({*token_iter_, -1});
+            }
+
             consume(Token_type::identifier, "Expected variable name.");
 
             if (consume_if_match(Token_type::equal)) {
@@ -169,8 +213,13 @@ namespace {
             }
             consume(Token_type::semicolon, "Expected ';' after variable declaration.");
 
-            chunk_.bytecode_push_back(Op_code::define_global, line);
-            chunk_.bytecode_push_back(identifier_offset, line);
+            if (n_stack_frames_ != 0) {
+                locals_.back().n_stack_frame = n_stack_frames_;
+            } else {
+                const auto identifier_offset = chunk_.constants_push_back(Value{var_name});
+                chunk_.bytecode_push_back(Op_code::define_global, line);
+                chunk_.bytecode_push_back(identifier_offset, line);
+            }
         }
 
         void compile_expression_statement() {
@@ -207,20 +256,39 @@ namespace {
         }
 
         void compile_variable(bool can_assign) {
-            const auto identifier_offset = chunk_.constants_push_back(Value{
-                string{token_iter_->begin, token_iter_->end}
+            const auto var_name = string{token_iter_->begin, token_iter_->end};
+            const auto found_local = find_if(locals_.crbegin(), locals_.crend(), [&] (const auto& local) {
+                return string{local.name.begin, local.name.end} == var_name;
             });
+
+            if (found_local != locals_.crend() && found_local->n_stack_frame == -1) {
+                throw Compiler_error{*token_iter_, "Cannot read local variable in its own initializer."};
+            }
 
             const auto line = token_iter_->line;
             ++token_iter_;
 
             if (can_assign && consume_if_match(Token_type::equal)) {
                 compile_expression();
-                chunk_.bytecode_push_back(Op_code::set_global, line);
+
+                if (found_local != locals_.crend()) {
+                    chunk_.bytecode_push_back(Op_code::set_local, line);
+                } else {
+                    chunk_.bytecode_push_back(Op_code::set_global, line);
+                }
             } else {
-                chunk_.bytecode_push_back(Op_code::get_global, line);
+                if (found_local != locals_.crend()) {
+                    chunk_.bytecode_push_back(Op_code::get_local, line);
+                } else {
+                    chunk_.bytecode_push_back(Op_code::get_global, line);
+                }
             }
-            chunk_.bytecode_push_back(identifier_offset, line);
+
+            if (found_local != locals_.crend()) {
+                chunk_.bytecode_push_back(found_local.base() - locals_.crend().base() - 1, line);
+            } else {
+                chunk_.bytecode_push_back(chunk_.constants_push_back(Value{var_name}), line);
+            }
         }
 
         void compile_unary(bool /*can_assign*/) {

@@ -24,6 +24,10 @@ namespace motts { namespace lox {
         bytecode_push_back(narrow<unsigned char>(byte), line);
     }
 
+    void Chunk::bytecode_push_back(ptrdiff_t byte, int line) {
+        bytecode_push_back(narrow<unsigned char>(byte), line);
+    }
+
     vector<Value>::size_type Chunk::constants_push_back(Value value) {
         const auto offset = constants.size();
         constants.push_back(value);
