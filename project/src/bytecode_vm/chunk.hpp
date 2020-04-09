@@ -31,6 +31,7 @@ namespace motts { namespace lox {
         jump,
         jump_if_false,
         loop,
+        call,
         return_
     };
 

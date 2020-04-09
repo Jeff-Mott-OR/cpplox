@@ -123,6 +123,8 @@ namespace motts { namespace lox {
                 return jump_instruction("OP_JUMP_IF_FALSE", chunk, offset);
             case Op_code::loop:
                 return loop_instruction("OP_LOOP", chunk, offset);
+            case Op_code::call:
+                return byte_instruction("OP_CALL", chunk, offset);
             case Op_code::return_:
                 return simple_instrunction("OP_RETURN");
 

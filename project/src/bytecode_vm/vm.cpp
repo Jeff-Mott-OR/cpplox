@@ -1,22 +1,33 @@
 #include "vm.hpp"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <utility>
 
+#include <gsl/gsl_util>
+
 #include "compiler.hpp"
 #include "debug.hpp"
 
+using std::chrono::duration_cast;
+using std::chrono::seconds;
+using std::chrono::system_clock;
 using std::cout;
 using std::move;
 using std::nullptr_t;
 using std::string;
+using std::to_string;
+using std::uint8_t;
 using std::uint16_t;
+using std::vector;
 
 using boost::apply_visitor;
+using boost::bad_get;
 using boost::get;
 using boost::static_visitor;
+using gsl::narrow;
 
 using namespace motts::lox;
 
@@ -66,34 +77,109 @@ namespace {
                 throw VM_error{"Operands must be two numbers or two strings."};
             }
     };
+
+    struct Call_visitor : static_visitor<void> {
+        // "Capture" variables, like a lamba but the long-winded way
+        uint8_t& arg_count;
+        vector<Call_frame>& frames_;
+        vector<Value>& stack_;
+        explicit Call_visitor(
+            uint8_t& arg_count_capture,
+            vector<Call_frame>& frames_capture,
+            vector<Value>& stack_capture
+        ) :
+            arg_count {arg_count_capture},
+            frames_ {frames_capture},
+            stack_ {stack_capture}
+        {}
+
+        auto operator()(const Function* callee) const {
+            if (arg_count != callee->arity) {
+                throw VM_error{
+                    "Expected " + to_string(callee->arity) +
+                    " arguments but got " + to_string(arg_count) + ".",
+                    frames_
+                };
+            }
+
+            frames_.push_back(Call_frame{
+                *callee,
+                callee->chunk.code.cbegin(),
+                stack_.end() - 1 - arg_count
+            });
+        }
+
+        auto operator()(const Native_fn* callee) const {
+            auto return_value = callee->fn(stack_.end() - arg_count, stack_.end());
+            stack_.erase(stack_.end() - 1 - arg_count, stack_.end());
+            stack_.push_back(return_value);
+        }
+
+        template<typename T>
+            void operator()(const T&) const {
+                throw VM_error{"Can only call functions and classes.", frames_};
+            }
+    };
+
+    auto clock_native(vector<Value>::iterator /*args_begin*/, vector<Value>::iterator /*args_end*/) {
+        return Value{narrow<double>(duration_cast<seconds>(system_clock::now().time_since_epoch()).count())};
+    }
+
+    string stack_trace(const vector<Call_frame>& frames) {
+        string trace;
+
+        for (auto frame_iter = frames.crbegin(); frame_iter != frames.crend(); ++frame_iter) {
+            const auto instruction_offset = frame_iter->ip - 1 - frame_iter->function.chunk.code.cbegin();
+            const auto line = frame_iter->function.chunk.lines.at(instruction_offset);
+            trace += "[Line " + to_string(line) + "] in " + (
+                frame_iter->function.name.empty() ?
+                    "script" :
+                    frame_iter->function.name + "()"
+            ) + "\n";
+        }
+
+        return trace;
+    }
 }
 
 namespace motts { namespace lox {
     void VM::interpret(const string& source) {
-      const auto chunk = compile(source);
+        // TODO: Allow dynamically-sized stack but without invalidating iterators.
+        // Maybe deque? Or offsets instead of iterators? For now just pre-allocate.
+        stack_.reserve(256);
 
-      chunk_ = &chunk;
-      ip_ = chunk.code.cbegin();
+        auto entry_point_function = compile(source);
+        stack_.push_back(Value{&entry_point_function});
 
-      run();
+        frames_.push_back(Call_frame{
+            entry_point_function,
+            entry_point_function.chunk.code.cbegin(),
+            stack_.begin()
+        });
+
+        globals_["clock"] = Value{new Native_fn{clock_native}};
+
+        run();
     }
 
     void VM::run() {
         for (;;) {
-            cout << "          ";
-            for (const auto value : stack_) {
-                cout << "[ ";
-                print_value(value);
-                cout << " ]";
-            }
-            cout << "\n";
-            disassemble_instruction(*chunk_, ip_ - chunk_->code.cbegin());
+            #ifndef NDEBUG
+                cout << "          ";
+                for (const auto value : stack_) {
+                    cout << "[ ";
+                    print_value(value);
+                    cout << " ]";
+                }
+                cout << "\n";
+                disassemble_instruction(frames_.back().function.chunk, frames_.back().ip - frames_.back().function.chunk.code.cbegin());
+            #endif
 
-            const auto instruction = static_cast<Op_code>(*ip_++);
+            const auto instruction = static_cast<Op_code>(*frames_.back().ip++);
             switch (instruction) {
                 case Op_code::constant: {
-                    const auto constant_offset = *ip_++;
-                    const auto constant = chunk_->constants.at(constant_offset);
+                    const auto constant_offset = *frames_.back().ip++;
+                    const auto constant = frames_.back().function.chunk.constants.at(constant_offset);
                     stack_.push_back(constant);
 
                     break;
@@ -120,20 +206,23 @@ namespace motts { namespace lox {
                 }
 
                 case Op_code::get_local: {
-                    stack_.push_back(stack_.at(*ip_++));
+                    const auto local_offset = *frames_.back().ip++;
+                    stack_.push_back(*(frames_.back().stack_begin + local_offset));
                     break;
                 }
 
                 case Op_code::set_local: {
-                    stack_.at(*ip_++) = stack_.back();
+                    const auto local_offset = *frames_.back().ip++;
+                    *(frames_.back().stack_begin + local_offset) = stack_.back();
                     break;
                 }
 
                 case Op_code::get_global: {
-                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    const auto name_offset = *frames_.back().ip++;
+                    const auto name = get<string>(frames_.back().function.chunk.constants.at(name_offset).variant);
                     const auto found_value = globals_.find(name);
                     if (found_value == globals_.end()) {
-                        throw VM_error{"Undefined variable '" + name + "'"};
+                        throw VM_error{"Undefined variable '" + name + "'", frames_};
                     }
                     stack_.push_back(found_value->second);
 
@@ -141,10 +230,11 @@ namespace motts { namespace lox {
                 }
 
                 case Op_code::set_global: {
-                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    const auto name_offset = *frames_.back().ip++;
+                    const auto name = get<string>(frames_.back().function.chunk.constants.at(name_offset).variant);
                     const auto found_value = globals_.find(name);
                     if (found_value == globals_.end()) {
-                        throw VM_error{"Undefined variable '" + name + "'"};
+                        throw VM_error{"Undefined variable '" + name + "'", frames_};
                     }
                     found_value->second = stack_.back();
 
@@ -152,7 +242,8 @@ namespace motts { namespace lox {
                 }
 
                 case Op_code::define_global: {
-                    const auto name = get<string>(chunk_->constants.at(*ip_++).variant);
+                    const auto name_offset = *frames_.back().ip++;
+                    const auto name = get<string>(frames_.back().function.chunk.constants.at(name_offset).variant);
                     globals_[name] = stack_.back();
                     stack_.pop_back();
 
@@ -273,10 +364,10 @@ namespace motts { namespace lox {
                 case Op_code::jump: {
                     // DANGER! Reinterpret cast: The two bytes following a jump_if_false instruction
                     // are supposed to represent a single uint16 number
-                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
-                    ip_ += 2;
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*(frames_.back().ip));
+                    frames_.back().ip += 2;
 
-                    ip_ += jump_length;
+                    frames_.back().ip += jump_length;
 
                     break;
                 }
@@ -284,11 +375,11 @@ namespace motts { namespace lox {
                 case Op_code::jump_if_false: {
                     // DANGER! Reinterpret cast: The two bytes following a jump_if_false instruction
                     // are supposed to represent a single uint16 number
-                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
-                    ip_ += 2;
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*(frames_.back().ip));
+                    frames_.back().ip += 2;
 
                     if (!apply_visitor(Is_truthy_visitor{}, stack_.back().variant)) {
-                        ip_ += jump_length;
+                        frames_.back().ip += jump_length;
                     }
 
                     break;
@@ -297,18 +388,41 @@ namespace motts { namespace lox {
                 case Op_code::loop: {
                     // DANGER! Reinterpret cast: The two bytes following a loop instruction
                     // are supposed to represent a single uint16 number
-                    const auto jump_length = reinterpret_cast<const uint16_t&>(*ip_);
-                    ip_ -= 1;
+                    const auto jump_length = reinterpret_cast<const uint16_t&>(*(frames_.back().ip));
+                    frames_.back().ip -= 1;
 
-                    ip_ -= jump_length;
+                    frames_.back().ip -= jump_length;
+
+                    break;
+                }
+
+                case Op_code::call: {
+                    auto arg_count = *frames_.back().ip++;
+                    Call_visitor call_visitor {arg_count, frames_, stack_};
+                    apply_visitor(call_visitor, (stack_.end() - 1 - arg_count)->variant);
 
                     break;
                 }
 
                 case Op_code::return_: {
-                    return;
+                    const auto return_value = stack_.back();
+
+                    stack_.erase(frames_.back().stack_begin, stack_.end());
+                    frames_.pop_back();
+
+                    if (frames_.empty()) {
+                        return;
+                    }
+
+                    stack_.push_back(return_value);
+
+                    break;
                 }
             }
         }
     }
+
+    VM_error::VM_error(const string& what, const vector<Call_frame>& frames) :
+        VM_error{what + "\n" + stack_trace(frames)}
+    {}
 }}

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <ostream>
 
+#include "function.hpp"
+
 using std::boolalpha;
 using std::cout;
 using std::nullptr_t;
@@ -12,6 +14,8 @@ using std::string;
 
 using boost::apply_visitor;
 using boost::static_visitor;
+
+using namespace motts::lox;
 
 namespace {
     struct Ostream_visitor : static_visitor<void> {
@@ -35,6 +39,19 @@ namespace {
 
         auto operator()(nullptr_t) {
             os << "nil";
+        }
+
+        auto operator()(const Function* fn) {
+            if (fn->name.empty()) {
+                os << "<script>";
+                return;
+            }
+
+            os << "<fn " << fn->name << ">";
+        }
+
+        auto operator()(const Native_fn*) {
+            os << "<native fn>";
         }
     };
 }

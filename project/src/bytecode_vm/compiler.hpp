@@ -3,11 +3,11 @@
 #include <stdexcept>
 #include <string>
 
-#include "chunk.hpp"
+#include "function.hpp"
 #include "scanner.hpp"
 
 namespace motts { namespace lox {
-    Chunk compile(const std::string& source);
+    Function compile(const std::string& source);
 
     struct Compiler_error : std::runtime_error {
         using std::runtime_error::runtime_error;
