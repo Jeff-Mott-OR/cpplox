@@ -1,6 +1,10 @@
 #pragma once
 
-#include "object.hpp"
-#include "vm.hpp"
+#include <gsl/gsl_util>
 
-ObjFunction* compile(const std::string& source, Deferred_heap&, Interned_strings&);
+#include "memory.hpp"
+#include "object.hpp"
+
+namespace motts { namespace lox {
+    GC_ptr<Closure> compile(GC_heap& gc_heap, Interned_strings& interned_strings, const gsl::cstring_span<>& source);
+}}

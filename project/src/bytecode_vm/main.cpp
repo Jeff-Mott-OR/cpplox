@@ -1,64 +1,59 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "common.hpp" // macros and constants
-#include "chunk.hpp"  // Chunk and Op_code types
-#include "debug.hpp"  // disassemble declarations
-#include "vm.hpp"
-
 #include <fstream>
 #include <iostream>
-#include <iterator>
-#include <string>
-#include <vector>
+
+#include "lox.hpp"
 
 namespace {
-    void run_prompt(VM& vm) {
+    void run_prompt(motts::lox::Lox& lox, bool debug = false) {
         while (true) {
             std::cout << "> ";
 
             std::string source_line;
             std::getline(std::cin, source_line);
 
-            interpret(vm, source_line);
+            // If the user makes a mistake, it shouldn't kill their entire session
+            try {
+                lox.vm.run(lox.compile(source_line), debug);
+            } catch (const std::exception& error) {
+                std::cerr << error.what() << '\n';
+            }
         }
     }
 
-    void run_file(VM& vm, const char* path) {
+    void run_file(motts::lox::Lox& lox, const char* path, bool debug = false) {
         const auto source = ([&] () {
             std::ifstream in {path};
             in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
             return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
         })();
 
-        InterpretResult result = interpret(vm, source);
-
-        // TODO Use exceptions
-        if (result == INTERPRET_COMPILE_ERROR) exit(65);
-        if (result == INTERPRET_RUNTIME_ERROR) exit(70);
+        lox.vm.run(lox.compile(source), debug);
     }
 }
 
 int main(int argc, const char* argv[]) {
-    Deferred_heap deferred_heap_main;
-    Interned_strings interned_strings_main {deferred_heap_main};
-
-    VM vm {deferred_heap_main, interned_strings_main}; // [one]
+    motts::lox::Lox lox;
 
     try {
-        if (argc == 1) {
-            run_prompt(vm);
-        } else if (argc == 2) {
-            run_file(vm, argv[1]);
+        // STL-like container interface to argv
+        gsl::span<const char*> argv_span {argv, argc};
+
+        if (argv_span.size() == 1) {
+            run_prompt(lox);
+        } else if (argv_span.size() == 2 && gsl::cstring_span<>{gsl::ensure_z(argv_span.at(1), 256)} == "-DEBUG") {
+            run_prompt(lox, true);
+        } else if (argv_span.size() == 2) {
+            run_file(lox, argv_span.at(1));
+        } else if (argv_span.size() == 3 && gsl::cstring_span<>{gsl::ensure_z(argv_span.at(1), 256)} == "-DEBUG") {
+            run_file(lox, argv_span.at(2), true);
         } else {
-            std::cerr << "Usage: clox [path]\n";
-            exit(64);
+            std::cerr << "Usage: cpploxbc [-DEBUG] [path]\n";
+            exit(EXIT_FAILURE);
         }
     } catch (const std::exception& error) {
-        std::cerr << error.what() << "\n";
+        std::cerr << error.what() << '\n';
         exit(EXIT_FAILURE);
     }
 
-    return 0;
+    return EXIT_SUCCESS;
 }

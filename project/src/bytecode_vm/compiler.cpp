@@ -1,947 +1,1032 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "compiler.hpp"
+
+#include <cstdint>
+#include <stdexcept>
 
 #include <boost/lexical_cast.hpp>
-#include <gsl/string_span>
 
-#include "common.hpp"
-#include "compiler.hpp"
-#include "object.hpp"
 #include "scanner.hpp"
 
-#ifdef DEBUG_PRINT_CODE
-#include "debug.hpp"
-#endif
+// Not exported (internal linkage)
+namespace {
+    // Allow the internal linkage section to access names
+    using namespace motts::lox;
 
-struct Parser {
-  Token current;
-  bool hadError = false;
-  bool panicMode = false;
-};
-
-enum class Precedence {
-  none_,
-  assignment_,  // =
-  or_,          // or
-  and_,         // and
-  equality_,    // == !=
-  comparison_,  // < > <= >=
-  term_,        // + -
-  factor_,      // * /
-  unary_,       // ! -
-  call_,        // . ()
-  primary_
-};
-
-typedef void (*ParseFn)(const Token&, Parser&, Scanner&, bool canAssign);
-
-typedef struct {
-  ParseFn prefix;
-  ParseFn infix;
-  Precedence precedence;
-} ParseRule;
-
-typedef struct {
-  Token name;
-  int depth;
-  bool isCaptured;
-} Local;
-typedef struct {
-  uint8_t index;
-  bool isLocal;
-} Upvalue;
-
-enum class Function_type {
-  function_,
-  initializer_,
-  method_,
-  script_
-};
-
-struct Function_compiler;
-Function_compiler* global_current = NULL;
-
-struct Function_compiler {
-  Function_compiler* enclosing;
-  ObjFunction* function;
-  Function_type type;
-  Deferred_heap& deferred_heap_;
-  Interned_strings& interned_strings_;
-
-  std::vector<Local> locals;
-  Upvalue upvalues[UINT8_COUNT];
-  int scopeDepth;
-
-  Function_compiler(Function_type type, const Token& token, Parser& /*parser*/, Deferred_heap& deferred_heap, Interned_strings& interned_strings) :
-    deferred_heap_ {deferred_heap}, interned_strings_ {interned_strings}
-  {
-    // static void initCompiler(Function_compiler* compiler, Function_type type) {
-      this->enclosing = global_current;
-      this->function = deferred_heap_.make<ObjFunction>(type != Function_type::script_ ? interned_strings_.get(std::string{token.lexeme_begin, token.lexeme_end}) : nullptr);
-      this->type = type;
-      this->scopeDepth = 0;
-      global_current = this;
-
-      Local local;
-      local.depth = 0;
-      local.isCaptured = false;
-      if (type != Function_type::function_) {
-        local.name.lexeme_begin = "this";
-        local.name.lexeme_end = local.name.lexeme_begin + 4;
-      } else {
-        local.name.lexeme_begin = "";
-        local.name.lexeme_end = local.name.lexeme_begin;
-      }
-      locals.push_back(local);
-    // }
-  }
-};
-
-typedef struct ClassCompiler {
-  struct ClassCompiler* enclosing;
-  Token name;
-  bool hasSuperclass;
-} ClassCompiler;
-
-ClassCompiler* currentClass = NULL;
-
-static Token consume(Parser& parser, Scanner& scanner, Token_type type, const char* message) {
-  if (parser.current.type == type) {
-    auto token = parser.current;
-    parser.current = scanToken(scanner);
-    return token;
-  }
-
-  throw std::runtime_error{
-      "[Line " + std::to_string(parser.current.line) +
-      "] Error at '" + std::string{parser.current.lexeme_begin, parser.current.lexeme_end} +
-      "': " + message + "\n"
-  };
-}
-static bool advance_if_match(Parser& parser, Scanner& scanner, Token_type type) {
-  if (parser.current.type != type) return false;
-  parser.current = scanToken(scanner);
-  return true;
-}
-static void emitByte(const Token& where, Parser& /*parser*/, uint8_t byte) {
-    global_current->function->chunk.code.push_back(byte);
-    global_current->function->chunk.lines.push_back(where.line);
-}
-static void emitByte(const Token& where, Parser& parser, Op_code byte) {
-  emitByte(where, parser, static_cast<uint8_t>(byte));
-}
-template<typename T, typename U>
-  static void emitBytes(const Token& where, Parser& parser, T byte1, U byte2) {
-    emitByte(where, parser, byte1);
-    emitByte(where, parser, byte2);
-  }
-static void emitLoop(const Token& where, Parser& parser, int loopStart) {
-  emitByte(where, parser, Op_code::loop_);
-
-  int offset = global_current->function->chunk.code.size() - loopStart + 2;
-  if (offset > UINT16_MAX) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(where.line) +
-        "] Error at '" + std::string{where.lexeme_begin, where.lexeme_end} +
-        "': Loop body too large.\n"
+    struct Compiler_error : std::runtime_error {
+        Compiler_error(const Token& debug_token, const char* message) :
+            std::runtime_error{
+                "[Line " + std::to_string(debug_token.line) + "] "
+                "Error at " + (
+                    debug_token.type != Token_type::eof ? ('\'' + gsl::to_string(debug_token.lexeme) + '\'') : "end"
+                ) + ": " + message
+            }
+        {}
     };
-  }
 
-  emitByte(where, parser, (offset >> 8) & 0xff);
-  emitByte(where, parser, offset & 0xff);
-}
-static int emitJump(const Token& where, Parser& parser, uint8_t instruction) {
-  emitByte(where, parser, instruction);
-  emitByte(where, parser, 0xff);
-  emitByte(where, parser, 0xff);
-  return global_current->function->chunk.code.size() - 2;
-}
-static int emitJump(const Token& where, Parser& parser, Op_code instruction) {
-  return emitJump(where, parser, static_cast<uint8_t>(instruction));
-}
-static void emitReturn(const Token& where, Parser& parser) {
-  if (global_current->type == Function_type::initializer_) {
-    emitBytes(where, parser, Op_code::get_local_, 0);
-  } else {
-    emitByte(where, parser, Op_code::nil_);
-  }
-
-  emitByte(where, parser, Op_code::return_);
-}
-static uint8_t makeConstant(const Token& where, Parser& parser, Value value) {
-  global_current->function->chunk.constants.push_back(value);
-  int constant = global_current->function->chunk.constants.size() - 1;
-  if (constant > UINT8_MAX) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(where.line) +
-        "] Error at '" + std::string{where.lexeme_begin, where.lexeme_end} +
-        "': Too many constants in one chunk.\n"
+    struct Resumable_compiler_error : Compiler_error {
+        using Compiler_error::Compiler_error;
     };
-  }
 
-  return (uint8_t)constant;
-}
-static void emitConstant(const Token& where, Parser& parser, Value value) {
-  emitBytes(where, parser, Op_code::constant_, makeConstant(where, parser, value));
-}
-static void patchJump(const Token& token, Parser& parser, int offset) {
-  // -2 to adjust for the bytecode for the jump offset itself.
-  int jump = global_current->function->chunk.code.size() - offset - 2;
-
-  if (jump > UINT16_MAX) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Too much code to jump over.\n"
+    struct Tracked_local {
+        Token name;
+        int depth {0};
+        bool initialized {true};
+        bool captured {false};
     };
-  }
 
-  global_current->function->chunk.code.at(offset) = (jump >> 8) & 0xff;
-  global_current->function->chunk.code.at(offset + 1) = jump & 0xff;
-}
-
-static ObjFunction* endCompiler(const Token& where, Parser& parser) {
-  emitReturn(where, parser);
-  ObjFunction* function = global_current->function;
-
-  global_current = global_current->enclosing;
-  return function;
-}
-static void beginScope() {
-  global_current->scopeDepth++;
-}
-static void endScope(const Token& where, Parser& parser) {
-  global_current->scopeDepth--;
-
-  while (!global_current->locals.empty() && global_current->locals.back().depth > global_current->scopeDepth) {
-    if (global_current->locals.back().isCaptured) {
-      emitByte(where, parser, Op_code::close_upvalue_);
-    } else {
-      emitByte(where, parser, Op_code::pop_);
+    auto operator==(const Tracked_local& lhs, const Tracked_local& rhs) {
+        return lhs.name.lexeme == rhs.name.lexeme && lhs.depth == rhs.depth;
     }
-    global_current->locals.pop_back();
-  }
-}
 
-static void expression(Parser& parser, Scanner&);
-static void statement(Parser& parser, Scanner&);
-static void consume_declaration(Parser& parser, Scanner&);
-static ParseRule* getRule(Token_type type);
-static void parsePrecedence(Parser& parser, Scanner& scanner, Precedence precedence);
+    struct Tracked_upvalue {
+        bool is_direct_capture {};
+        std::uint8_t enclosing_index {};
+    };
 
-static uint8_t identifierConstant(Parser& parser, const Token& name) {
-  Value constant_value {global_current->interned_strings_.get(std::string{name.lexeme_begin, name.lexeme_end})};
-  return makeConstant(name, parser, constant_value);
-}
-static bool identifiersEqual(const Token& a, const Token& b) {
-  return gsl::cstring_span<>{a.lexeme_begin, a.lexeme_end} == gsl::cstring_span<>{b.lexeme_begin, b.lexeme_end};
-}
-static int resolveLocal(Parser& parser, Function_compiler* compiler, const Token& name) {
-  for (auto local_iter = compiler->locals.crbegin(); local_iter != compiler->locals.crend(); ++local_iter) {
-    if (identifiersEqual(name, local_iter->name)) {
-      if (local_iter->depth == -1) {
-        throw std::runtime_error{
-            "[Line " + std::to_string(name.line) +
-            "] Error at '" + std::string{name.lexeme_begin, name.lexeme_end} +
-            "': Cannot read local variable in its own initializer.\n"
+    auto operator==(const Tracked_upvalue& lhs, const Tracked_upvalue& rhs) {
+        return lhs.is_direct_capture == rhs.is_direct_capture &&
+            lhs.enclosing_index == rhs.enclosing_index;
+    }
+
+    struct Tracked_class {
+        bool has_superclass {false};
+    };
+
+    enum class Function_type {
+        function,
+        initializer,
+        method,
+        script
+    };
+
+    struct Function_translation_unit {
+        GC_ptr<Function> function;
+        Function_type fn_type;
+        int scope_depth {};
+        std::vector<Tracked_local> tracked_locals;
+        std::vector<Tracked_upvalue> tracked_upvalues;
+
+        Function_translation_unit(const GC_ptr<Function>& function_arg, Function_type fn_type_arg) :
+            function {function_arg},
+            fn_type {fn_type_arg}
+        {}
+
+        auto emit(std::uint8_t byte, const Token& debug_token) {
+            function->chunk.opcodes.push_back(byte);
+            function->chunk.tokens.push_back(debug_token);
+        }
+
+        auto emit(Opcode byte, const Token& debug_token) {
+            emit(gsl::narrow<std::uint8_t>(byte), debug_token);
+        }
+
+        template<typename Byte_T, typename Byte_U>
+            void emit(Byte_T first, Byte_U second, const Token& debug_token) {
+                emit(first, debug_token);
+                emit(second, debug_token);
+            }
+
+        auto begin_scope() {
+            ++scope_depth;
+        }
+
+        auto end_scope(const Token& debug_token) {
+            auto local_iter = tracked_locals.crbegin();
+            for ( ; local_iter != tracked_locals.crend() && local_iter->depth >= scope_depth; ++local_iter) {
+                emit(local_iter->captured ? Opcode::close_upvalue : Opcode::pop, debug_token);
+            }
+            tracked_locals.erase(local_iter.base(), tracked_locals.cend());
+
+            --scope_depth;
+        }
+
+        void track_local(const Token& local_name, bool initialized = true) {
+            if (tracked_locals.size() >= std::numeric_limits<std::uint8_t>::max()) {
+                throw Resumable_compiler_error{local_name, "Too many local variables in function."};
+            }
+
+            Tracked_local new_local {local_name, scope_depth, initialized};
+
+            const auto found_redeclared = std::find(tracked_locals.cbegin(), tracked_locals.cend(), new_local);
+            if (found_redeclared != tracked_locals.cend()) {
+                throw Compiler_error{local_name, "Variable with this name already declared in this scope."};
+            }
+
+            tracked_locals.push_back(std::move(new_local));
+        }
+
+        auto track_upvalue(Tracked_upvalue&& upvalue, const Token& local_token) {
+            const auto found_upvalue_iter = std::find(tracked_upvalues.cbegin(), tracked_upvalues.cend(), upvalue);
+            if (found_upvalue_iter != tracked_upvalues.cend()) {
+                return gsl::narrow<std::uint8_t>(std::distance(tracked_upvalues.cbegin(), found_upvalue_iter));
+            }
+
+            if (tracked_upvalues.size() >= std::numeric_limits<std::uint8_t>::max()) {
+                throw Resumable_compiler_error{local_token, "Too many closure variables in function."};
+            }
+
+            tracked_upvalues.push_back(std::move(upvalue));
+
+            return gsl::narrow<std::uint8_t>(tracked_upvalues.size() - 1);
+        }
+
+        auto find_local(const gsl::cstring_span<>& name) {
+            const auto found_local_iter = std::find_if(tracked_locals.rbegin(), tracked_locals.rend(), [&] (const auto& tracked_local) {
+                return tracked_local.name.lexeme == name;
+            });
+            if (found_local_iter == tracked_locals.rend()) {
+                return tracked_locals.end();
+            }
+
+            return found_local_iter.base() - 1;
+        }
+
+        auto local_index(std::vector<Tracked_local>::const_iterator local_iter) const {
+            return gsl::narrow<std::uint8_t>(std::distance(tracked_locals.cbegin(), local_iter));
+        }
+
+        auto local_index(const gsl::cstring_span<>& name) {
+            const auto found_local_iter = find_local(name);
+            assert(found_local_iter != tracked_locals.cend() && "Local not found");
+            return local_index(found_local_iter);
+        }
+    };
+
+    // Order matters; the order is by precedence level, from lowest to highest
+    enum class Precedence_level {
+        none,
+        assignment,  // =
+        or_,          // or
+        and_,         // and
+        equality,    // == !=
+        comparison,  // < > <= >=
+        term,        // + -
+        factor,      // * /
+        unary,       // ! -
+        call,        // . ()
+        primary
+    };
+
+    // There's no invariant being maintained here; this exists primarily to avoid lots of manual argument passing
+    struct Compiler {
+        GC_heap& gc_heap;
+        Interned_strings& interned_strings;
+        Token_iterator token_iter;
+        std::vector<Function_translation_unit> translation_units;
+        std::vector<Tracked_class> tracked_classes;
+        std::function<void(const std::exception&)> on_resumable_error;
+
+        Compiler(
+            GC_heap& gc_heap_arg,
+            Interned_strings& interned_strings_arg,
+            Token_iterator&& token_iter_arg,
+            std::function<void(const std::exception&)>&& on_resumable_error_arg
+        ) :
+            gc_heap {gc_heap_arg},
+            interned_strings {interned_strings_arg},
+            token_iter {std::move(token_iter_arg)},
+            on_resumable_error {std::move(on_resumable_error_arg)}
+        {
+            translation_units.push_back({gc_heap.make(Function{interned_strings.get("__script__")}), Function_type::script});
+            translation_units.back().track_local(Token{Token_type::identifier, "__script__"});
+        }
+
+        void emit_getter(const Token& name) {
+            const auto local_iter = translation_units.back().find_local(name.lexeme);
+            if (local_iter != translation_units.back().tracked_locals.end()) {
+                if (!local_iter->initialized) {
+                    throw Resumable_compiler_error{name, "Cannot read local variable in its own initializer."};
+                }
+
+                translation_units.back().emit(Opcode::get_local, translation_units.back().local_index(local_iter), name);
+
+                return;
+            }
+
+            const auto maybe_upvalue_index = track_upvalue_chain(name);
+            if (maybe_upvalue_index) {
+                translation_units.back().emit(Opcode::get_upvalue, *maybe_upvalue_index, name);
+
+                return;
+            }
+
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(name.lexeme)});
+            translation_units.back().emit(Opcode::get_global, translation_units.back().function->chunk.constants.size() - 1, name);
+        }
+
+        void emit_setter(const Token& name) {
+            const auto local_iter = translation_units.back().find_local(name.lexeme);
+            if (local_iter != translation_units.back().tracked_locals.end()) {
+                if (!local_iter->initialized) {
+                    throw Resumable_compiler_error{name, "Cannot read local variable in its own initializer."};
+                }
+
+                translation_units.back().emit(Opcode::set_local, translation_units.back().local_index(local_iter), name);
+
+                return;
+            }
+
+            const auto maybe_upvalue_index = track_upvalue_chain(name);
+            if (maybe_upvalue_index) {
+                translation_units.back().emit(Opcode::set_upvalue, *maybe_upvalue_index, name);
+
+                return;
+            }
+
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(name.lexeme)});
+            translation_units.back().emit(Opcode::set_global, translation_units.back().function->chunk.constants.size() - 1, name);
+        }
+
+        std::optional<std::uint8_t> track_upvalue_chain(std::vector<Function_translation_unit>::iterator tu, const Token& local_token) {
+            // If we've recursed to the root, then we didn't find an upvalue; presumed global
+            if (tu == translation_units.begin()) {
+                return {};
+            }
+
+            const auto enclosing_tu = tu - 1;
+            const auto enclosing_local_iter = enclosing_tu->find_local(local_token.lexeme);
+            if (enclosing_local_iter != enclosing_tu->tracked_locals.end()) {
+                enclosing_local_iter->captured = true;
+                return tu->track_upvalue({true, enclosing_tu->local_index(enclosing_local_iter)}, local_token);
+            }
+
+            const auto enclosing_upvalue_index = track_upvalue_chain(enclosing_tu, local_token);
+            if (enclosing_upvalue_index) {
+                return tu->track_upvalue({false, *enclosing_upvalue_index}, local_token);
+            }
+
+            // Presumed global
+            return {};
+        }
+
+        std::optional<std::uint8_t> track_upvalue_chain(const Token& local_token) {
+            return track_upvalue_chain(translation_units.end() - 1, local_token);
+        }
+
+        Token consume(Token_type type, const char* error_message) {
+            if (token_iter->type != type) {
+                throw Resumable_compiler_error{*token_iter, error_message};
+            }
+
+            return *token_iter++;
+        }
+
+        bool consume_if(Token_type type) {
+            if (token_iter->type != type) {
+                return false;
+            }
+
+            ++token_iter;
+            return true;
+        }
+
+        void compile_declaration() {
+          try {
+              if (consume_if(Token_type::var_)) {
+                  compile_var_declaration();
+              } else if (consume_if(Token_type::fun_)) {
+                  compile_function_declaration();
+              } else if (consume_if(Token_type::class_)) {
+                  compile_class_declaration();
+              } else {
+                  compile_statement();
+              }
+          } catch (const Resumable_compiler_error& error) {
+              on_resumable_error(error);
+              synchronize();
+          }
+        }
+
+        void synchronize() {
+            while (token_iter->type != Token_type::eof) {
+                if (consume_if(Token_type::semicolon)) {
+                    return;
+                }
+
+                switch (token_iter->type) {
+                    case Token_type::var_:
+                    case Token_type::fun_:
+                    case Token_type::class_:
+                    case Token_type::print:
+                    case Token_type::return_:
+                    case Token_type::if_:
+                    case Token_type::for_:
+                    case Token_type::while_:
+                        return;
+
+                    default:
+                        ++token_iter;
+                }
+            }
+        }
+
+        void compile_var_declaration() {
+            const auto var_name_token = consume(Token_type::identifier, "Expected variable name.");
+            if (translation_units.size() > 1 || translation_units.back().scope_depth > 0) {
+                translation_units.back().track_local(var_name_token, false);
+            }
+
+            if (consume_if(Token_type::equal)) {
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+            } else {
+                translation_units.back().emit(Opcode::nil, var_name_token);
+            }
+
+            consume(Token_type::semicolon, "Expected ';' after variable declaration.");
+
+            if (translation_units.size() > 1 || translation_units.back().scope_depth > 0) {
+                translation_units.back().tracked_locals.back().initialized = true;
+            } else {
+                translation_units.back().function->chunk.constants.push_back({interned_strings.get(var_name_token.lexeme)});
+                translation_units.back().emit(Opcode::define_global, translation_units.back().function->chunk.constants.size() - 1, var_name_token);
+            }
+        }
+
+        void compile_function_declaration() {
+            const auto fn_name_token = consume(Token_type::identifier, "Expected function name.");
+            if (translation_units.size() > 1 || translation_units.back().scope_depth > 0) {
+                translation_units.back().track_local(fn_name_token);
+            }
+
+            compile_function_rest(fn_name_token, Function_type::function);
+
+            if (translation_units.size() == 1 && translation_units.back().scope_depth == 0) {
+                translation_units.back().function->chunk.constants.push_back({interned_strings.get(fn_name_token.lexeme)});
+                translation_units.back().emit(Opcode::define_global, translation_units.back().function->chunk.constants.size() - 1, fn_name_token);
+            }
+        }
+
+        void compile_function_rest(const Token& fn_name_token, Function_type fn_type) {
+            translation_units.push_back({gc_heap.make(Function{interned_strings.get(fn_name_token.lexeme)}), fn_type});
+            const auto _ = gsl::finally([&] () {
+                translation_units.pop_back();
+            });
+
+            if (fn_type == Function_type::initializer || fn_type == Function_type::method) {
+                translation_units.back().track_local({Token_type::this_, "this"});
+            } else {
+                translation_units.back().track_local(fn_name_token);
+            }
+
+            // Parameter list
+            consume(Token_type::left_paren, "Expected '(' after function name.");
+            if (token_iter->type != Token_type::right_paren) {
+                do {
+                    const auto param_name_token = consume(Token_type::identifier, "Expected parameter name.");
+                    translation_units.back().track_local(param_name_token);
+                    ++translation_units.back().function->arity;
+                } while (consume_if(Token_type::comma));
+            }
+            if (translation_units.back().function->arity > 8) {
+                throw Resumable_compiler_error{*token_iter, "Cannot have more than 8 parameters."};
+            }
+            consume(Token_type::right_paren, "Expected ')' after parameters.");
+
+            // Body
+            consume(Token_type::left_brace, "Expected '{' before function body.");
+            while (token_iter->type != Token_type::eof && token_iter->type != Token_type::right_brace) {
+                compile_declaration();
+            }
+            consume(Token_type::right_brace, "Expected '}' after block.");
+
+            // End of function will implicitly return either nil or this
+            if (fn_type == Function_type::initializer) {
+                translation_units.back().emit(Opcode::get_local, translation_units.back().local_index("this"), fn_name_token);
+            } else {
+                translation_units.back().emit(Opcode::nil, *token_iter);
+            }
+            translation_units.back().emit(Opcode::return_, *token_iter);
+
+            // Add to enclosing constants
+            const auto enclosing_tu = translation_units.end() - 2;
+            if (enclosing_tu->function->chunk.constants.size() >= std::numeric_limits<std::uint8_t>::max()) {
+                throw Resumable_compiler_error{fn_name_token, "Too many constants in one chunk."};
+            }
+            enclosing_tu->function->chunk.constants.push_back({translation_units.back().function});
+            enclosing_tu->emit(Opcode::closure, enclosing_tu->function->chunk.constants.size() - 1, fn_name_token);
+
+            for (const auto& tracked_upvalue : translation_units.back().tracked_upvalues) {
+                enclosing_tu->emit(tracked_upvalue.is_direct_capture ? 1 : 0, tracked_upvalue.enclosing_index, fn_name_token);
+            }
+            translation_units.back().function->upvalue_count = translation_units.back().tracked_upvalues.size();
+        }
+
+        void compile_class_declaration() {
+            // Track when we're in a class and when we're not, so we can validate uses of "this" and "super"
+            tracked_classes.push_back({});
+            const auto _ = gsl::finally([&] () {
+                tracked_classes.pop_back();
+            });
+
+            const auto class_name_token = consume(Token_type::identifier, "Expected class name.");
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(class_name_token.lexeme)});
+            const auto class_name_constant_index = translation_units.back().function->chunk.constants.size() - 1;
+            translation_units.back().emit(Opcode::class_, class_name_constant_index, class_name_token);
+
+            if (translation_units.size() > 1 || translation_units.back().scope_depth > 0) {
+                translation_units.back().track_local(class_name_token);
+            } else {
+                translation_units.back().emit(Opcode::define_global, class_name_constant_index, class_name_token);
+            }
+
+            std::optional<gsl::final_act<std::function<void()>>> finally_end_superclass_scope;
+            if (consume_if(Token_type::less)) {
+                tracked_classes.back().has_superclass = true;
+
+                const auto superclass_name_token = consume(Token_type::identifier, "Expected superclass name.");
+                if (superclass_name_token.lexeme == class_name_token.lexeme) {
+                    throw Resumable_compiler_error{superclass_name_token, "A class cannot inherit from itself."};
+                }
+
+                emit_getter(superclass_name_token);
+                emit_getter(class_name_token);
+                translation_units.back().emit(Opcode::inherit, superclass_name_token);
+
+                // Implicitly local "super"
+                translation_units.back().begin_scope();
+                finally_end_superclass_scope = gsl::finally(std::function<void()>{[&] () {
+                    translation_units.back().end_scope(*token_iter);
+                }});
+                translation_units.back().track_local({Token_type::super_, "super", superclass_name_token.line});
+            }
+
+            emit_getter(class_name_token);
+
+            consume(Token_type::left_brace, "Expected '{' before class body.");
+            while (token_iter->type != Token_type::eof && token_iter->type != Token_type::right_brace) {
+                const auto method_name_token = consume(Token_type::identifier, "Expected method name.");
+                translation_units.back().function->chunk.constants.push_back({interned_strings.get(method_name_token.lexeme)});
+                const auto method_name_constant_index = translation_units.back().function->chunk.constants.size() - 1;
+
+                compile_function_rest(method_name_token, method_name_token.lexeme == "init" ? Function_type::initializer : Function_type::method);
+
+                translation_units.back().emit(Opcode::method, method_name_constant_index, method_name_token);
+            }
+            const auto right_brace_token = consume(Token_type::right_brace, "Expected '}' after class body.");
+
+            translation_units.back().emit(Opcode::pop, right_brace_token);
+        }
+
+        void compile_statement() {
+            const auto stmt_begin_token = *token_iter;
+
+            if (consume_if(Token_type::print)) {
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                consume(Token_type::semicolon, "Expected ';' after value.");
+                translation_units.back().emit(Opcode::print, stmt_begin_token);
+            } else if (consume_if(Token_type::return_)) {
+                compile_return_statement(stmt_begin_token);
+            } else if (consume_if(Token_type::if_)) {
+                compile_if_statement();
+            } else if (consume_if(Token_type::for_)) {
+                compile_for_statement();
+            } else if (consume_if(Token_type::while_)) {
+                compile_while_statement();
+            } else if (consume_if(Token_type::left_brace)) {
+                translation_units.back().begin_scope();
+                const auto _ = gsl::finally([&] () {
+                    translation_units.back().end_scope(*token_iter);
+                });
+
+                while (token_iter->type != Token_type::eof && token_iter->type != Token_type::right_brace) {
+                    compile_declaration();
+                }
+                consume(Token_type::right_brace, "Expected '}' after block.");
+            } else {
+                compile_expression_statement();
+           }
+        }
+
+        void compile_for_statement() {
+            translation_units.back().begin_scope();
+            const auto _ = gsl::finally([&] () {
+                translation_units.back().end_scope(*token_iter);
+            });
+
+            // Initializer
+            consume(Token_type::left_paren, "Expected '(' after 'for'.");
+            if (consume_if(Token_type::semicolon)) {
+                // No initializer
+            } else if (consume_if(Token_type::var_)) {
+                compile_var_declaration();
+            } else {
+                compile_expression_statement();
+            }
+
+            // Condition
+            const auto condition_begin_offset = translation_units.back().function->chunk.opcodes.size();
+            std::optional<std::size_t> condition_false_jump_distance_offset;
+            const auto condition_expr_begin_token = *token_iter;
+            if (!consume_if(Token_type::semicolon)) {
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                consume(Token_type::semicolon, "Expected ';' after loop condition.");
+
+                translation_units.back().emit(Opcode::jump_if_false, condition_expr_begin_token);
+                condition_false_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+                translation_units.back().emit(0, 0, condition_expr_begin_token);
+
+                // But if condition is true, pop expr result and fall through
+                translation_units.back().emit(Opcode::pop, condition_expr_begin_token);
+            }
+
+            // Increment
+            std::optional<std::size_t> increment_begin_offset;
+            if (!consume_if(Token_type::right_paren)) {
+                const auto increment_expr_begin_token = *token_iter;
+
+                // After a truthy condition, jump past the increment
+                translation_units.back().emit(Opcode::jump, increment_expr_begin_token);
+                const auto increment_begin_to_body_begin_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+                translation_units.back().emit(0, 0, increment_expr_begin_token);
+
+                // Compile increment
+                increment_begin_offset = translation_units.back().function->chunk.opcodes.size();
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                translation_units.back().emit(Opcode::pop, increment_expr_begin_token);
+                consume(Token_type::right_paren, "Expected ')' after for clauses.");
+
+                // After increment, jump back to condition
+                translation_units.back().emit(Opcode::loop, increment_expr_begin_token);
+                const auto increment_end_to_condition_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - condition_begin_offset + 2;
+                if (increment_end_to_condition_begin_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                    throw Resumable_compiler_error{increment_expr_begin_token, "Loop body too large."};
+                }
+                translation_units.back().emit(increment_end_to_condition_begin_jump_distance >> 8, increment_end_to_condition_begin_jump_distance & 0xff, increment_expr_begin_token);
+
+                // Patch condition jump past increment
+                const auto increment_begin_to_body_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - increment_begin_to_body_begin_jump_distance_offset - 2;
+                if (increment_begin_to_body_begin_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                    throw Resumable_compiler_error{increment_expr_begin_token, "Too much code to jump over."};
+                }
+                translation_units.back().function->chunk.opcodes.at(increment_begin_to_body_begin_jump_distance_offset) = increment_begin_to_body_begin_jump_distance >> 8;
+                translation_units.back().function->chunk.opcodes.at(increment_begin_to_body_begin_jump_distance_offset + 1) = increment_begin_to_body_begin_jump_distance & 0xff;
+            }
+
+            // Body
+            const auto body_start_token = *token_iter;
+            compile_statement();
+            translation_units.back().emit(Opcode::loop, body_start_token);
+            const auto body_end_to_increment_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - (increment_begin_offset ? *increment_begin_offset : condition_begin_offset) + 2;
+            if (body_end_to_increment_begin_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{body_start_token, "Loop body too large."};
+            }
+            translation_units.back().emit(body_end_to_increment_begin_jump_distance >> 8, body_end_to_increment_begin_jump_distance & 0xff, body_start_token);
+
+            // Patch condition jump past body
+            if (condition_false_jump_distance_offset) {
+                const auto condition_false_jump_distance = translation_units.back().function->chunk.opcodes.size() - *condition_false_jump_distance_offset - 2;
+                if (condition_false_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                    throw Resumable_compiler_error{body_start_token, "Too much code to jump over."};
+                }
+                translation_units.back().function->chunk.opcodes.at(*condition_false_jump_distance_offset) = condition_false_jump_distance >> 8;
+                translation_units.back().function->chunk.opcodes.at(*condition_false_jump_distance_offset + 1) = condition_false_jump_distance & 0xff;
+
+                // If condition is false, we'll land here, so pop condition expr result
+                translation_units.back().emit(Opcode::pop, condition_expr_begin_token);
+            }
+        }
+
+        void compile_if_statement() {
+            // Condition
+            consume(Token_type::left_paren, "Expected '(' after 'if'.");
+            compile_expr_higher_precedence_than(Precedence_level::assignment);
+            const auto right_paren_token = consume(Token_type::right_paren, "Expected ')' after condition.");
+            translation_units.back().emit(Opcode::jump_if_false, right_paren_token);
+            const auto condition_false_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, right_paren_token);
+
+            // But if condition is true, pop expr result and fall through
+            translation_units.back().emit(Opcode::pop, right_paren_token);
+            const auto if_body_begin_begin_token = *token_iter;
+            compile_statement();
+
+            // After truthy body, jump over else body
+            translation_units.back().emit(Opcode::jump, if_body_begin_begin_token);
+            const auto if_body_end_to_else_end_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, if_body_begin_begin_token);
+
+            // Patch condition jump to else
+            const auto condition_false_jump_distance = translation_units.back().function->chunk.opcodes.size() - condition_false_jump_distance_offset - 2;
+            if (condition_false_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{if_body_begin_begin_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(condition_false_jump_distance_offset) = condition_false_jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(condition_false_jump_distance_offset + 1) = condition_false_jump_distance & 0xff;
+
+            // If condition is false, we'll land here, so pop condition expr result
+            translation_units.back().emit(Opcode::pop, right_paren_token);
+            const auto else_body_begin_token = *token_iter;
+            if (consume_if(Token_type::else_)) {
+                compile_statement();
+            }
+
+            // Patch jump over else body
+            const auto if_body_end_to_else_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - if_body_end_to_else_end_jump_distance_offset - 2;
+            if (if_body_end_to_else_end_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{else_body_begin_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(if_body_end_to_else_end_jump_distance_offset) = if_body_end_to_else_end_jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(if_body_end_to_else_end_jump_distance_offset + 1) = if_body_end_to_else_end_jump_distance & 0xff;
+        }
+
+        void compile_return_statement(const Token& return_token) {
+            if (translation_units.back().fn_type == Function_type::script) {
+                throw Resumable_compiler_error{return_token, "Cannot return from top-level code."};
+            }
+
+            if (consume_if(Token_type::semicolon)) {
+                if (translation_units.back().fn_type == Function_type::initializer) {
+                    translation_units.back().emit(Opcode::get_local, translation_units.back().local_index("this"), *token_iter);
+                } else {
+                    translation_units.back().emit(Opcode::nil, *token_iter);
+                }
+                translation_units.back().emit(Opcode::return_, *token_iter);
+            } else {
+                if (translation_units.back().fn_type == Function_type::initializer) {
+                    throw Resumable_compiler_error{return_token, "Cannot return a value from an initializer."};
+                }
+
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                consume(Token_type::semicolon, "Expected ';' after return value.");
+                translation_units.back().emit(Opcode::return_, return_token);
+            }
+        }
+
+        void compile_while_statement() {
+            const auto loop_begin_offset = translation_units.back().function->chunk.opcodes.size();
+
+            // Condition
+            consume(Token_type::left_paren, "Expected '(' after 'while'.");
+            compile_expr_higher_precedence_than(Precedence_level::assignment);
+            const auto right_paren_token = consume(Token_type::right_paren, "Expected ')' after condition.");
+            translation_units.back().emit(Opcode::jump_if_false, right_paren_token);
+            const auto to_end_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, right_paren_token);
+
+            // But if condition is true, pop expr result and fall through
+            translation_units.back().emit(Opcode::pop, right_paren_token);
+            const auto stmt_begin_token = *token_iter;
+            compile_statement();
+            translation_units.back().emit(Opcode::loop, stmt_begin_token);
+            const auto to_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - loop_begin_offset + 2;
+            if (to_begin_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{stmt_begin_token, "Loop body too large."};
+            }
+            translation_units.back().emit(to_begin_jump_distance >> 8, to_begin_jump_distance & 0xff, stmt_begin_token);
+
+            // Patch jump to end
+            const auto to_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_end_jump_distance_offset - 2;
+            if (to_end_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{stmt_begin_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset) = to_end_jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset + 1) = to_end_jump_distance & 0xff;
+
+            // If condition is false, we'll land here, so pop condition expr result
+            translation_units.back().emit(Opcode::pop, right_paren_token);
+        }
+
+        void compile_expression_statement() {
+            compile_expr_higher_precedence_than(Precedence_level::assignment);
+            const auto token = consume(Token_type::semicolon, "Expected ';' after expression.");
+            translation_units.back().emit(Opcode::pop, token);
+        }
+
+        struct Precedence_level_fns {
+            using Parsing_fn = void (Compiler::*)(const Token&, bool precedence_allows_assignment);
+
+            Parsing_fn compile_prefix_expr_fn;
+            Parsing_fn compile_infix_expr_fn;
+            Precedence_level infix_expr_precedence;
         };
-      }
-      return std::distance(compiler->locals.cbegin(), local_iter.base()) - 1;
-    }
-  }
 
-  return -1;
-}
-static int addUpvalue(const Token& token, Parser& parser, Function_compiler* compiler, uint8_t index, bool isLocal) {
-  int upvalueCount = compiler->function->upvalueCount;
+        // Pratt parser operator precedence table
+        // Order is important; it must match the order in the Token_type enum
+        std::array<Precedence_level_fns, 40> precedence_levels {{
+            /* Token_type::left_paren    */ { &Compiler::compile_grouping, &Compiler::compile_call,   Precedence_level::call },
+            /* Token_type::right_paren   */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::left_brace    */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::right_brace   */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::comma         */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::dot           */ { nullptr,                     &Compiler::compile_dot,    Precedence_level::call },
+            /* Token_type::minus         */ { &Compiler::compile_unary,    &Compiler::compile_binary, Precedence_level::term },
+            /* Token_type::plus          */ { nullptr,                     &Compiler::compile_binary, Precedence_level::term },
+            /* Token_type::semicolon     */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::slash         */ { nullptr,                     &Compiler::compile_binary, Precedence_level::factor },
+            /* Token_type::star          */ { nullptr,                     &Compiler::compile_binary, Precedence_level::factor },
+            /* Token_type::bang          */ { &Compiler::compile_unary,    nullptr,                   Precedence_level::none },
+            /* Token_type::bang_equal    */ { nullptr,                     &Compiler::compile_binary, Precedence_level::equality },
+            /* Token_type::equal         */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::equal_equal   */ { nullptr,                     &Compiler::compile_binary, Precedence_level::equality },
+            /* Token_type::greater       */ { nullptr,                     &Compiler::compile_binary, Precedence_level::comparison },
+            /* Token_type::greater_equal */ { nullptr,                     &Compiler::compile_binary, Precedence_level::comparison },
+            /* Token_type::less          */ { nullptr,                     &Compiler::compile_binary, Precedence_level::comparison },
+            /* Token_type::less_equal    */ { nullptr,                     &Compiler::compile_binary, Precedence_level::comparison },
+            /* Token_type::identifier    */ { &Compiler::compile_variable, nullptr,                   Precedence_level::none },
+            /* Token_type::string        */ { &Compiler::compile_string,   nullptr,                   Precedence_level::none },
+            /* Token_type::number        */ { &Compiler::compile_number,   nullptr,                   Precedence_level::none },
+            /* Token_type::and_          */ { nullptr,                     &Compiler::compile_and,    Precedence_level::and_ },
+            /* Token_type::class_        */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::else_         */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::false_        */ { &Compiler::compile_literal,  nullptr,                   Precedence_level::none },
+            /* Token_type::for_          */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::fun_          */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::if_           */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::nil           */ { &Compiler::compile_literal,  nullptr,                   Precedence_level::none },
+            /* Token_type::or_           */ { nullptr,                     &Compiler::compile_or,     Precedence_level::or_ },
+            /* Token_type::print         */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::return_       */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::super_        */ { &Compiler::compile_super,    nullptr,                   Precedence_level::none },
+            /* Token_type::this_         */ { &Compiler::compile_this,     nullptr,                   Precedence_level::none },
+            /* Token_type::true_         */ { &Compiler::compile_literal,  nullptr,                   Precedence_level::none },
+            /* Token_type::var_          */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::while_        */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::error         */ { nullptr,                     nullptr,                   Precedence_level::none },
+            /* Token_type::eof           */ { nullptr,                     nullptr,                   Precedence_level::none },
+        }};
 
-  for (int i = 0; i < upvalueCount; i++) {
-    Upvalue* upvalue = &compiler->upvalues[i];
-    if (upvalue->index == index && upvalue->isLocal == isLocal) {
-      return i;
-    }
-  }
+        void compile_expr_higher_precedence_than(Precedence_level precedence) {
+            const auto precedence_allows_assignment = precedence <= Precedence_level::assignment;
 
-  if (upvalueCount == UINT8_COUNT) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Too many closure variables in function.\n"
+            const auto expr_begin_token = *token_iter++;
+            const auto compile_prefix_expr_fn = precedence_levels.at(static_cast<int>(expr_begin_token.type)).compile_prefix_expr_fn;
+            if (!compile_prefix_expr_fn) {
+                throw Resumable_compiler_error{expr_begin_token, "Expected expression."};
+            }
+            (this->*compile_prefix_expr_fn)(expr_begin_token, precedence_allows_assignment);
+
+            while (precedence <= precedence_levels.at(static_cast<int>(token_iter->type)).infix_expr_precedence) {
+                const auto infix_expr_token = *token_iter++;
+                const auto compile_infix_expr_fn = precedence_levels.at(static_cast<int>(infix_expr_token.type)).compile_infix_expr_fn;
+                assert(compile_infix_expr_fn != nullptr);
+                (this->*compile_infix_expr_fn)(infix_expr_token, precedence_allows_assignment);
+            }
+
+            // If we consumed the infix expression and there's still an equal sign,
+            // then the infix expression wasn't assignable
+            if (precedence_allows_assignment && token_iter->type == Token_type::equal) {
+                throw Resumable_compiler_error{*token_iter, "Invalid assignment target."};
+            }
+        }
+
+        void compile_literal(const Token& literal_token, bool /*precedence_allows_assignment*/) {
+            switch (literal_token.type) {
+                default:
+                    throw "Unreachable";
+
+                case Token_type::true_:
+                    translation_units.back().emit(Opcode::true_, literal_token);
+                    break;
+
+                case Token_type::false_:
+                    translation_units.back().emit(Opcode::false_, literal_token);
+                    break;
+
+                case Token_type::nil:
+                    translation_units.back().emit(Opcode::nil, literal_token);
+                    break;
+            }
+        }
+
+        // NOTE: "compile this" must be read in a Schwarzenegger accent
+        void compile_this(const Token& this_token, bool /*precedence_allows_assignment*/) {
+            if (tracked_classes.empty()) {
+                throw Resumable_compiler_error{this_token, "Cannot use 'this' outside of a class."};
+            }
+            compile_variable(this_token, false);
+        }
+
+        void compile_super(const Token& super_token, bool /*precedence_allows_assignment*/) {
+            if (tracked_classes.empty()) {
+                throw Resumable_compiler_error{super_token, "Cannot use 'super' outside of a class."};
+            }
+            if (!tracked_classes.back().has_superclass) {
+                throw Resumable_compiler_error{super_token, "Cannot use 'super' in a class with no superclass."};
+            }
+
+            consume(Token_type::dot, "Expected '.' after 'super'.");
+            const auto property_name_token = consume(Token_type::identifier, "Expected superclass method name.");
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(property_name_token.lexeme)});
+            const auto property_name_constant_index = translation_units.back().function->chunk.constants.size() - 1;
+
+            compile_variable({Token_type::this_, "this"}, false);
+            if (consume_if(Token_type::left_paren)) {
+                const auto [arg_count, right_paren_token] = compile_argument_list();
+                compile_variable({Token_type::super_, "super"}, false);
+                translation_units.back().emit(Opcode::super_invoke, property_name_constant_index, property_name_token);
+                translation_units.back().emit(arg_count, right_paren_token);
+            } else {
+                compile_variable({Token_type::super_, "super"}, false);
+                translation_units.back().emit(Opcode::get_super, property_name_constant_index, property_name_token);
+            }
+        }
+
+        std::tuple<std::uint8_t, Token> compile_argument_list() {
+            auto arg_count = 0;
+
+            if (token_iter->type != Token_type::right_paren) {
+                do {
+                    ++arg_count;
+                    compile_expr_higher_precedence_than(Precedence_level::assignment);
+                } while (consume_if(Token_type::comma));
+            }
+            if (arg_count > 8) {
+                throw Resumable_compiler_error{*token_iter, "Cannot have more than 8 arguments."};
+            }
+            const auto right_paren_token = consume(Token_type::right_paren, "Expected ')' after arguments.");
+
+            return {gsl::narrow<std::uint8_t>(arg_count), right_paren_token};
+        }
+
+        void compile_or(const Token& or_token, bool /*precedence_allows_assignment*/) {
+            // Short circuit behavior means we need to jump to the RHS only if the LHS is false
+            translation_units.back().emit(Opcode::jump_if_false, or_token);
+            const auto to_rhs_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, or_token);
+
+            // If the LHS was true, then we need to jump past the RHS
+            translation_units.back().emit(Opcode::jump, or_token);
+            const auto to_end_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, or_token);
+
+            const auto to_rhs_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_rhs_jump_distance_offset - 2;
+            if (to_rhs_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{or_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(to_rhs_jump_distance_offset) = to_rhs_jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(to_rhs_jump_distance_offset + 1) = to_rhs_jump_distance & 0xff;
+
+            // If the LHS was false, then the "or" expr value now depends solely on the RHS
+            translation_units.back().emit(Opcode::pop, or_token);
+
+            compile_expr_higher_precedence_than(Precedence_level::or_);
+            const auto to_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_end_jump_distance_offset - 2;
+            if (to_end_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{or_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset) = to_end_jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset + 1) = to_end_jump_distance & 0xff;
+        }
+
+        void compile_and(const Token& and_token, bool /*precedence_allows_assignment*/) {
+            // Short circuit behavior means we need to jump past the RHS if the LHS is false
+            translation_units.back().emit(Opcode::jump_if_false, and_token);
+            const auto jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, and_token);
+
+            // If the LHS was true, then the "and" expr value now depends solely on the RHS
+            translation_units.back().emit(Opcode::pop, and_token);
+
+            compile_expr_higher_precedence_than(Precedence_level::and_);
+
+            const auto jump_distance = translation_units.back().function->chunk.opcodes.size() - jump_distance_offset - 2;
+            if (jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                throw Resumable_compiler_error{and_token, "Too much code to jump over."};
+            }
+            translation_units.back().function->chunk.opcodes.at(jump_distance_offset) = jump_distance >> 8;
+            translation_units.back().function->chunk.opcodes.at(jump_distance_offset + 1) = jump_distance & 0xff;
+        }
+
+        void compile_number(const Token& number_token, bool /*precedence_allows_assignment*/) {
+            const auto value = boost::lexical_cast<double>(gsl::to_string(number_token.lexeme));
+            translation_units.back().function->chunk.constants.push_back({value});
+            translation_units.back().emit(Opcode::constant, translation_units.back().function->chunk.constants.size() - 1, number_token);
+        }
+
+        void compile_string(const Token& string_token, bool /*precedence_allows_assignment*/) {
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(
+                gsl::cstring_span<>{&*(string_token.lexeme.begin() + 1), &*(string_token.lexeme.end() - 1)} // trim quotes
+            )});
+            translation_units.back().emit(Opcode::constant, translation_units.back().function->chunk.constants.size() - 1, string_token);
+        }
+
+        void compile_variable(const Token& variable_token, bool precedence_allows_assignment) {
+            if (precedence_allows_assignment && consume_if(Token_type::equal)) {
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                emit_setter(variable_token);
+            } else {
+                emit_getter(variable_token);
+            }
+        }
+
+        void compile_binary(const Token& operator_token, bool /*precedence_allows_assignment*/) {
+            // Right hand side
+            const auto infix_expr_precedence = precedence_levels.at(static_cast<int>(operator_token.type)).infix_expr_precedence;
+            const auto higher_than_infix_precedence = static_cast<Precedence_level>(static_cast<int>(infix_expr_precedence) + 1);
+            compile_expr_higher_precedence_than(higher_than_infix_precedence);
+
+            switch (operator_token.type) {
+                default:
+                    throw std::logic_error{"Unreachable"};
+
+                case Token_type::bang_equal:
+                    translation_units.back().emit(Opcode::equal, Opcode::not_, operator_token);
+                    break;
+
+                case Token_type::equal_equal:
+                    translation_units.back().emit(Opcode::equal, operator_token);
+                    break;
+
+                case Token_type::greater:
+                    translation_units.back().emit(Opcode::greater, operator_token);
+                    break;
+
+                case Token_type::greater_equal:
+                    translation_units.back().emit(Opcode::less, Opcode::not_, operator_token);
+                    break;
+
+                case Token_type::less:
+                    translation_units.back().emit(Opcode::less, operator_token);
+                    break;
+
+                case Token_type::less_equal:
+                    translation_units.back().emit(Opcode::greater, Opcode::not_, operator_token);
+                    break;
+
+                case Token_type::plus:
+                    translation_units.back().emit(Opcode::add, operator_token);
+                    break;
+
+                case Token_type::minus:
+                    translation_units.back().emit(Opcode::subtract, operator_token);
+                    break;
+
+                case Token_type::star:
+                    translation_units.back().emit(Opcode::multiply, operator_token);
+                    break;
+
+                case Token_type::slash:
+                    translation_units.back().emit(Opcode::divide, operator_token);
+                    break;
+            }
+        }
+
+        void compile_unary(const Token& unary_token, bool /*precedence_allows_assignment*/) {
+            compile_expr_higher_precedence_than(Precedence_level::unary);
+
+            switch (unary_token.type) {
+                default:
+                    throw std::logic_error{"Unreachable"};
+
+                case Token_type::bang:
+                    translation_units.back().emit(Opcode::not_, unary_token);
+                    break;
+
+                case Token_type::minus:
+                    translation_units.back().emit(Opcode::negate, unary_token);
+                    break;
+            }
+        }
+
+        void compile_dot(const Token& /*object_token*/, bool precedence_allows_assignment) {
+            const auto property_name_token = consume(Token_type::identifier, "Expected property name after '.'.");
+            translation_units.back().function->chunk.constants.push_back({interned_strings.get(property_name_token.lexeme)});
+            const auto property_name_constant_index = translation_units.back().function->chunk.constants.size() - 1;
+
+            if (precedence_allows_assignment && consume_if(Token_type::equal)) {
+                compile_expr_higher_precedence_than(Precedence_level::assignment);
+                translation_units.back().emit(Opcode::set_property, property_name_constant_index, property_name_token);
+            } else if (consume_if(Token_type::left_paren)) {
+                const auto [arg_count, right_paren_token] = compile_argument_list();
+                translation_units.back().emit(Opcode::invoke, property_name_constant_index, property_name_token);
+                translation_units.back().emit(arg_count, right_paren_token);
+            } else {
+                translation_units.back().emit(Opcode::get_property, property_name_constant_index, property_name_token);
+            }
+        }
+
+        void compile_call(const Token& /*callee_token*/, bool /*precedence_allows_assignment*/) {
+            const auto [arg_count, right_paren_token] = compile_argument_list();
+            translation_units.back().emit(Opcode::call, arg_count, right_paren_token);
+        }
+
+        void compile_grouping(const Token& /*left_paren_token*/, bool /*precedence_allows_assignment*/) {
+            compile_expr_higher_precedence_than(Precedence_level::assignment);
+            consume(Token_type::right_paren, "Expected ')' after expression.");
+        }
     };
-  }
-
-  compiler->upvalues[upvalueCount].isLocal = isLocal;
-  compiler->upvalues[upvalueCount].index = index;
-  return compiler->function->upvalueCount++;
 }
-static int resolveUpvalue(Parser& parser, Function_compiler* compiler, const Token& name) {
-  if (compiler->enclosing == NULL) return -1;
 
-  int local = resolveLocal(parser, compiler->enclosing, name);
-  if (local != -1) {
-    compiler->enclosing->locals.at(local).isCaptured = true;
-    return addUpvalue(name, parser, compiler, (uint8_t)local, true);
-  }
+namespace motts { namespace lox {
+    GC_ptr<Closure> compile(GC_heap& gc_heap, Interned_strings& interned_strings, const gsl::cstring_span<>& source) {
+        std::string compiler_errors;
+        Compiler compiler {gc_heap, interned_strings, Token_iterator{source}, [&] (const std::exception& error) {
+            compiler_errors += error.what();
+            compiler_errors += '\n';
+        }};
 
-  int upvalue = resolveUpvalue(parser, compiler->enclosing, name);
-  if (upvalue != -1) {
-    return addUpvalue(name, parser, compiler, (uint8_t)upvalue, false);
-  }
+        while (compiler.token_iter->type != Token_type::eof) {
+            compiler.compile_declaration();
+        }
+        compiler.translation_units.back().emit(Opcode::nil, Opcode::return_, *compiler.token_iter);
 
-  return -1;
-}
-static void addLocal(Parser& parser, Token name) {
-  if (global_current->locals.size() == UINT8_COUNT) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(name.line) +
-        "] Error at '" + std::string{name.lexeme_begin, name.lexeme_end} +
-        "': Too many local variables in function.\n"
-    };
-  }
+        if (!compiler_errors.empty()) {
+            // Trim the extraneous training newline
+            compiler_errors.erase(compiler_errors.end() - 1);
 
-  Local local;
-  local.name = name;
-  local.depth = -1;
-  local.isCaptured = false;
-  global_current->locals.push_back(local);
-}
-static void declareVariable(Token name, Parser& parser) {
-  // Global variables are implicitly declared.
-  if (global_current->scopeDepth == 0) return;
+            throw std::runtime_error{compiler_errors};
+        }
 
-  for (auto local_iter = global_current->locals.crbegin(); local_iter != global_current->locals.crend(); ++local_iter) {
-    if (local_iter->depth != -1 && local_iter->depth < global_current->scopeDepth) {
-      break; // [negative]
+        return gc_heap.make(Closure{compiler.translation_units.front().function});
     }
-
-    if (identifiersEqual(name, local_iter->name)) {
-      throw std::runtime_error{
-          "[Line " + std::to_string(name.line) +
-          "] Error at '" + std::string{name.lexeme_begin, name.lexeme_end} +
-          "': Variable with this name already declared in this scope.\n"
-      };
-    }
-  }
-
-  addLocal(parser, name);
-}
-static uint8_t parseVariable(Parser& parser, Scanner& scanner, const char* errorMessage) {
-  auto identifier_token = consume(parser, scanner, Token_type::identifier_, errorMessage);
-
-  declareVariable(identifier_token, parser);
-  if (global_current->scopeDepth > 0) return 0;
-
-  return identifierConstant(parser, identifier_token);
-}
-static void markInitialized() {
-  if (global_current->scopeDepth == 0) return;
-  global_current->locals.back().depth = global_current->scopeDepth;
-}
-static void defineVariable(const Token& where, Parser& parser, uint8_t global) {
-  if (global_current->scopeDepth > 0) {
-    markInitialized();
-    return;
-  }
-
-  emitBytes(where, parser, Op_code::define_global_, global);
-}
-static uint8_t argumentList(Parser& parser, Scanner& scanner) {
-  uint8_t argCount = 0;
-  if (parser.current.type != Token_type::right_paren_) {
-    do {
-      auto current_token = parser.current;
-      expression(parser, scanner);
-
-      if (argCount == 255) {
-        throw std::runtime_error{
-            "[Line " + std::to_string(current_token.line) +
-            "] Error at '" + std::string{current_token.lexeme_begin, current_token.lexeme_end} +
-            "': Cannot have more than 255 arguments.\n"
-        };
-      }
-      argCount++;
-    } while (advance_if_match(parser, scanner, Token_type::comma_));
-  }
-
-  consume(parser, scanner, Token_type::right_paren_, "Expected ')' after arguments.");
-  return argCount;
-}
-static void and_(const Token& where, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  int endJump = emitJump(where, parser, Op_code::jump_if_false_);
-
-  emitByte(where, parser, Op_code::pop_);
-  parsePrecedence(parser, scanner, Precedence::and_);
-
-  patchJump(where, parser, endJump);
-}
-static void binary(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  // Remember the operator.
-  Token_type operatorType = token.type;
-
-  // Compile the right operand.
-  ParseRule* rule = getRule(operatorType);
-  parsePrecedence(parser, scanner, static_cast<Precedence>(static_cast<int>(rule->precedence) + 1));
-
-  // Emit the operator instruction.
-  switch (operatorType) {
-    case Token_type::bang_equal_:    emitBytes(token, parser, Op_code::equal_, Op_code::not_); break;
-    case Token_type::equal_equal_:   emitByte(token, parser, Op_code::equal_); break;
-    case Token_type::greater_:       emitByte(token, parser, Op_code::greater_); break;
-    case Token_type::greater_equal_: emitBytes(token, parser, Op_code::less_, Op_code::not_); break;
-    case Token_type::less_:          emitByte(token, parser, Op_code::less_); break;
-    case Token_type::less_equal_:    emitBytes(token, parser, Op_code::greater_, Op_code::not_); break;
-    case Token_type::plus_:          emitByte(token, parser, Op_code::add_); break;
-    case Token_type::minus_:         emitByte(token, parser, Op_code::subtract_); break;
-    case Token_type::star_:          emitByte(token, parser, Op_code::multiply_); break;
-    case Token_type::slash_:         emitByte(token, parser, Op_code::divide_); break;
-    default:
-      return; // Unreachable.
-  }
-}
-static void call(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  uint8_t argCount = argumentList(parser, scanner);
-  emitBytes(token, parser, Op_code::call_, argCount);
-}
-static void dot(const Token& token, Parser& parser, Scanner& scanner, bool canAssign) {
-  auto parser_previous_token = consume(parser, scanner, Token_type::identifier_, "Expected property name after '.'.");
-  uint8_t name = identifierConstant(parser, parser_previous_token);
-
-  if (canAssign && advance_if_match(parser, scanner, Token_type::equal_)) {
-    expression(parser, scanner);
-    emitBytes(token, parser, Op_code::set_property_, name);
-  } else if (advance_if_match(parser, scanner, Token_type::left_paren_)) {
-    uint8_t argCount = argumentList(parser, scanner);
-    emitBytes(token, parser, Op_code::invoke_, name);
-    emitByte(token, parser, argCount);
-  } else {
-    emitBytes(token, parser, Op_code::get_property_, name);
-  }
-}
-static void literal(const Token& token, Parser& parser, Scanner& /*scanner*/, bool /*canAssign*/) {
-  switch (token.type) {
-    case Token_type::false_: emitByte(token, parser, Op_code::false_); break;
-    case Token_type::nil_: emitByte(token, parser, Op_code::nil_); break;
-    case Token_type::true_: emitByte(token, parser, Op_code::true_); break;
-    default:
-      return; // Unreachable.
-  }
-}
-static void grouping(const Token& /*token*/, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  expression(parser, scanner);
-  consume(parser, scanner, Token_type::right_paren_, "Expected ')' after expression.");
-}
-static void number(const Token& token, Parser& parser, Scanner& /*scanner*/, bool /*canAssign*/) {
-  double value = boost::lexical_cast<double>(std::string{token.lexeme_begin, token.lexeme_end});
-  emitConstant(token, parser, Value{value});
-}
-static void or_(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  int elseJump = emitJump(token, parser, Op_code::jump_if_false_);
-  int endJump = emitJump(token, parser, Op_code::jump_);
-
-  patchJump(token, parser, elseJump);
-  emitByte(token, parser, Op_code::pop_);
-
-  parsePrecedence(parser, scanner, Precedence::or_);
-  patchJump(token, parser, endJump);
-}
-static void string(const Token& token, Parser& parser, Scanner& /*scanner*/, bool /*canAssign*/) {
-  emitConstant(token, parser, Value{global_current->interned_strings_.get(std::string{token.lexeme_begin + 1, token.lexeme_end - 1})});
-}
-static void namedVariable(Parser& parser, Scanner& scanner, Token name, bool canAssign) {
-  Op_code getOp, setOp;
-  int arg = resolveLocal(parser, global_current, name);
-  if (arg != -1) {
-    getOp = Op_code::get_local_;
-    setOp = Op_code::set_local_;
-  } else if ((arg = resolveUpvalue(parser, global_current, name)) != -1) {
-    getOp = Op_code::get_upvalue_;
-    setOp = Op_code::set_upvalue_;
-  } else {
-    arg = identifierConstant(parser, name);
-    getOp = Op_code::get_global_;
-    setOp = Op_code::set_global_;
-  }
-
-  if (canAssign && advance_if_match(parser, scanner, Token_type::equal_)) {
-    expression(parser, scanner);
-    emitBytes(name, parser, setOp, arg);
-  } else {
-    emitBytes(name, parser, getOp, arg);
-  }
-}
-static void variable(const Token& token, Parser& parser, Scanner& scanner, bool canAssign) {
-  namedVariable(parser, scanner, token, canAssign);
-}
-static Token syntheticToken(const char* text) {
-  Token token;
-  token.lexeme_begin = text;
-  token.lexeme_end = text + strlen(text);
-  return token;
-}
-static void super_(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  if (currentClass == NULL) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Cannot use 'super' outside of a class.\n"
-    };
-  } else if (!currentClass->hasSuperclass) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Cannot use 'super' in a class with no superclass.\n"
-    };
-  }
-
-  consume(parser, scanner, Token_type::dot_, "Expected '.' after 'super'.");
-  auto parser_previous_token = consume(parser, scanner, Token_type::identifier_, "Expected superclass method name.");
-  uint8_t name = identifierConstant(parser, parser_previous_token);
-
-  namedVariable(parser, scanner, syntheticToken("this"), false);
-  if (advance_if_match(parser, scanner, Token_type::left_paren_)) {
-    uint8_t argCount = argumentList(parser, scanner);
-    namedVariable(parser, scanner, syntheticToken("super"), false);
-    emitBytes(parser_previous_token, parser, Op_code::super_invoke_, name);
-    emitByte(parser_previous_token, parser, argCount);
-  } else {
-    namedVariable(parser, scanner, syntheticToken("super"), false);
-    emitBytes(parser_previous_token, parser, Op_code::get_super_, name);
-  }
-}
-static void this_(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  if (currentClass == NULL) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Cannot use 'this' outside of a class.\n"
-    };
-  }
-  variable(token, parser, scanner, false);
-} // [this]
-static void unary(const Token& token, Parser& parser, Scanner& scanner, bool /*canAssign*/) {
-  Token_type operatorType = token.type;
-
-  // Compile the operand.
-  parsePrecedence(parser, scanner, Precedence::unary_);
-
-  // Emit the operator instruction.
-  switch (operatorType) {
-    case Token_type::bang_: emitByte(token, parser, Op_code::not_); break;
-    case Token_type::minus_: emitByte(token, parser, Op_code::negate_); break;
-    default:
-      return; // Unreachable.
-  }
-}
-ParseRule rules[] = {
-  [static_cast<int>(Token_type::left_paren_)]    = { grouping, call,   Precedence::call_ },
-  [static_cast<int>(Token_type::right_paren_)]   = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::left_brace_)]    = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::right_brace_)]   = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::comma_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::dot_)]           = { NULL,     dot,    Precedence::call_ },
-  [static_cast<int>(Token_type::minus_)]         = { unary,    binary, Precedence::term_ },
-  [static_cast<int>(Token_type::plus_)]          = { NULL,     binary, Precedence::term_ },
-  [static_cast<int>(Token_type::semicolon_)]     = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::slash_)]         = { NULL,     binary, Precedence::factor_ },
-  [static_cast<int>(Token_type::star_)]          = { NULL,     binary, Precedence::factor_ },
-  [static_cast<int>(Token_type::bang_)]          = { unary,    NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::bang_equal_)]    = { NULL,     binary, Precedence::equality_ },
-  [static_cast<int>(Token_type::equal_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::equal_equal_)]   = { NULL,     binary, Precedence::equality_ },
-  [static_cast<int>(Token_type::greater_)]       = { NULL,     binary, Precedence::comparison_ },
-  [static_cast<int>(Token_type::greater_equal_)] = { NULL,     binary, Precedence::comparison_ },
-  [static_cast<int>(Token_type::less_)]          = { NULL,     binary, Precedence::comparison_ },
-  [static_cast<int>(Token_type::less_equal_)]    = { NULL,     binary, Precedence::comparison_ },
-  [static_cast<int>(Token_type::identifier_)]    = { variable, NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::string_)]        = { string,   NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::number_)]        = { number,    NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::and_)]           = { NULL,     and_,   Precedence::and_ },
-  [static_cast<int>(Token_type::class_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::else_)]          = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::false_)]         = { literal,  NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::for_)]           = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::fun_)]           = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::if_)]            = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::nil_)]           = { literal,  NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::or_)]            = { NULL,     or_,    Precedence::or_ },
-  [static_cast<int>(Token_type::print_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::return_)]        = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::super_)]         = { super_,   NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::this_)]          = { this_,    NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::true_)]          = { literal,  NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::var_)]           = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::while_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::error_)]         = { NULL,     NULL,   Precedence::none_ },
-  [static_cast<int>(Token_type::eof_)]           = { NULL,     NULL,   Precedence::none_ },
-};
-static void parsePrecedence(Parser& parser, Scanner& scanner, Precedence precedence) {
-  auto current_token = parser.current;
-  ParseFn prefixRule = getRule(current_token.type)->prefix;
-  parser.current = scanToken(scanner);
-  if (prefixRule == NULL) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(current_token.line) +
-        "] Error at '" + std::string{current_token.lexeme_begin, current_token.lexeme_end} +
-        "': Expected expression.\n"
-    };
-  }
-
-  bool canAssign = precedence <= Precedence::assignment_;
-  prefixRule(current_token, parser, scanner, canAssign);
-
-  while (precedence <= getRule(parser.current.type)->precedence) {
-    auto current_token = parser.current;
-    ParseFn infixRule = getRule(current_token.type)->infix;
-    parser.current = scanToken(scanner);
-    infixRule(current_token, parser, scanner, canAssign);
-  }
-
-  auto next_current_token = parser.current;
-  if (canAssign && advance_if_match(parser, scanner, Token_type::equal_)) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(next_current_token.line) +
-        "] Error at '" + std::string{next_current_token.lexeme_begin, next_current_token.lexeme_end} +
-        "': Invalid assignment target."
-    };
-  }
-}
-static ParseRule* getRule(Token_type type) {
-  return &rules[static_cast<int>(type)];
-}
-static void expression(Parser& parser, Scanner& scanner) {
-  parsePrecedence(parser, scanner, Precedence::assignment_);
-}
-static void block(Parser& parser, Scanner& scanner) {
-  while (parser.current.type != Token_type::right_brace_ && parser.current.type != Token_type::eof_) {
-    consume_declaration(parser, scanner);
-  }
-
-  consume(parser, scanner, Token_type::right_brace_, "Expected '}' after block.");
-}
-static void function(const Token& token, Parser& parser, Scanner& scanner, Function_type type) {
-  Function_compiler compiler {type, token, parser, global_current->deferred_heap_, global_current->interned_strings_};
-  beginScope(); // [no-end-scope]
-
-  // Compile the parameter list.
-  consume(parser, scanner, Token_type::left_paren_, "Expected '(' after function name.");
-  if (parser.current.type != Token_type::right_paren_) {
-    do {
-      auto param_name_token = parser.current;
-      global_current->function->arity++;
-      if (global_current->function->arity > 255) {
-        throw std::runtime_error{
-            "[Line " + std::to_string(param_name_token.line) +
-            "] Error at '" + std::string{param_name_token.lexeme_begin, param_name_token.lexeme_end} +
-            "': Cannot have more than 255 parameters."
-        };
-      }
-
-      uint8_t paramConstant = parseVariable(parser, scanner, "Expect parameter name.");
-      defineVariable(param_name_token, parser, paramConstant);
-    } while (advance_if_match(parser, scanner, Token_type::comma_));
-  }
-  consume(parser, scanner, Token_type::right_paren_, "Expected ')' after parameters.");
-
-  // The body.
-  consume(parser, scanner, Token_type::left_brace_, "Expected '{' before function body.");
-  block(parser, scanner);
-
-  // Create the function object.
-  ObjFunction* function = endCompiler(parser.current, parser);
-  emitBytes(parser.current, parser, Op_code::closure_, makeConstant(token, parser, Value{function}));
-
-  for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(token, parser, compiler.upvalues[i].isLocal ? 1 : 0);
-    emitByte(token, parser, compiler.upvalues[i].index);
-  }
-}
-static void method(Parser& parser, Scanner& scanner) {
-  auto method_name_token = consume(parser, scanner, Token_type::identifier_, "Expected method name.");
-  uint8_t constant = identifierConstant(parser, method_name_token);
-
-  Function_type type = Function_type::method_;
-  if ((method_name_token.lexeme_end - method_name_token.lexeme_begin) == 4 &&
-      memcmp(method_name_token.lexeme_begin, "init", 4) == 0) {
-    type = Function_type::initializer_;
-  }
-
-  function(method_name_token, parser, scanner, type);
-  emitBytes(method_name_token, parser, Op_code::method_, constant);
-}
-static void consume_class_declaration(Parser& parser, Scanner& scanner) {
-  Token className = consume(parser, scanner, Token_type::identifier_, "Expected class name.");
-  uint8_t nameConstant = identifierConstant(parser, className);
-  declareVariable(className, parser);
-
-  emitBytes(className, parser, Op_code::class_, nameConstant);
-  defineVariable(className, parser, nameConstant);
-
-  ClassCompiler classCompiler;
-  classCompiler.name = className;
-  classCompiler.hasSuperclass = false;
-  classCompiler.enclosing = currentClass;
-  currentClass = &classCompiler;
-
-  if (advance_if_match(parser, scanner, Token_type::less_)) {
-    auto superclass_name_token = consume(parser, scanner, Token_type::identifier_, "Expected superclass name.");
-    variable(superclass_name_token, parser, scanner, false);
-
-    if (identifiersEqual(className, superclass_name_token)) {
-      throw std::runtime_error{
-          "[Line " + std::to_string(superclass_name_token.line) +
-          "] Error at '" + std::string{superclass_name_token.lexeme_begin, superclass_name_token.lexeme_end} +
-          "': A class cannot inherit from itself."
-      };
-    }
-
-    beginScope();
-    addLocal(parser, syntheticToken("super"));
-    defineVariable(superclass_name_token, parser, 0);
-
-    namedVariable(parser, scanner, className, false);
-    emitByte(superclass_name_token, parser, Op_code::inherit_);
-    classCompiler.hasSuperclass = true;
-  }
-
-  namedVariable(parser, scanner, className, false);
-  consume(parser, scanner, Token_type::left_brace_, "Expected '{' before class body.");
-  while (parser.current.type != Token_type::right_brace_ && parser.current.type != Token_type::eof_) {
-    method(parser, scanner);
-  }
-  auto right_brace_token = consume(parser, scanner, Token_type::right_brace_, "Expected '}' after class body.");
-  emitByte(right_brace_token, parser, Op_code::pop_);
-
-  if (classCompiler.hasSuperclass) {
-    endScope(className, parser);
-  }
-
-  currentClass = currentClass->enclosing;
-}
-static void funDeclaration(Parser& parser, Scanner& scanner) {
-  auto fun_name_token = parser.current;
-  uint8_t global = parseVariable(parser, scanner, "Expect function name.");
-  markInitialized();
-  function(fun_name_token, parser, scanner, Function_type::function_);
-  defineVariable(fun_name_token, parser, global);
-}
-static void varDeclaration(Parser& parser, Scanner& scanner) {
-  auto var_name_token = parser.current;
-  uint8_t global = parseVariable(parser, scanner, "Expect variable name.");
-
-  if (advance_if_match(parser, scanner, Token_type::equal_)) {
-    expression(parser, scanner);
-  } else {
-    emitByte(var_name_token, parser, Op_code::nil_);
-  }
-  consume(parser, scanner, Token_type::semicolon_, "Expected ';' after variable declaration.");
-
-  defineVariable(var_name_token, parser, global);
-}
-static void expressionStatement(Parser& parser, Scanner& scanner) {
-  expression(parser, scanner);
-  auto token = consume(parser, scanner, Token_type::semicolon_, "Expect ';' after expression.");
-  emitByte(token, parser, Op_code::pop_);
-}
-static void forStatement(Parser& parser, Scanner& scanner) {
-  beginScope();
-
-  consume(parser, scanner, Token_type::left_paren_, "Expected '(' after 'for'.");
-  if (advance_if_match(parser, scanner, Token_type::semicolon_)) {
-    // No initializer.
-  } else if (advance_if_match(parser, scanner, Token_type::var_)) {
-    varDeclaration(parser, scanner);
-  } else {
-    expressionStatement(parser, scanner);
-  }
-
-  int loopStart = global_current->function->chunk.code.size();
-
-  int exitJump = -1;
-  if (!advance_if_match(parser, scanner, Token_type::semicolon_)) {
-    auto token = parser.current;
-    expression(parser, scanner);
-    consume(parser, scanner, Token_type::semicolon_, "Expected ';' after loop condition.");
-
-    // Jump out of the loop if the condition is false.
-    exitJump = emitJump(token, parser, Op_code::jump_if_false_);
-    emitByte(token, parser, Op_code::pop_); // Condition.
-  }
-
-  auto right_param_token = parser.current;
-  if (!advance_if_match(parser, scanner, Token_type::right_paren_)) {
-    int bodyJump = emitJump(right_param_token, parser, Op_code::jump_);
-
-    int incrementStart = global_current->function->chunk.code.size();
-    auto token = parser.current;
-    expression(parser, scanner);
-    emitByte(token, parser, Op_code::pop_);
-    consume(parser, scanner, Token_type::right_paren_, "Expected ')' after for clauses.");
-
-    emitLoop(token, parser, loopStart);
-    loopStart = incrementStart;
-    patchJump(token, parser, bodyJump);
-  }
-
-  auto token = parser.current;
-  statement(parser, scanner);
-
-  emitLoop(token, parser, loopStart);
-
-  if (exitJump != -1) {
-    patchJump(token, parser, exitJump);
-    emitByte(token, parser, Op_code::pop_); // Condition.
-  }
-
-  endScope(token, parser);
-}
-static void ifStatement(Parser& parser, Scanner& scanner) {
-  consume(parser, scanner, Token_type::left_paren_, "Expected '(' after 'if'.");
-  expression(parser, scanner);
-  auto right_param_token = consume(parser, scanner, Token_type::right_paren_, "Expected ')' after condition."); // [paren]
-
-  int thenJump = emitJump(right_param_token, parser, Op_code::jump_if_false_);
-  emitByte(right_param_token, parser, Op_code::pop_);
-  auto token = parser.current;
-  statement(parser, scanner);
-
-  int elseJump = emitJump(token, parser, Op_code::jump_);
-
-  patchJump(token, parser, thenJump);
-  emitByte(token, parser, Op_code::pop_);
-
-  auto next_current_token = parser.current;
-  if (advance_if_match(parser, scanner, Token_type::else_)) statement(parser, scanner);
-  patchJump(next_current_token, parser, elseJump);
-}
-static void printStatement(Parser& parser, Scanner& scanner) {
-  expression(parser, scanner);
-  auto token = consume(parser, scanner, Token_type::semicolon_, "Expected ';' after value.");
-  emitByte(token, parser, Op_code::print_);
-}
-static void returnStatement(const Token& token, Parser& parser, Scanner& scanner) {
-  if (global_current->type == Function_type::script_) {
-    throw std::runtime_error{
-        "[Line " + std::to_string(token.line) +
-        "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-        "': Cannot return from top-level code.\n"
-    };
-  }
-
-  if (advance_if_match(parser, scanner, Token_type::semicolon_)) {
-    emitReturn(token, parser);
-  } else {
-    if (global_current->type == Function_type::initializer_) {
-      throw std::runtime_error{
-          "[Line " + std::to_string(token.line) +
-          "] Error at '" + std::string{token.lexeme_begin, token.lexeme_end} +
-          "': Cannot return a value from an initializer.\n"
-      };
-    }
-
-    expression(parser, scanner);
-    consume(parser, scanner, Token_type::semicolon_, "Expected ';' after return value.");
-    emitByte(token, parser, Op_code::return_);
-  }
-}
-static void whileStatement(Parser& parser, Scanner& scanner) {
-  int loopStart = global_current->function->chunk.code.size();
-
-  consume(parser, scanner, Token_type::left_paren_, "Expected '(' after 'while'.");
-  expression(parser, scanner);
-  auto right_param_token = consume(parser, scanner, Token_type::right_paren_, "Expected ')' after condition.");
-
-  int exitJump = emitJump(right_param_token, parser, Op_code::jump_if_false_);
-
-  emitByte(right_param_token, parser, Op_code::pop_);
-  auto token = parser.current;
-  statement(parser, scanner);
-
-  emitLoop(token, parser, loopStart);
-
-  patchJump(token, parser, exitJump);
-  emitByte(token, parser, Op_code::pop_);
-}
-static void synchronize(Parser& parser, Scanner& scanner) {
-  while (parser.current.type != Token_type::eof_) {
-    if (advance_if_match(parser, scanner, Token_type::semicolon_)) return;
-
-    switch (parser.current.type) {
-      case Token_type::class_:
-      case Token_type::fun_:
-      case Token_type::var_:
-      case Token_type::for_:
-      case Token_type::if_:
-      case Token_type::while_:
-      case Token_type::print_:
-      case Token_type::return_:
-        return;
-
-      default:
-        // Do nothing.
-        ;
-    }
-
-    parser.current = scanToken(scanner);
-  }
-}
-static void consume_declaration(Parser& parser, Scanner& scanner) {
-  // try {
-    if (advance_if_match(parser, scanner, Token_type::class_)) {
-      consume_class_declaration(parser, scanner);
-    } else if (advance_if_match(parser, scanner, Token_type::fun_)) {
-      funDeclaration(parser, scanner);
-    } else if (advance_if_match(parser, scanner, Token_type::var_)) {
-      varDeclaration(parser, scanner);
-    } else {
-      statement(parser, scanner);
-    }
-  // } catch (const std::exception& e) {
-  //   synchronize(parser, scanner);
-  // }
-}
-static void statement(Parser& parser, Scanner& scanner) {
-  auto token = parser.current;
-
-  if (advance_if_match(parser, scanner, Token_type::print_)) {
-    printStatement(parser, scanner);
-  } else if (advance_if_match(parser, scanner, Token_type::for_)) {
-    forStatement(parser, scanner);
-  } else if (advance_if_match(parser, scanner, Token_type::if_)) {
-    ifStatement(parser, scanner);
-  } else if (advance_if_match(parser, scanner, Token_type::return_)) {
-    returnStatement(token, parser, scanner);
-  } else if (advance_if_match(parser, scanner, Token_type::while_)) {
-    whileStatement(parser, scanner);
-  } else if (advance_if_match(parser, scanner, Token_type::left_brace_)) {
-    beginScope();
-    block(parser, scanner);
-    endScope(token, parser);
-  } else {
-    expressionStatement(parser, scanner);
-  }
-}
-
-ObjFunction* compile(const std::string& source, Deferred_heap& deferred_heap, Interned_strings& interned_strings) {
-  Scanner scanner {source};
-  Parser parser;
-
-  // Side-effect: sets global "current" compiler
-  Function_compiler compiler {Function_type::script_, Token{}, parser, deferred_heap, interned_strings};
-
-  deferred_heap.mark_roots_callbacks.push_back([&] () {
-    Function_compiler* compiler = global_current;
-    while (compiler) {
-      deferred_heap.mark(*compiler->function);
-      compiler = compiler->enclosing;
-    }
-  });
-
-  parser.current = scanToken(scanner);
-  while (parser.current.type != Token_type::eof_) {
-    consume_declaration(parser, scanner);
-  }
-
-  ObjFunction* function = endCompiler(parser.current, parser);
-  return parser.hadError ? NULL : function;
-}
+}}

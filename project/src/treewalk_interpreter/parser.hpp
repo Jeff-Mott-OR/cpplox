@@ -23,8 +23,4 @@ namespace motts { namespace lox {
     structure altogether.
     */
     std::vector<gcpp::deferred_ptr<const Stmt>> parse(gcpp::deferred_heap&, Token_iterator&&);
-
-    struct Parser_error : Runtime_error {
-        explicit Parser_error(const std::string& what, const Token&);
-    };
 }}

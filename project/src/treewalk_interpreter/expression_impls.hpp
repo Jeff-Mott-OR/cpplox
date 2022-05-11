@@ -50,7 +50,7 @@ namespace motts { namespace lox {
             gcpp::deferred_ptr<const Expr>&& lhs_expr,
             gcpp::deferred_ptr<const Expr>&& rhs_expr,
             gcpp::deferred_heap&,
-            const Runtime_error& throwable_if_not_lvalue
+            const Parser_error& throwable_if_not_lvalue
         ) const override;
     };
 
@@ -94,7 +94,7 @@ namespace motts { namespace lox {
             gcpp::deferred_ptr<const Expr>&& lhs_expr,
             gcpp::deferred_ptr<const Expr>&& rhs_expr,
             gcpp::deferred_heap&,
-            const Runtime_error& throwable_if_not_lvalue
+            const Parser_error& throwable_if_not_lvalue
         ) const override;
     };
 

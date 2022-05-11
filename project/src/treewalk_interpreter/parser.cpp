@@ -502,6 +502,7 @@ namespace motts { namespace lox {
             statements.push_back(parser.consume_declaration());
         }
         if (!parser_errors.empty()) {
+            parser_errors.erase(parser_errors.end() - 1);
             throw Runtime_error{parser_errors};
         }
 

@@ -180,7 +180,7 @@ namespace motts { namespace lox {
                 }
             } catch (const bad_get&) {
                 // Convert a boost variant error into a Lox error
-                throw Interpreter_error{"Operands must be numbers.", expr->op};
+                throw Interpreter_error{"Operand must be a number.", expr->op};
             }
         })();
     }

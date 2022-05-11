@@ -1,51 +1,62 @@
 #pragma once
 
-enum class Token_type {
-    // Single-character tokens.
-    left_paren_, right_paren_,
-    left_brace_, right_brace_,
-    comma_, dot_, minus_, plus_,
-    semicolon_, slash_, star_,
+#include <gsl/string_span>
 
-    // One or two character tokens.
-    bang_, bang_equal_,
-    equal_, equal_equal_,
-    greater_, greater_equal_,
-    less_, less_equal_,
+namespace motts { namespace lox {
+    enum class Token_type {
+        // Single-character tokens
+        left_paren, right_paren,
+        left_brace, right_brace,
+        comma, dot, minus, plus,
+        semicolon, slash, star,
 
-    // Literals.
-    identifier_, string_, number_,
+        // One or two character tokens
+        bang, bang_equal,
+        equal, equal_equal,
+        greater, greater_equal,
+        less, less_equal,
 
-    // Keywords.
-    and_, class_, else_, false_,
-    for_, fun_, if_, nil_, or_,
-    print_, return_, super_, this_,
-    true_, var_, while_,
+        // Literals
+        identifier, string, number,
 
-    error_,
-    eof_
-};
+        // Keywords
+        and_, class_, else_, false_,
+        for_, fun_, if_, nil, or_,
+        print, return_, super_, this_,
+        true_, var_, while_,
 
-struct Token {
-    Token_type type;
-    const char* lexeme_begin;
-    const char* lexeme_end;
-    int line;
-};
+        error,
+        eof
+    };
 
-struct Scanner {
-    const char* token_begin;
-    const char* token_end;
-    const char* source_end;
-    int line;
+    // Cheap to copy; two ints and two pointers
+    struct Token {
+        Token_type type;
+        gsl::cstring_span<> lexeme;
+        int line {};
+    };
 
-    Scanner(const std::string& source) :
-        token_begin {source.data()},
-        token_end {source.data()},
-        source_end {source.data() + source.size()},
-        line {1}
-    {
-    }
-};
+    class Token_iterator {
+        const char* token_begin_;
+        const char* token_end_;
+        const char* source_end_;
+        int line_ {1};
+        Token token_;
 
-Token scanToken(Scanner&);
+        public:
+            Token_iterator(const gsl::cstring_span<>& source);
+
+            const Token& operator*() const;
+            const Token* operator->() const;
+
+            Token_iterator& operator++();
+            Token_iterator operator++(int);
+
+        private:
+            Token consume_token();
+            Token consume_identifier();
+            Token consume_number();
+            Token consume_string();
+            bool consume_if_match(char expected);
+    };
+}}

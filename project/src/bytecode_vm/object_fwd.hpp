@@ -1,10 +1,11 @@
 #pragma once
 
-struct ObjString;
-struct ObjClass;
-struct ObjInstance;
-struct ObjFunction;
-struct ObjClosure;
-struct ObjBoundMethod;
-struct ObjNative;
-struct ObjUpvalue;
+namespace motts { namespace lox {
+    struct Native_fn;
+    struct Function;
+    struct Closure;
+    class Upvalue;
+    struct Class;
+    struct Instance;
+    struct Bound_method;
+}}

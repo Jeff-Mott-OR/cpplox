@@ -2,153 +2,84 @@
 
 #include "object_fwd.hpp"
 
-#include "common.hpp"
-#include "chunk.hpp"
-#include "value.hpp"
-
 #include <functional>
+#include <optional>
+#include <ostream>
+#include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
-struct GC_base;
+#include "chunk.hpp"
+#include "memory.hpp"
+#include "value.hpp"
 
-struct Deferred_heap {
-    std::vector<GC_base*> all_deferred_ptrs;
-    std::vector<GC_base*> gray_worklist;
-    std::vector<std::function<void()>> mark_roots_callbacks;
-    std::vector<std::function<void(GC_base*)>> on_destroy_callbacks;
+namespace motts { namespace lox {
+    struct Native_fn {
+        std::function<Value(const std::vector<Value>&)> fn;
+    };
 
-    template<typename GC_derived, typename ...Args>
-        GC_derived* make(Args... args) {
-            const auto ptr = new GC_derived {std::forward<Args>(args)...};
-            all_deferred_ptrs.push_back(ptr);
+    struct Function {
+        Chunk chunk;
+        GC_ptr<std::string> name;
+        int arity {};
+        int upvalue_count {};
 
-            mark(*ptr);
-            collect();
+        Function(const GC_ptr<std::string>& name);
+    };
 
-            return ptr;
-        }
+    template<> void trace_refs_trait(GC_heap&, const Function&);
 
-    ~Deferred_heap();
-    void collect();
-    void mark(Value);
-    void mark(GC_base&);
-};
+    std::ostream& operator<<(std::ostream&, const Function&);
 
-struct GC_base {
-    bool is_marked {false};
+    struct Closure {
+        GC_ptr<Function> function;
+        std::vector<GC_ptr<Upvalue>> upvalues;
 
-    virtual ~GC_base() = default;
-    virtual void trace_refs(Deferred_heap&) = 0;
-    virtual std::string virtual_name() const = 0;
-};
+        Closure(const GC_ptr<Function>&);
+    };
 
-// # object.h
+    template<> void trace_refs_trait(GC_heap&, const Closure&);
 
-struct ObjString : GC_base {
-  std::string str;
-  explicit ObjString(std::string&& str_arg) : str{std::move(str_arg)} {}
-  void trace_refs(Deferred_heap&) override {}
-  std::string virtual_name() const override { return "ObjString:"+str; }
-};
+    class Upvalue {
+        std::optional<Value> closed_;
 
-struct ObjFunction : GC_base {
-  int arity {0};
-  int upvalueCount {0};
-  Chunk chunk;
-  ObjString* name {nullptr};
+        public:
+            // Vector iterators and pointers can be invalidated, so instead store a stack reference and position
+            std::vector<Value>& stack;
+            const std::vector<Value>::size_type position;
 
-  explicit ObjFunction(ObjString* name_arg = nullptr) : name {name_arg} {}
-  void trace_refs(Deferred_heap& deferred_heap) override {
-      if (name) deferred_heap.mark(*name);
-      for (auto value : chunk.constants) {
-        deferred_heap.mark(value);
-      }
-  }
-  std::string virtual_name() const override { return "ObjFunction:"+(name?name->str:"<anon>"); }
-};
+            Upvalue(std::vector<Value>& stack, std::vector<Value>::size_type position);
 
-struct ObjNative : GC_base {
-  std::function<Value(std::vector<Value>)> function;
-  explicit ObjNative(std::function<Value(std::vector<Value>)>&& function_arg) : function {function_arg} {}
-  void trace_refs(Deferred_heap&) override {}
-  std::string virtual_name() const override { return "ObjNative"; }
-};
+            const Value& value() const;
+            Value& value();
 
-struct ObjUpvalue : GC_base {
-  Value* location;
-  Value closed;
-  explicit ObjUpvalue(Value* location_arg) : location {location_arg} {}
-  void trace_refs(Deferred_heap&) override {}
-  std::string virtual_name() const override { return "ObjUpvalue"; }
-};
+            void close();
+    };
 
-struct ObjClosure : GC_base {
-  ObjFunction* function;
-  std::vector<ObjUpvalue*> upvalues;
-  explicit ObjClosure(ObjFunction* function_arg) : function {function_arg} {}
+    template<> void trace_refs_trait(GC_heap&, const Upvalue&);
 
-  void trace_refs(Deferred_heap& deferred_heap) override {
-      deferred_heap.mark(*function);
-      for (const auto upvalue : upvalues) {
-        deferred_heap.mark(*upvalue);
-      }
-  }
-  std::string virtual_name() const override { return "ObjClosure:"/*+function->name->str*/; }
-};
+    struct Class {
+        GC_ptr<std::string> name;
+        std::unordered_map<GC_ptr<std::string>, Value> methods;
 
-struct ObjClass : GC_base {
-  ObjString* name;
-  std::unordered_map<ObjString*, Value> methods;
-  explicit ObjClass(ObjString* name_arg) : name {name_arg} {}
+        Class(const GC_ptr<std::string>& name);
+    };
 
-  void trace_refs(Deferred_heap& deferred_heap) override {
-      deferred_heap.mark(*name);
-      for (const auto& method : methods) {
-        deferred_heap.mark(*method.first);
-        deferred_heap.mark(method.second);
-      }
-  }
-  std::string virtual_name() const override { return "ObjClass:"/*+name->str*/; }
-};
+    template<> void trace_refs_trait(GC_heap&, const Class&);
 
-struct ObjInstance : GC_base {
-  ObjClass* klass;
-  std::unordered_map<ObjString*, Value> fields; // [fields]
-  explicit ObjInstance(ObjClass* klass_arg) : klass {klass_arg} {}
+    struct Instance {
+        GC_ptr<Class> klass;
+        std::unordered_map<GC_ptr<std::string>, Value> fields;
 
-  void trace_refs(Deferred_heap& deferred_heap) override {
-      deferred_heap.mark(*klass);
-      for (const auto& pair : fields) {
-        deferred_heap.mark(*pair.first);
-        deferred_heap.mark(pair.second);
-      }
-  }
-  std::string virtual_name() const override { return "ObjInstance:"/*+klass->name->str*/; }
-};
+        Instance(const GC_ptr<Class>&);
+    };
 
-struct ObjBoundMethod : GC_base {
-  Value receiver;
-  ObjClosure* method;
-  explicit ObjBoundMethod(Value receiver_arg, ObjClosure* method_arg) : receiver {receiver_arg}, method {method_arg} {}
+    template<> void trace_refs_trait(GC_heap&, const Instance&);
 
-  void trace_refs(Deferred_heap& deferred_heap) override {
-      deferred_heap.mark(receiver);
-      deferred_heap.mark(*method);
-  }
-  std::string virtual_name() const override { return "ObjBoundMethod"; }
-};
+    struct Bound_method {
+        Value this_;
+        GC_ptr<Closure> method;
+    };
 
-// # interned.hpp
-
-class Interned_strings : private std::unordered_set<ObjString*> {
-    Deferred_heap& deferred_heap_;
-
-    public:
-        using std::unordered_set<ObjString*>::erase;
-
-        explicit Interned_strings(Deferred_heap& deferred_heap);
-
-        ObjString* get(std::string&& new_string);
-};
+    template<> void trace_refs_trait(GC_heap&, const Bound_method&);
+}}
