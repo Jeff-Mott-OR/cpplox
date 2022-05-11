@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "common.hpp"
-#include "chunk.hpp"
-#include "debug.hpp"
+#include "common.hpp" // macros and constants
+#include "chunk.hpp"  // Chunk and Op_code types
+#include "debug.hpp"  // disassemble declarations
 #include "vm.hpp"
 
 #include <fstream>
@@ -14,25 +14,25 @@
 #include <vector>
 
 namespace {
-    void run_prompt(VM& vmr) {
+    void run_prompt(VM& vm) {
         while (true) {
             std::cout << "> ";
 
             std::string source_line;
             std::getline(std::cin, source_line);
 
-            interpret(vmr, source_line.c_str());
+            interpret(vm, source_line);
         }
     }
 
-    void run_file(VM& vmr, const char* path) {
+    void run_file(VM& vm, const char* path) {
         const auto source = ([&] () {
             std::ifstream in {path};
             in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
             return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
         })();
 
-        InterpretResult result = interpret(vmr, source.c_str());
+        InterpretResult result = interpret(vm, source);
 
         // TODO Use exceptions
         if (result == INTERPRET_COMPILE_ERROR) exit(65);
@@ -41,15 +41,23 @@ namespace {
 }
 
 int main(int argc, const char* argv[]) {
-    VM vm; // [one]
+    Deferred_heap deferred_heap_main;
+    Interned_strings interned_strings_main {deferred_heap_main};
 
-    if (argc == 1) {
-        run_prompt(vm);
-    } else if (argc == 2) {
-        run_file(vm, argv[1]);
-    } else {
-        std::cerr << "Usage: clox [path]\n";
-        exit(64);
+    VM vm {deferred_heap_main, interned_strings_main}; // [one]
+
+    try {
+        if (argc == 1) {
+            run_prompt(vm);
+        } else if (argc == 2) {
+            run_file(vm, argv[1]);
+        } else {
+            std::cerr << "Usage: clox [path]\n";
+            exit(64);
+        }
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << "\n";
+        exit(EXIT_FAILURE);
     }
 
     return 0;

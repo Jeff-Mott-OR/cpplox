@@ -1,16 +1,7 @@
 #pragma once
 
 #include <boost/variant.hpp>
-
-// #include "object_fwd.hpp"
-struct ObjString;
-struct ObjClass;
-struct ObjInstance;
-struct ObjFunction;
-struct ObjClosure;
-struct ObjBoundMethod;
-struct ObjNative;
-struct ObjUpvalue;
+#include "object_fwd.hpp"
 
 struct Value {
     boost::variant<

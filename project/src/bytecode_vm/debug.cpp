@@ -1,11 +1,10 @@
-#include <stdio.h>
-
-#include "debug.hpp"
-#include "object.hpp"
-#include "value.hpp"
-
 #include <iomanip>
 #include <iostream>
+
+#include "debug.hpp"
+
+#include "object.hpp"
+#include "value.hpp"
 
 namespace {
     int constant_instruction(const char* name, const Chunk& chunk, int instruction_offset) {
@@ -178,7 +177,7 @@ int disassemble_instruction(const Chunk& chunk, int instruction_offset) {
         case Op_code::method_:
             return constant_instruction("METHOD", chunk, instruction_offset);
         default:
-            printf("Unknown opcode %d\n", instruction);
+            std::cout << "Unknown opcode " << static_cast<int>(instruction) << "\n";
             return instruction_offset + 1;
     }
 }

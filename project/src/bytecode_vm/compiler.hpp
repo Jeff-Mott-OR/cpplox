@@ -1,9 +1,6 @@
-#ifndef clox_compiler_h
-#define clox_compiler_h
+#pragma once
 
 #include "object.hpp"
 #include "vm.hpp"
 
-ObjFunction* compile(const char* source);
-
-#endif
+ObjFunction* compile(const std::string& source, Deferred_heap&, Interned_strings&);

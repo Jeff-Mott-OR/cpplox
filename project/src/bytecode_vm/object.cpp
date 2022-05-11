@@ -7,100 +7,94 @@
 #include "vm.hpp"
 
 Deferred_heap::~Deferred_heap() {
-    for (const auto& ptr : deferred_ptrs) {
+    for (const auto& ptr : all_deferred_ptrs) {
         delete ptr;
     }
 }
 
-void Deferred_heap::destroy(Obj* ptr) {
-    bytesAllocated -= ptr->size();
-    deferred_ptrs.erase(
-        std::remove(deferred_ptrs.begin(), deferred_ptrs.end(), ptr),
-        deferred_ptrs.end()
-    );
-    delete ptr;
-}
-
 void Deferred_heap::collect() {
-  const auto do_mark_fn = [this] (Value value) {
-    this->mark(value);
-  };
-  for (const auto& cb : mark_callbacks) {
-    cb(do_mark_fn);
-  }
-
-  // traceReferences();
-      while (!gray_ptrs.empty()) {
-        const auto object = gray_ptrs.back();
-        gray_ptrs.pop_back();
-        object->blackenObject();
-      }
-
-  // Sweep interned strings
-  for (const auto objstrptr : interned_strings_) {
-    if (!objstrptr->isMarked) {
-      interned_strings_.erase(objstrptr);
-    }
-  }
-
-  // sweep();
-      std::vector<Obj*> marked;
-      std::copy_if(deferred_ptrs.begin(), deferred_ptrs.end(), std::back_inserter(marked), [&] (const auto& object) {
-        return object->isMarked;
-      });
-      std::vector<Obj*> unreached;
-      std::copy_if(deferred_ptrs.begin(), deferred_ptrs.end(), std::back_inserter(unreached), [&] (const auto& object) {
-        return ! object->isMarked;
-      });
-
-      for (const auto& object : marked) {
-        object->isMarked = false;
-      }
-      for (const auto& object : unreached) {
-        destroy(object);
-      }
-
-  nextGC = bytesAllocated * /*GC_HEAP_GROW_FACTOR*/ 2;
-}
-
-void Deferred_heap::mark(Obj& object) {
-    if (object.isMarked) {
-        return;
+    // Expected side-effect: gray_worklist will be populated
+    for (const auto& mark_roots_fn : mark_roots_callbacks) {
+        mark_roots_fn();
     }
 
-    object.isMarked = true;
-    gray_ptrs.push_back(&object);
+    while (!gray_worklist.empty()) {
+        const auto gray_ptr = gray_worklist.back();
+        gray_worklist.pop_back();
+
+        // Expected side-effect: add to gray_worklist until no more refs to trace
+        gray_ptr->trace_refs(*this);
+    }
+
+    // Reorder the ptrs in such a way that marked ptrs precede the not-marked ptrs.
+    // - The marked ptrs will be the sequence [ all_deferred_ptrs.begin(), not_marked_begin )
+    // - The not-marked ptrs will be the sequence [ not_marked_begin, all_deferred_ptrs.end() )
+    const auto not_marked_begin = std::partition(
+        all_deferred_ptrs.begin(), all_deferred_ptrs.end(),
+        [] (const auto& gc_ptr) { return gc_ptr->is_marked; }
+    );
+
+    // Destroy
+    std::for_each(not_marked_begin, all_deferred_ptrs.end(), [&] (const auto& gc_ptr) {
+        // Give clients a chance to prune their own data structures
+        for (const auto& on_destroy_fn : on_destroy_callbacks) {
+            on_destroy_fn(gc_ptr);
+        }
+
+        delete gc_ptr;
+    });
+    all_deferred_ptrs.erase(not_marked_begin, all_deferred_ptrs.end());
+
+    // Reset
+    for (const auto& gc_ptr : all_deferred_ptrs) {
+        gc_ptr->is_marked = false;
+    }
 }
 
 struct Mark_visitor : boost::static_visitor<void> {
     Deferred_heap& deferred_heap_;
 
-    explicit Mark_visitor(Deferred_heap& deferred_heap_arg) :
-        deferred_heap_ {deferred_heap_arg}
+    explicit Mark_visitor(Deferred_heap& deferred_heap) :
+        deferred_heap_ {deferred_heap}
     {}
 
-    // Primitives
+    // Primitives don't need to be marked
     auto operator()(std::nullptr_t) const {}
     auto operator()(bool) const {}
     auto operator()(double) const {}
 
-    auto operator()(ObjClass* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjInstance* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjFunction* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjClosure* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjBoundMethod* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjNative* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjString* obj) const { deferred_heap_.mark(*obj); }
-    auto operator()(ObjUpvalue* obj) const { deferred_heap_.mark(*obj); }
+    // All other object types get marked
+    template<typename ObjT>
+      auto operator()(ObjT* obj) const { deferred_heap_.mark(*obj); }
 };
 
 void Deferred_heap::mark(Value value) {
   boost::apply_visitor(Mark_visitor{*this}, value.variant);
 }
 
+void Deferred_heap::mark(GC_base& object) {
+    if (object.is_marked) {
+        return;
+    }
 
-Deferred_heap deferred_heap_;
+    object.is_marked = true;
+    gray_worklist.push_back(&object);
+}
 
-Interned_strings interned_strings_;
+// # interned.cpp
 
+Interned_strings::Interned_strings(Deferred_heap& deferred_heap) : deferred_heap_{deferred_heap} {}
 
+ObjString* Interned_strings::get(std::string&& new_string) {
+    const auto found_interned = std::find_if(cbegin(), cend(), [&] (const auto& interned_string) {
+        return new_string == interned_string->str;
+    });
+    if (found_interned != cend()) {
+        return *found_interned;
+    }
+
+    const auto interned_string = deferred_heap_.make<ObjString>(std::move(new_string));
+    insert(interned_string);
+
+    return interned_string;
+}

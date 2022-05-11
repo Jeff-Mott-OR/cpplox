@@ -104,11 +104,11 @@ auto expect_script_file_out_to_be(
 
 BOOST_AUTO_TEST_CASE(empty_file_test) { expect_script_file_out_to_be("empty_file.lox", ""); }
 BOOST_AUTO_TEST_CASE(precedence_test) { expect_script_file_out_to_be("precedence.lox", "14\n8\n4\n0\ntrue\ntrue\ntrue\ntrue\n0\n0\n0\n0\n4\n"); }
-// BOOST_AUTO_TEST_CASE(unexpected_character_test) { expect_script_file_out_to_be("unexpected_character.lox", "", "[Line 3] Error: Unexpected character.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(unexpected_character_test) { expect_script_file_out_to_be("unexpected_character.lox", "", "[Line 3] Error: Unexpected character.\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(assignment_associativity_test) { expect_script_file_out_to_be("assignment/associativity.lox", "c\nc\nc\n"); }
 BOOST_AUTO_TEST_CASE(assignment_global_test) { expect_script_file_out_to_be("assignment/global.lox", "before\nafter\narg\narg\n"); }
-// BOOST_AUTO_TEST_CASE(assignment_grouping_test) { expect_script_file_out_to_be("assignment/grouping.lox", "", "[Line 2] Error at '=': Invalid assignment target.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(assignment_grouping_test) { expect_script_file_out_to_be("assignment/grouping.lox", "", "[Line 2] Error at '=': Invalid assignment target.\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(assignment_infix_operator_test) { expect_script_file_out_to_be("assignment/infix_operator.lox", "", "[Line 3] Error at '=': Invalid assignment target.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(assignment_local_test) { expect_script_file_out_to_be("assignment/local.lox", "before\nafter\narg\narg\n"); }
 // BOOST_AUTO_TEST_CASE(assignment_prefix_operator_test) { expect_script_file_out_to_be("assignment/prefix_operator.lox", "", "[Line 2] Error at '=': Invalid assignment target.\n", EXIT_FAILURE); }
@@ -161,7 +161,7 @@ BOOST_AUTO_TEST_CASE(constructor_early_return_test) { expect_script_file_out_to_
 BOOST_AUTO_TEST_CASE(constructor_init_not_method_test) { expect_script_file_out_to_be("constructor/init_not_method.lox", "not initializer\n"); }
 // BOOST_AUTO_TEST_CASE(constructor_missing_arguments_test) { expect_script_file_out_to_be("constructor/missing_arguments.lox", "", "[Line 5] Error at ')': Expected 2 arguments but got 1.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(constructor_return_in_nested_function_test) { expect_script_file_out_to_be("constructor/return_in_nested_function.lox", "bar\nFoo instance\n"); }
-// BOOST_AUTO_TEST_CASE(constructor_return_value_test) { expect_script_file_out_to_be("constructor/return_value.lox", "", "[Line 3] Error at 'return': Cannot return a value from an initializer.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(constructor_return_value_test) { expect_script_file_out_to_be("constructor/return_value.lox", "", "[Line 3] Error at 'return': Cannot return a value from an initializer.\n\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(field_call_function_field_test) { expect_script_file_out_to_be("field/call_function_field.lox", "bar\n"); }
 // BOOST_AUTO_TEST_CASE(field_call_nonfunction_field_test) { expect_script_file_out_to_be("field/call_nonfunction_field.lox", "", "Can only call functions and classes.\n", EXIT_FAILURE); }
@@ -267,7 +267,7 @@ BOOST_AUTO_TEST_CASE(field_on_instance_test) { expect_script_file_out_to_be("fie
 // BOOST_AUTO_TEST_CASE(field_undefined_test) { expect_script_file_out_to_be("field/undefined.lox", "", "Undefined property 'bar'.\n", EXIT_FAILURE); }
 
 // BOOST_AUTO_TEST_CASE(for_break_continue_test) { expect_script_file_out_to_be("for/break_continue.lox", "0\n0\n2\n"); }
-// BOOST_AUTO_TEST_CASE(for_class_in_body_test) { expect_script_file_out_to_be("for/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(for_class_in_body_test) { expect_script_file_out_to_be("for/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(for_closure_in_body_test) { expect_script_file_out_to_be("for/closure_in_body.lox", "1\n2\n3\n"); }
 BOOST_AUTO_TEST_CASE(for_return_closure_test) { expect_script_file_out_to_be("for/return_closure.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(for_return_inside_test) { expect_script_file_out_to_be("for/return_inside.lox", "i\n"); }
@@ -278,7 +278,7 @@ BOOST_AUTO_TEST_CASE(for_scope_test) { expect_script_file_out_to_be("for/scope.l
 BOOST_AUTO_TEST_CASE(for_syntax_test) { expect_script_file_out_to_be("for/syntax.lox", "1\n2\n3\n0\n1\n2\ndone\n0\n1\n0\n1\n2\n0\n1\n"); }
 // BOOST_AUTO_TEST_CASE(for_var_in_body_test) { expect_script_file_out_to_be("for/var_in_body.lox", "", "[Line 2] Error at 'var': Expected expression.\n\n", EXIT_FAILURE); }
 
-// BOOST_AUTO_TEST_CASE(function_body_must_be_block_test) { expect_script_file_out_to_be("function/body_must_be_block.lox", "", "[Line 3] Error at '123': Expected '{' before function body.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(function_body_must_be_block_test) { expect_script_file_out_to_be("function/body_must_be_block.lox", "", "[Line 3] Error at '123': Expected '{' before function body.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_empty_body_test) { expect_script_file_out_to_be("function/empty_body.lox", "nil\n"); }
 // BOOST_AUTO_TEST_CASE(function_expr_empty_body_test) { expect_script_file_out_to_be("function/expr_empty_body.lox", "nil\n"); }
 // BOOST_AUTO_TEST_CASE(function_expr_name_test) { expect_script_file_out_to_be("function/expr_name.lox", "<fn [[anonymous]]>\n"); }
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_CASE(function_empty_body_test) { expect_script_file_out_to_be("f
 // BOOST_AUTO_TEST_CASE(function_local_mutual_recursion_test) { expect_script_file_out_to_be("function/local_mutual_recursion.lox", "", "Undefined variable 'isOdd'.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_local_recursion_test) { expect_script_file_out_to_be("function/local_recursion.lox", "21\n"); }
 // BOOST_AUTO_TEST_CASE(function_missing_arguments_test) { expect_script_file_out_to_be("function/missing_arguments.lox", "", "[Line 3] Error at ')': Expected 2 arguments but got 1.\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(function_missing_comma_in_parameters_test) { expect_script_file_out_to_be("function/missing_comma_in_parameters.lox", "", "[Line 3] Error at 'c': Expected ')' after parameters.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(function_missing_comma_in_parameters_test) { expect_script_file_out_to_be("function/missing_comma_in_parameters.lox", "", "[Line 3] Error at 'c': Expected ')' after parameters.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(function_mutual_recursion_test) { expect_script_file_out_to_be("function/mutual_recursion.lox", "true\ntrue\n"); }
 BOOST_AUTO_TEST_CASE(function_parameters_test) { expect_script_file_out_to_be("function/parameters.lox", "0\n1\n3\n6\n10\n15\n21\n28\n36\n"); }
 BOOST_AUTO_TEST_CASE(function_print_test) { expect_script_file_out_to_be("function/print.lox", "<fn foo>\n"); }
@@ -309,7 +309,7 @@ BOOST_AUTO_TEST_CASE(if_truth_test) { expect_script_file_out_to_be("if/truth.lox
 // BOOST_AUTO_TEST_CASE(inheritance_inherit_from_nil_test) { expect_script_file_out_to_be("inheritance/inherit_from_nil.lox", "", "[Line 2] Error at 'Nil': Superclass must be a class.\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(inheritance_inherit_from_number_test) { expect_script_file_out_to_be("inheritance/inherit_from_number.lox", "", "[Line 2] Error at 'Number': Superclass must be a class.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(inheritance_inherit_methods_test) { expect_script_file_out_to_be("inheritance/inherit_methods.lox", "foo\nbar\nbar\n"); }
-// BOOST_AUTO_TEST_CASE(inheritance_parenthesized_superclass_test) { expect_script_file_out_to_be("inheritance/parenthesized_superclass.lox", "", "[Line 4] Error at '(': Expected superclass name.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(inheritance_parenthesized_superclass_test) { expect_script_file_out_to_be("inheritance/parenthesized_superclass.lox", "", "[Line 4] Error at '(': Expected superclass name.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(inheritance_set_fields_from_base_class_test) { expect_script_file_out_to_be("inheritance/set_fields_from_base_class.lox", "foo 1\nfoo 2\nbar 1\nbar 2\nbar 1\nbar 2\n"); }
 
 BOOST_AUTO_TEST_CASE(logical_operator_and_test) { expect_script_file_out_to_be("logical_operator/and.lox", "false\n1\nfalse\ntrue\n3\ntrue\nfalse\n"); }
@@ -331,7 +331,7 @@ BOOST_AUTO_TEST_CASE(nil_literal_test) { expect_script_file_out_to_be("nil/liter
 // BOOST_AUTO_TEST_CASE(number_decimal_point_at_eof_test) { expect_script_file_out_to_be("number/decimal_point_at_eof.lox", "", "[Line 2] Error at end: Expected property name after '.'.\n\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(number_leading_dot_test) { expect_script_file_out_to_be("number/leading_dot.lox", "", "[Line 2] Error at '.': Expected expression.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(number_literals_test) { expect_script_file_out_to_be("number/literals.lox", "123\n987654\n0\n-0\n123.456\n-0.001\n"); }
-// BOOST_AUTO_TEST_CASE(number_trailing_dot_test) { expect_script_file_out_to_be("number/trailing_dot.lox", "", "[Line 2] Error at ';': Expected property name after '.'.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(number_trailing_dot_test) { expect_script_file_out_to_be("number/trailing_dot.lox", "", "[Line 2] Error at ';': Expected property name after '.'.\n\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(operator_add_test) { expect_script_file_out_to_be("operator/add.lox", "579\nstring\n"); }
 // BOOST_AUTO_TEST_CASE(operator_add_bool_nil_test) { expect_script_file_out_to_be("operator/add_bool_nil.lox", "", "Operands must be two numbers or two strings.\n", EXIT_FAILURE); }
@@ -367,14 +367,14 @@ BOOST_AUTO_TEST_CASE(operator_subtract_test) { expect_script_file_out_to_be("ope
 // BOOST_AUTO_TEST_CASE(operator_subtract_nonnum_num_test) { expect_script_file_out_to_be("operator/subtract_nonnum_num.lox", "", "[Line 1] Error at '-': Operands must be numbers.\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(operator_subtract_num_nonnum_test) { expect_script_file_out_to_be("operator/subtract_num_nonnum.lox", "", "[Line 1] Error at '-': Operands must be numbers.\n", EXIT_FAILURE); }
 
-// BOOST_AUTO_TEST_CASE(print_missing_argument_test) { expect_script_file_out_to_be("print/missing_argument.lox", "", "[Line 2] Error at ';': Expected expression.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(print_missing_argument_test) { expect_script_file_out_to_be("print/missing_argument.lox", "", "[Line 2] Error at ';': Expected expression.\n\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(regression_40_test) { expect_script_file_out_to_be("regression/40.lox", "false\n"); }
 
 BOOST_AUTO_TEST_CASE(return_after_else_test) { expect_script_file_out_to_be("return/after_else.lox", "ok\n"); }
 BOOST_AUTO_TEST_CASE(return_after_if_test) { expect_script_file_out_to_be("return/after_if.lox", "ok\n"); }
 BOOST_AUTO_TEST_CASE(return_after_while_test) { expect_script_file_out_to_be("return/after_while.lox", "ok\n"); }
-// BOOST_AUTO_TEST_CASE(return_at_top_level_test) { expect_script_file_out_to_be("return/at_top_level.lox", "", "[Line 1] Error at 'return': Cannot return from top-level code.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(return_at_top_level_test) { expect_script_file_out_to_be("return/at_top_level.lox", "", "[Line 1] Error at 'return': Cannot return from top-level code.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(return_in_function_test) { expect_script_file_out_to_be("return/in_function.lox", "ok\n"); }
 BOOST_AUTO_TEST_CASE(return_in_method_test) { expect_script_file_out_to_be("return/in_method.lox", "ok\n"); }
 BOOST_AUTO_TEST_CASE(return_return_nil_if_no_value_test) { expect_script_file_out_to_be("return/return_nil_if_no_value.lox", "nil\n"); }
@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE(return_return_nil_if_no_value_test) { expect_script_file_ou
 // BOOST_AUTO_TEST_CASE(string_error_after_multiline_test) { expect_script_file_out_to_be("string/error_after_multiline.lox", "", "Undefined variable 'err'.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(string_literals_test) { expect_script_file_out_to_be("string/literals.lox", "()\na string\nA~¶Þॐஃ\n"); }
 BOOST_AUTO_TEST_CASE(string_multiline_test) { expect_script_file_out_to_be("string/multiline.lox", "1\n2\n3\n"); }
-// BOOST_AUTO_TEST_CASE(string_unterminated_test) { expect_script_file_out_to_be("string/unterminated.lox", "", "[Line 2] Error: Unterminated string.\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(string_unterminated_test) { expect_script_file_out_to_be("string/unterminated.lox", "", "[Line 2] Error: Unterminated string.\n", EXIT_FAILURE); }
 
 BOOST_AUTO_TEST_CASE(super_bound_method_test) { expect_script_file_out_to_be("super/bound_method.lox", "A.method(arg)\n"); }
 BOOST_AUTO_TEST_CASE(super_call_other_method_test) { expect_script_file_out_to_be("super/call_other_method.lox", "Derived.bar()\nBase.foo()\n"); }
@@ -392,29 +392,29 @@ BOOST_AUTO_TEST_CASE(super_constructor_test) { expect_script_file_out_to_be("sup
 // BOOST_AUTO_TEST_CASE(super_extra_arguments_test) { expect_script_file_out_to_be("super/extra_arguments.lox", "Derived.foo()\n", "[Line 10] Error at ')': Expected 2 arguments but got 4.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(super_indirectly_inherited_test) { expect_script_file_out_to_be("super/indirectly_inherited.lox", "C.foo()\nA.foo()\n"); }
 // BOOST_AUTO_TEST_CASE(super_missing_arguments_test) { expect_script_file_out_to_be("super/missing_arguments.lox", "", "[Line 9] Error at ')': Expected 2 arguments but got 1.\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(super_no_superclass_bind_test) { expect_script_file_out_to_be("super/no_superclass_bind.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(super_no_superclass_call_test) { expect_script_file_out_to_be("super/no_superclass_call.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_no_superclass_bind_test) { expect_script_file_out_to_be("super/no_superclass_bind.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_no_superclass_call_test) { expect_script_file_out_to_be("super/no_superclass_call.lox", "", "[Line 3] Error at 'super': Cannot use 'super' in a class with no superclass.\n\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(super_no_superclass_method_test) { expect_script_file_out_to_be("super/no_superclass_method.lox", "", "Undefined property 'doesNotExist'.\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(super_parenthesized_test) { expect_script_file_out_to_be("super/parenthesized.lox", "", "[Line 8] Error at ')': Expected '.' after 'super'.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_parenthesized_test) { expect_script_file_out_to_be("super/parenthesized.lox", "", "[Line 8] Error at ')': Expected '.' after 'super'.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(super_reassign_superclass_test) { expect_script_file_out_to_be("super/reassign_superclass.lox", "Base.method()\nBase.method()\n"); }
 // BOOST_AUTO_TEST_CASE(super_super_at_top_level_test) { expect_script_file_out_to_be("super/super_at_top_level.lox", "", "[Line 1] Error at 'super': Cannot use 'super' outside of a class.\n[Line 2] Error at 'super': Cannot use 'super' outside of a class.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(super_super_in_closure_in_inherited_method_test) { expect_script_file_out_to_be("super/super_in_closure_in_inherited_method.lox", "A\n"); }
 BOOST_AUTO_TEST_CASE(super_super_in_inherited_method_test) { expect_script_file_out_to_be("super/super_in_inherited_method.lox", "A\n"); }
-// BOOST_AUTO_TEST_CASE(super_super_in_top_level_function_test) { expect_script_file_out_to_be("super/super_in_top_level_function.lox", "", "[Line 2] Error at 'super': Cannot use 'super' outside of a class.\n\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(super_super_without_dot_test) { expect_script_file_out_to_be("super/super_without_dot.lox", "", "[Line 6] Error at ';': Expected '.' after 'super'.\n\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(super_super_without_name_test) { expect_script_file_out_to_be("super/super_without_name.lox", "", "[Line 5] Error at ';': Expected superclass method name.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_in_top_level_function_test) { expect_script_file_out_to_be("super/super_in_top_level_function.lox", "", "[Line 2] Error at 'super': Cannot use 'super' outside of a class.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_without_dot_test) { expect_script_file_out_to_be("super/super_without_dot.lox", "", "[Line 6] Error at ';': Expected '.' after 'super'.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(super_super_without_name_test) { expect_script_file_out_to_be("super/super_without_name.lox", "", "[Line 5] Error at ';': Expected superclass method name.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(super_this_in_superclass_method_test) { expect_script_file_out_to_be("super/this_in_superclass_method.lox", "a\nb\n"); }
 
 BOOST_AUTO_TEST_CASE(this_closure_test) { expect_script_file_out_to_be("this/closure.lox", "Foo\n"); }
 BOOST_AUTO_TEST_CASE(this_nested_class_test) { expect_script_file_out_to_be("this/nested_class.lox", "Outer instance\nOuter instance\nInner instance\n"); }
 BOOST_AUTO_TEST_CASE(this_nested_closure_test) { expect_script_file_out_to_be("this/nested_closure.lox", "Foo\n"); }
-// BOOST_AUTO_TEST_CASE(this_this_at_top_level_test) { expect_script_file_out_to_be("this/this_at_top_level.lox", "", "[Line 1] Error at 'this': Cannot use 'this' outside of a class.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(this_this_at_top_level_test) { expect_script_file_out_to_be("this/this_at_top_level.lox", "", "[Line 1] Error at 'this': Cannot use 'this' outside of a class.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(this_this_in_method_test) { expect_script_file_out_to_be("this/this_in_method.lox", "baz\n"); }
-// BOOST_AUTO_TEST_CASE(this_this_in_top_level_function_test) { expect_script_file_out_to_be("this/this_in_top_level_function.lox", "", "[Line 2] Error at 'this': Cannot use 'this' outside of a class.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(this_this_in_top_level_function_test) { expect_script_file_out_to_be("this/this_in_top_level_function.lox", "", "[Line 2] Error at 'this': Cannot use 'this' outside of a class.\n\n", EXIT_FAILURE); }
 
-// BOOST_AUTO_TEST_CASE(variable_collide_with_parameter_test) { expect_script_file_out_to_be("variable/collide_with_parameter.lox", "", "[Line 2] Error at 'a': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(variable_duplicate_local_test) { expect_script_file_out_to_be("variable/duplicate_local.lox", "", "[Line 3] Error at 'a': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
-// BOOST_AUTO_TEST_CASE(variable_duplicate_parameter_test) { expect_script_file_out_to_be("variable/duplicate_parameter.lox", "", "[Line 2] Error at 'arg': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(variable_collide_with_parameter_test) { expect_script_file_out_to_be("variable/collide_with_parameter.lox", "", "[Line 2] Error at 'a': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(variable_duplicate_local_test) { expect_script_file_out_to_be("variable/duplicate_local.lox", "", "[Line 3] Error at 'a': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(variable_duplicate_parameter_test) { expect_script_file_out_to_be("variable/duplicate_parameter.lox", "", "[Line 2] Error at 'arg': Variable with this name already declared in this scope.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(variable_early_bound_test) { expect_script_file_out_to_be("variable/early_bound.lox", "outer\nouter\n"); }
 BOOST_AUTO_TEST_CASE(variable_in_middle_of_block_test) { expect_script_file_out_to_be("variable/in_middle_of_block.lox", "a\na b\na c\na b d\n"); }
 BOOST_AUTO_TEST_CASE(variable_in_nested_block_test) { expect_script_file_out_to_be("variable/in_nested_block.lox", "outer\n"); }
@@ -431,14 +431,14 @@ BOOST_AUTO_TEST_CASE(variable_uninitialized_test) { expect_script_file_out_to_be
 BOOST_AUTO_TEST_CASE(variable_unreached_undefined_test) { expect_script_file_out_to_be("variable/unreached_undefined.lox", "ok\n"); }
 // BOOST_AUTO_TEST_CASE(variable_use_false_as_var_test) { expect_script_file_out_to_be("variable/use_false_as_var.lox", "", "[Line 2] Error at 'false': Expected variable name.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(variable_use_global_in_initializer_test) { expect_script_file_out_to_be("variable/use_global_in_initializer.lox", "value\n"); }
-// BOOST_AUTO_TEST_CASE(variable_use_local_in_initializer_test) { expect_script_file_out_to_be("variable/use_local_in_initializer.lox", "", "[Line 3] Error at 'a': Cannot read local variable in its own initializer.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(variable_use_local_in_initializer_test) { expect_script_file_out_to_be("variable/use_local_in_initializer.lox", "", "[Line 3] Error at 'a': Cannot read local variable in its own initializer.\n\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(variable_use_nil_as_var_test) { expect_script_file_out_to_be("variable/use_nil_as_var.lox", "", "[Line 2] Error at 'nil': Expected variable name.\n\n", EXIT_FAILURE); }
 // BOOST_AUTO_TEST_CASE(variable_use_this_as_var_test) { expect_script_file_out_to_be("variable/use_this_as_var.lox", "", "[Line 2] Error at 'this': Expected variable name.\n\n", EXIT_FAILURE); }
 
 // BOOST_AUTO_TEST_CASE(while_break_continue_test) { expect_script_file_out_to_be("while/break_continue.lox", "1\n1\n3\n"); }
-// BOOST_AUTO_TEST_CASE(while_class_in_body_test) { expect_script_file_out_to_be("while/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(while_class_in_body_test) { expect_script_file_out_to_be("while/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(while_closure_in_body_test) { expect_script_file_out_to_be("while/closure_in_body.lox", "1\n2\n3\n"); }
 BOOST_AUTO_TEST_CASE(while_return_closure_test) { expect_script_file_out_to_be("while/return_closure.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(while_return_inside_test) { expect_script_file_out_to_be("while/return_inside.lox", "i\n"); }
 BOOST_AUTO_TEST_CASE(while_syntax_test) { expect_script_file_out_to_be("while/syntax.lox", "1\n2\n3\n0\n1\n2\n"); }
-// BOOST_AUTO_TEST_CASE(while_var_in_body_test) { expect_script_file_out_to_be("while/var_in_body.lox", "", "[Line 2] Error at 'var': Expected expression.\n\n", EXIT_FAILURE); }
+BOOST_AUTO_TEST_CASE(while_var_in_body_test) { expect_script_file_out_to_be("while/var_in_body.lox", "", "[Line 2] Error at 'var': Expected expression.\n\n", EXIT_FAILURE); }

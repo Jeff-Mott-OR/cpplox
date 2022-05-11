@@ -133,7 +133,8 @@ namespace {
 
     struct Call_visitor : boost::static_visitor<bool> {
         int argCount;
-        explicit Call_visitor(int argCount_arg) : argCount{argCount_arg} {}
+        VM& vmr_;
+        explicit Call_visitor(VM& vmr, int argCount_arg) : argCount{argCount_arg}, vmr_ {vmr} {}
 
         auto operator()(ObjBoundMethod* bound) const {
             *(vmp->stack.end() - argCount - 1) = bound->receiver;
@@ -141,8 +142,8 @@ namespace {
         }
 
         auto operator()(ObjClass* klass) const {
-            *(vmp->stack.end() - argCount - 1) = Value{deferred_heap_.make<ObjInstance>(klass)};
-            const auto initializer_iter = klass->methods.find(interned_strings_.get("init"));
+            *(vmp->stack.end() - argCount - 1) = Value{vmr_.deferred_heap_.make<ObjInstance>(klass)};
+            const auto initializer_iter = klass->methods.find(vmr_.interned_strings_.get("init"));
             if (initializer_iter != klass->methods.end()) {
               return call(boost::get<ObjClosure*>(initializer_iter->second.variant), argCount);
             } else if (argCount != 0) {
@@ -171,8 +172,8 @@ namespace {
           }
     };
 
-    bool call_value(Value callee, int argCount) {
-        Call_visitor call_visitor {argCount};
+    bool call_value(VM& vmr, Value callee, int argCount) {
+        Call_visitor call_visitor {vmr, argCount};
         return boost::apply_visitor(call_visitor, callee.variant);
     }
 }
@@ -187,7 +188,7 @@ static bool invokeFromClass(ObjClass* klass, ObjString* name,
 
   return call(boost::get<ObjClosure*>(method_iter->second.variant), argCount);
 }
-static bool invoke(ObjString* name, int argCount) {
+static bool invoke(VM& vmr, ObjString* name, int argCount) {
   Value receiver = peek(argCount);
 
   if (!boost::apply_visitor(Is_instance_visitor{}, receiver.variant)) {
@@ -200,12 +201,12 @@ static bool invoke(ObjString* name, int argCount) {
   const auto value_iter = instance->fields.find(name);
   if (value_iter != instance->fields.end()) {
     *(vmp->stack.end() - argCount - 1) = value_iter->second;
-    return call_value(value_iter->second, argCount);
+    return call_value(vmr, value_iter->second, argCount);
   }
 
   return invokeFromClass(instance->klass, name, argCount);
 }
-static bool bindMethod(ObjClass* klass, ObjString* name) {
+static bool bindMethod(VM& vmr, ObjClass* klass, ObjString* name) {
 
   const auto method_iter = klass->methods.find(name);
   if (method_iter == klass->methods.end()) {
@@ -213,18 +214,18 @@ static bool bindMethod(ObjClass* klass, ObjString* name) {
     return false;
   }
 
-  ObjBoundMethod* bound = deferred_heap_.make<ObjBoundMethod>(peek(0), boost::get<ObjClosure*>(method_iter->second.variant));
+  ObjBoundMethod* bound = vmr.deferred_heap_.make<ObjBoundMethod>(peek(0), boost::get<ObjClosure*>(method_iter->second.variant));
   pop();
   vmp->stack.push_back(Value{bound});
   return true;
 }
-static ObjUpvalue* captureUpvalue(Value* local) {
+static ObjUpvalue* captureUpvalue(VM& vmr, Value* local) {
   const auto upvalue_iter = std::find_if(vmp->open_upvalues.begin(), vmp->open_upvalues.end(), [&] (const auto& upvalue) {
     return upvalue->location == local;
   });
   if (upvalue_iter != vmp->open_upvalues.end()) return *upvalue_iter;
 
-  ObjUpvalue* createdUpvalue = deferred_heap_.make<ObjUpvalue>(local);
+  ObjUpvalue* createdUpvalue = vmr.deferred_heap_.make<ObjUpvalue>(local);
 
   const auto upvalue_insert_iter = std::find_if(vmp->open_upvalues.begin(), vmp->open_upvalues.end(), [&] (const auto& upvalue) {
     return upvalue->location < local;
@@ -252,18 +253,18 @@ static void defineMethod(ObjString* name) {
   pop();
 }
 
-static void concatenate() {
+static void concatenate(VM& vmr) {
   ObjString* b = boost::get<ObjString*>((peek(0).variant));
   ObjString* a = boost::get<ObjString*>((peek(1).variant));
 
-  ObjString* result = interned_strings_.get(a->str + b->str);
+  ObjString* result = vmr.interned_strings_.get(a->str + b->str);
 
   pop();
   pop();
   vmp->stack.push_back(Value{result});
 }
 
-static InterpretResult run() {
+static InterpretResult run(VM& vmr) {
   CallFrame* frame = &vmp->frames.back();
 
 #define READ_BYTE() (*frame->ip++)
@@ -291,8 +292,7 @@ static InterpretResult run() {
       std::cout << "[ " << *slot << " ]";
     }
     printf("\n");
-    disassembleInstruction(&frame->closure->function->chunk,
-        (int)(frame->ip - frame->closure->function->chunk.code.data()));
+    disassemble_instruction(frame->closure->function->chunk, static_cast<int>(frame->ip - frame->closure->function->chunk.code.data()));
 #endif
 
     auto instruction = static_cast<Op_code>(READ_BYTE());
@@ -376,7 +376,7 @@ static InterpretResult run() {
           break;
         }
 
-        if (!bindMethod(instance->klass, name)) {
+        if (!bindMethod(vmr, instance->klass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -400,7 +400,7 @@ static InterpretResult run() {
       case Op_code::get_super_: {
         ObjString* name = READ_STRING();
         ObjClass* superclass = boost::get<ObjClass*>((pop().variant));
-        if (!bindMethod(superclass, name)) {
+        if (!bindMethod(vmr, superclass, name)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         break;
@@ -417,7 +417,7 @@ static InterpretResult run() {
       case Op_code::less_:     BINARY_OP(<); break;
       case Op_code::add_: {
         if (boost::apply_visitor(Is_string_visitor{}, (peek(0)).variant) && boost::apply_visitor(Is_string_visitor{}, (peek(1)).variant)) {
-          concatenate();
+          concatenate(vmr);
         } else if (boost::apply_visitor(Is_number_visitor{}, (peek(0)).variant) && boost::apply_visitor(Is_number_visitor{}, (peek(1)).variant)) {
           double b = boost::get<double>((pop()).variant);
           double a = boost::get<double>((pop()).variant);
@@ -468,7 +468,7 @@ static InterpretResult run() {
 
       case Op_code::call_: {
         int argCount = READ_BYTE();
-        if (!call_value(peek(argCount), argCount)) {
+        if (!call_value(vmr, peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vmp->frames.back();
@@ -478,7 +478,7 @@ static InterpretResult run() {
       case Op_code::invoke_: {
         ObjString* method = READ_STRING();
         int argCount = READ_BYTE();
-        if (!invoke(method, argCount)) {
+        if (!invoke(vmr, method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vmp->frames.back();
@@ -498,13 +498,13 @@ static InterpretResult run() {
 
       case Op_code::closure_: {
         ObjFunction* function = boost::get<ObjFunction*>((READ_CONSTANT().variant));
-        ObjClosure* closure = deferred_heap_.make<ObjClosure>(function);
+        ObjClosure* closure = vmr.deferred_heap_.make<ObjClosure>(function);
         vmp->stack.push_back(Value{closure});
         for (int i = 0; i < closure->function->upvalueCount; i++) {
           uint8_t isLocal = READ_BYTE();
           uint8_t index = READ_BYTE();
           if (isLocal) {
-            closure->upvalues.push_back(captureUpvalue(&*(frame->slots + index)));
+            closure->upvalues.push_back(captureUpvalue(vmr, &*(frame->slots + index)));
           } else {
             closure->upvalues.push_back(frame->closure->upvalues.at(index));
           }
@@ -536,7 +536,7 @@ static InterpretResult run() {
       }
 
       case Op_code::class_:
-        vmp->stack.push_back(Value{deferred_heap_.make<ObjClass>(READ_STRING())});
+        vmp->stack.push_back(Value{vmr.deferred_heap_.make<ObjClass>(READ_STRING())});
         break;
 
       case Op_code::inherit_: {
@@ -566,21 +566,15 @@ static InterpretResult run() {
 #undef READ_STRING
 #undef BINARY_OP
 }
-void hack(bool b) {
-  // Hack to avoid unused function error. run() is not used in the
-  // scanning chapter.
-  run();
-  if (b) hack(false);
-}
-InterpretResult interpret(VM& /*vmr*/, const char* source) {
-  ObjFunction* function = compile(source);
+InterpretResult interpret(VM& vmr, const std::string& source) {
+  ObjFunction* function = compile(source, vmr.deferred_heap_, vmr.interned_strings_);
   if (function == NULL) return INTERPRET_COMPILE_ERROR;
 
   vmp->stack.push_back(Value{function});
-  ObjClosure* closure = deferred_heap_.make<ObjClosure>(function);
+  ObjClosure* closure = vmr.deferred_heap_.make<ObjClosure>(function);
   pop();
   vmp->stack.push_back(Value{closure});
-  call_value(Value{closure}, 0);
+  call_value(vmr, Value{closure}, 0);
 
-  return run();
+  return run(vmr);
 }

@@ -25,30 +25,35 @@ struct VM {
   std::vector<CallFrame> frames;
   std::unordered_map<ObjString*, Value> globals;
   std::list<ObjUpvalue*> open_upvalues;
+  Deferred_heap& deferred_heap_;
+  Interned_strings& interned_strings_;
 
-  explicit VM() {
-    deferred_heap_.mark_callbacks.push_back([this] (auto do_mark) {
+  explicit VM(Deferred_heap& deferred_heap, Interned_strings& interned_strings) :
+    deferred_heap_ {deferred_heap}, interned_strings_ {interned_strings}
+  {
+    deferred_heap_.mark_roots_callbacks.push_back([this] () {
       // markRoots();
           for (auto slot = this->stack.begin(); slot != this->stack.end(); slot++) {
-            do_mark(*slot);
+            deferred_heap_.mark(*slot);
           }
 
           for (const auto frame : this->frames) {
-            do_mark(Value{frame.closure});
+            deferred_heap_.mark(Value{frame.closure});
           }
 
           for (const auto& upvalue : this->open_upvalues) {
-            do_mark(Value{upvalue});
+            deferred_heap_.mark(Value{upvalue});
           }
 
           // markTable(&this->globals);
               for (const auto& pair : this->globals) {
-                do_mark(Value{pair.first});
-                do_mark(pair.second);
+                deferred_heap_.mark(Value{pair.first});
+                deferred_heap_.mark(pair.second);
               }
-
-          markCompilerRoots();
-
+    });
+    deferred_heap_.on_destroy_callbacks.push_back([this] (GC_base* ptr) {
+      // Most destroyed pointers won't be for an interned string, but if ptr isn't in the interned map when we call erase, then no harm done.
+      interned_strings_.erase(static_cast<ObjString*>(ptr));
     });
     vmp = this;
     stack.reserve(STACK_MAX); // avoid invalidating iterators
@@ -64,7 +69,7 @@ typedef enum {
   INTERPRET_RUNTIME_ERROR
 } InterpretResult;
 
-InterpretResult interpret(VM&, const char* source);
+InterpretResult interpret(VM&, const std::string& source);
 Value pop();
 
 #endif
