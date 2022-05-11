@@ -48,6 +48,25 @@ target_compile_options(cpplox PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-W
 # anything that isn't MSVC is GNU or GNU- compatible.
 target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
 
+# Bytecode VM
+add_executable(
+    cpploxbc
+        src/bytecode_vm/main.c
+        src/bytecode_vm/chunk.c
+        src/bytecode_vm/compiler.c
+        src/bytecode_vm/debug.c
+        src/bytecode_vm/memory.c
+        src/bytecode_vm/object.c
+        src/bytecode_vm/scanner.c
+        src/bytecode_vm/table.c
+        src/bytecode_vm/value.c
+        src/bytecode_vm/vm.c
+)
+target_compile_features(cpploxbc PRIVATE cxx_std_14)
+install(TARGETS cpploxbc DESTINATION ./)
+target_compile_options(cpploxbc PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>")
+target_compile_options(cpploxbc PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)
+
 if(ENABLE_TESTING)
     add_executable(test_harness test/main.cpp)
     target_compile_features(test_harness PRIVATE cxx_std_14)

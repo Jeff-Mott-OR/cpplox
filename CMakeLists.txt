@@ -75,7 +75,7 @@ ExternalProject_Add(
     URL https://github.com/Microsoft/GSL/archive/1f87ef73f1477e8adafa8b10ccee042897612a20.zip
     DEPENDS python_patch
     EXCLUDE_FROM_ALL TRUE
-    PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+    PATCH_COMMAND python "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
         "${CMAKE_CURRENT_SOURCE_DIR}/patch/gsl/final_action_move_assign.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
@@ -87,7 +87,7 @@ ExternalProject_Add(
     DEPENDS gsl python_patch
     URL https://github.com/hsutter/gcpp/archive/3be430dd62fe29e92b42c66fd1f9ee3803edbca4.zip
     EXCLUDE_FROM_ALL TRUE
-    PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+    PATCH_COMMAND python "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
         "${CMAKE_CURRENT_SOURCE_DIR}/patch/gcpp/static_pointer_cast.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
