@@ -1,7 +1,7 @@
 #ifndef clox_value_h
 #define clox_value_h
 
-#include "common.h"
+#include "common.hpp"
 
 typedef struct sObj Obj;
 typedef struct sObjString ObjString;

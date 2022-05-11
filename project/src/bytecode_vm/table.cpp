@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "memory.h"
-#include "object.h"
-#include "table.h"
-#include "value.h"
+#include "memory.hpp"
+#include "object.hpp"
+#include "table.hpp"
+#include "value.hpp"
 
 #define TABLE_MAX_LOAD 0.75
 

@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "object.h"
-#include "memory.h"
-#include "value.h"
+#include "object.hpp"
+#include "memory.hpp"
+#include "value.hpp"
 
 void initValueArray(ValueArray* array) {
   array->values = NULL;

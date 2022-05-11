@@ -51,16 +51,16 @@ target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtt
 # Bytecode VM
 add_executable(
     cpploxbc
-        src/bytecode_vm/main.c
-        src/bytecode_vm/chunk.c
-        src/bytecode_vm/compiler.c
-        src/bytecode_vm/debug.c
-        src/bytecode_vm/memory.c
-        src/bytecode_vm/object.c
-        src/bytecode_vm/scanner.c
-        src/bytecode_vm/table.c
-        src/bytecode_vm/value.c
-        src/bytecode_vm/vm.c
+        src/bytecode_vm/main.cpp
+        src/bytecode_vm/chunk.cpp
+        src/bytecode_vm/compiler.cpp
+        src/bytecode_vm/debug.cpp
+        src/bytecode_vm/memory.cpp
+        src/bytecode_vm/object.cpp
+        src/bytecode_vm/scanner.cpp
+        src/bytecode_vm/table.cpp
+        src/bytecode_vm/value.cpp
+        src/bytecode_vm/vm.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)
 install(TARGETS cpploxbc DESTINATION ./)
@@ -85,6 +85,12 @@ if(ENABLE_TESTING)
             --cpplox-file "$<TARGET_FILE:cpplox>"
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
     )
+    add_test(
+        NAME test_harness_bc
+        COMMAND test_harness --
+            --cpplox-file "$<TARGET_FILE:cpploxbc>"
+            --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/test/scripts"
+    )
 
     find_program(VALGRIND_COMMAND valgrind)
     message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
@@ -94,6 +100,12 @@ if(ENABLE_TESTING)
             COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpplox>" "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
         )
         set_tests_properties(valgrind PROPERTIES PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts")
+
+        add_test(
+            NAME valgrind_bc
+            COMMAND "${VALGRIND_COMMAND}" "$<TARGET_FILE:cpploxbc>" "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts/fib.lox"
+        )
+        set_tests_properties(valgrind_bc PROPERTIES PASS_REGULAR_EXPRESSION "ERROR SUMMARY: 0 errors from 0 contexts")
     endif()
 
     add_executable(bench_harness bench/main.cpp)
@@ -117,6 +129,7 @@ if(ENABLE_TESTING)
         bench
         bench_harness
             --cpplox-file "$<TARGET_FILE:cpplox>"
+            --cpploxbc-file "$<TARGET_FILE:cpploxbc>"
             --test-scripts-path "${CMAKE_CURRENT_SOURCE_DIR}/bench/scripts"
             --jlox-file "$<IF:$<STREQUAL:${JLOX_RUN_SCRIPT},JLOX_RUN_SCRIPT-NOTFOUND>,\"\",${JLOX_RUN_SCRIPT}>"
             --node-file "$<IF:$<STREQUAL:${NODE_COMMAND},NODE_COMMAND-NOTFOUND>,\"\",${NODE_COMMAND}>"

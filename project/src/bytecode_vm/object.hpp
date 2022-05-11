@@ -1,10 +1,10 @@
 #ifndef clox_object_h
 #define clox_object_h
 
-#include "common.h"
-#include "chunk.h"
-#include "table.h"
-#include "value.h"
+#include "common.hpp"
+#include "chunk.hpp"
+#include "table.hpp"
+#include "value.hpp"
 
 #define OBJ_TYPE(value)         (AS_OBJ(value)->type)
 

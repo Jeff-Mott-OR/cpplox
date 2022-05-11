@@ -3,12 +3,12 @@
 #include <string.h>
 #include <time.h>
 
-#include "common.h"
-#include "compiler.h"
-#include "debug.h"
-#include "object.h"
-#include "memory.h"
-#include "vm.h"
+#include "common.hpp"
+#include "compiler.hpp"
+#include "debug.hpp"
+#include "object.hpp"
+#include "memory.hpp"
+#include "vm.hpp"
 
 VM vm; // [one]
 static Value clockNative(int argCount, Value* args) {

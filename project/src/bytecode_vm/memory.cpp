@@ -1,12 +1,12 @@
 #include <stdlib.h>
 
-#include "compiler.h"
-#include "memory.h"
-#include "vm.h"
+#include "compiler.hpp"
+#include "memory.hpp"
+#include "vm.hpp"
 
 #ifdef DEBUG_LOG_GC
 #include <stdio.h>
-#include "debug.h"
+#include "debug.hpp"
 #endif
 
 #define GC_HEAP_GROW_FACTOR 2
@@ -47,7 +47,7 @@ void markObject(Obj* object) {
 
   if (vm.grayCapacity < vm.grayCount + 1) {
     vm.grayCapacity = GROW_CAPACITY(vm.grayCapacity);
-    vm.grayStack = realloc(vm.grayStack,
+    vm.grayStack = (Obj**)realloc(vm.grayStack,
                            sizeof(Obj*) * vm.grayCapacity);
   }
 

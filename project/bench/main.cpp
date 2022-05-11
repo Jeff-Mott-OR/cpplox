@@ -23,6 +23,7 @@ int main(int argc, /*const*/ char* argv[]) {
     options_description.add_options()
         ("help", "Print usage information and exit.")
         ("cpplox-file", program_options::value<string>(), "Required. File path to cpplox executable.")
+        ("cpploxbc-file", program_options::value<string>(), "File path to cpploxbc executable.")
         ("test-scripts-path", program_options::value<string>(), "Required. Path to test scripts.")
         ("jlox-file", program_options::value<string>(), "File path to jlox run cmake script.")
         ("node-file", program_options::value<string>(), "File path to node executable.");
@@ -41,7 +42,7 @@ int main(int argc, /*const*/ char* argv[]) {
         return 0;
     }
 
-    for (string script_name : {"binary_trees", "equality", "fib", "invocation", "properties", "string_equality"}) {
+    for (string script_name : {"binary_trees", "equality", "fib", "invocation", "properties"/*, "string_equality"*/}) {
         benchmark::RegisterBenchmark(("cpplox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
             const auto cpplox = variables_map.at("cpplox-file").as<string>();
             const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";
@@ -56,6 +57,19 @@ int main(int argc, /*const*/ char* argv[]) {
                 process::system(cmd, process::std_out > cpplox_out);
             }
         });
+
+        if (variables_map.count("cpploxbc-file") && variables_map.at("cpploxbc-file").as<string>().size()) {
+            benchmark::RegisterBenchmark(("cpploxbc_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
+                const auto cpploxbc = variables_map.at("cpploxbc-file").as<string>();
+                const auto test_script = variables_map.at("test-scripts-path").as<string>() + "/" + script_name + ".lox";
+                const auto cmd = "\"" + cpploxbc + "\" \"" + test_script + "\"";
+
+                for (auto _ : state) {
+                    process::ipstream cpploxbc_out;
+                    process::system(cmd, process::std_out > cpploxbc_out);
+                }
+            });
+        }
 
         if (variables_map.count("jlox-file") && variables_map.at("jlox-file").as<string>().size()) {
             benchmark::RegisterBenchmark(("jlox_" + script_name).c_str(), [script_name, &variables_map] (benchmark::State& state) {
