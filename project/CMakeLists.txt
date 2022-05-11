@@ -52,17 +52,16 @@ target_compile_options(cpplox PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtt
 add_executable(
     cpploxbc
         src/bytecode_vm/main.cpp
-        src/bytecode_vm/chunk.cpp
         src/bytecode_vm/compiler.cpp
         src/bytecode_vm/debug.cpp
-        src/bytecode_vm/memory.cpp
         src/bytecode_vm/object.cpp
         src/bytecode_vm/scanner.cpp
-        src/bytecode_vm/table.cpp
         src/bytecode_vm/value.cpp
         src/bytecode_vm/vm.cpp
 )
 target_compile_features(cpploxbc PRIVATE cxx_std_14)
+target_link_libraries(cpploxbc PRIVATE Boost::boost)
+target_include_directories(cpploxbc PRIVATE "${GSL_INCLUDE_DIR}")
 install(TARGETS cpploxbc DESTINATION ./)
 target_compile_options(cpploxbc PRIVATE "$<IF:$<CXX_COMPILER_ID:MSVC>,/W4,-Wall;-Wextra;-Wno-unknown-pragmas>")
 target_compile_options(cpploxbc PRIVATE $<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>)

@@ -1,160 +1,106 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "memory.hpp"
+#include "compiler.hpp"
 #include "object.hpp"
-#include "table.hpp"
 #include "value.hpp"
 #include "vm.hpp"
 
-#define ALLOCATE_OBJ(type, objectType) \
-    (type*)allocateObject(sizeof(type), objectType)
-
-static Obj* allocateObject(size_t size, ObjType type) {
-  Obj* object = (Obj*)reallocate(NULL, 0, size);
-  object->type = type;
-  object->isMarked = false;
-
-  object->next = vm.objects;
-  vm.objects = object;
-
-#ifdef DEBUG_LOG_GC
-  printf("%p allocate %ld for %d\n", (void*)object, size, type);
-#endif
-
-  return object;
+Deferred_heap::~Deferred_heap() {
+    for (const auto& ptr : deferred_ptrs) {
+        delete ptr;
+    }
 }
-ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method) {
-  ObjBoundMethod* bound = ALLOCATE_OBJ(ObjBoundMethod,
-                                       OBJ_BOUND_METHOD);
-  bound->receiver = receiver;
-  bound->method = method;
-  return bound;
+
+void Deferred_heap::destroy(Obj* ptr) {
+    bytesAllocated -= ptr->size();
+    deferred_ptrs.erase(
+        std::remove(deferred_ptrs.begin(), deferred_ptrs.end(), ptr),
+        deferred_ptrs.end()
+    );
+    delete ptr;
 }
-ObjClass* newClass(ObjString* name) {
-  ObjClass* klass = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
-  klass->name = name; // [klass]
-  initTable(&klass->methods);
-  return klass;
-}
-ObjClosure* newClosure(ObjFunction* function) {
-  ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
-  for (int i = 0; i < function->upvalueCount; i++) {
-    upvalues[i] = NULL;
+
+void Deferred_heap::collect() {
+  const auto do_mark_fn = [this] (Value value) {
+    this->mark(value);
+  };
+  for (const auto& cb : mark_callbacks) {
+    cb(do_mark_fn);
   }
 
-  ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
-  closure->function = function;
-  closure->upvalues = upvalues;
-  closure->upvalueCount = function->upvalueCount;
-  return closure;
-}
-ObjFunction* newFunction() {
-  ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+  // traceReferences();
+      while (!gray_ptrs.empty()) {
+        const auto object = gray_ptrs.back();
+        gray_ptrs.pop_back();
+        object->blackenObject();
+      }
 
-  function->arity = 0;
-  function->upvalueCount = 0;
-  function->name = NULL;
-  initChunk(&function->chunk);
-  return function;
-}
-ObjInstance* newInstance(ObjClass* klass) {
-  ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
-  instance->klass = klass;
-  initTable(&instance->fields);
-  return instance;
-}
-ObjNative* newNative(NativeFn function) {
-  ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
-  native->function = function;
-  return native;
-}
-
-static ObjString* allocateString(char* chars, int length,
-                                 uint32_t hash) {
-  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
-  string->length = length;
-  string->chars = chars;
-  string->hash = hash;
-
-  push(OBJ_VAL(string));
-  tableSet(&vm.strings, string, NIL_VAL);
-  pop();
-
-  return string;
-}
-static uint32_t hashString(const char* key, int length) {
-  uint32_t hash = 2166136261u;
-
-  for (int i = 0; i < length; i++) {
-    hash ^= key[i];
-    hash *= 16777619;
+  // Sweep interned strings
+  for (const auto objstrptr : interned_strings_) {
+    if (!objstrptr->isMarked) {
+      interned_strings_.erase(objstrptr);
+    }
   }
 
-  return hash;
-}
-ObjString* takeString(char* chars, int length) {
-  uint32_t hash = hashString(chars, length);
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
-  if (interned != NULL) {
-    FREE_ARRAY(char, chars, length + 1);
-    return interned;
-  }
+  // sweep();
+      std::vector<Obj*> marked;
+      std::copy_if(deferred_ptrs.begin(), deferred_ptrs.end(), std::back_inserter(marked), [&] (const auto& object) {
+        return object->isMarked;
+      });
+      std::vector<Obj*> unreached;
+      std::copy_if(deferred_ptrs.begin(), deferred_ptrs.end(), std::back_inserter(unreached), [&] (const auto& object) {
+        return ! object->isMarked;
+      });
 
-  return allocateString(chars, length, hash);
-}
-ObjString* copyString(const char* chars, int length) {
-  uint32_t hash = hashString(chars, length);
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
-  if (interned != NULL) return interned;
+      for (const auto& object : marked) {
+        object->isMarked = false;
+      }
+      for (const auto& object : unreached) {
+        destroy(object);
+      }
 
-  char* heapChars = ALLOCATE(char, length + 1);
-  memcpy(heapChars, chars, length);
-  heapChars[length] = '\0';
+  nextGC = bytesAllocated * /*GC_HEAP_GROW_FACTOR*/ 2;
+}
 
-  return allocateString(heapChars, length, hash);
+void Deferred_heap::mark(Obj& object) {
+    if (object.isMarked) {
+        return;
+    }
+
+    object.isMarked = true;
+    gray_ptrs.push_back(&object);
 }
-ObjUpvalue* newUpvalue(Value* slot) {
-  ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
-  upvalue->closed = NIL_VAL;
-  upvalue->location = slot;
-  upvalue->next = NULL;
-  return upvalue;
+
+struct Mark_visitor : boost::static_visitor<void> {
+    Deferred_heap& deferred_heap_;
+
+    explicit Mark_visitor(Deferred_heap& deferred_heap_arg) :
+        deferred_heap_ {deferred_heap_arg}
+    {}
+
+    // Primitives
+    auto operator()(std::nullptr_t) const {}
+    auto operator()(bool) const {}
+    auto operator()(double) const {}
+
+    auto operator()(ObjClass* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjInstance* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjFunction* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjClosure* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjBoundMethod* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjNative* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjString* obj) const { deferred_heap_.mark(*obj); }
+    auto operator()(ObjUpvalue* obj) const { deferred_heap_.mark(*obj); }
+};
+
+void Deferred_heap::mark(Value value) {
+  boost::apply_visitor(Mark_visitor{*this}, value.variant);
 }
-static void printFunction(ObjFunction* function) {
-  if (function->name == NULL) {
-    printf("<script>");
-    return;
-  }
-  printf("<fn %s>", function->name->chars);
-}
-void printObject(Value value) {
-  switch (OBJ_TYPE(value)) {
-    case OBJ_CLASS:
-      printf("%s", AS_CLASS(value)->name->chars);
-      break;
-    case OBJ_BOUND_METHOD:
-      printFunction(AS_BOUND_METHOD(value)->method->function);
-      break;
-    case OBJ_CLOSURE:
-      printFunction(AS_CLOSURE(value)->function);
-      break;
-    case OBJ_FUNCTION:
-      printFunction(AS_FUNCTION(value));
-      break;
-    case OBJ_INSTANCE:
-      printf("%s instance", AS_INSTANCE(value)->klass->name->chars);
-      break;
-    case OBJ_NATIVE:
-      printf("<native fn>");
-      break;
-    case OBJ_STRING:
-      printf("%s", AS_CSTRING(value));
-      break;
-    case OBJ_UPVALUE:
-      printf("upvalue");
-      break;
-  }
-}
+
+
+Deferred_heap deferred_heap_;
+
+Interned_strings interned_strings_;
+
+

@@ -1,45 +1,79 @@
-#include <stdio.h>
-#include <string.h>
-
-#include "object.hpp"
-#include "memory.hpp"
 #include "value.hpp"
 
-void initValueArray(ValueArray* array) {
-  array->values = NULL;
-  array->capacity = 0;
-  array->count = 0;
-}
-void writeValueArray(ValueArray* array, Value value) {
-  if (array->capacity < array->count + 1) {
-    int oldCapacity = array->capacity;
-    array->capacity = GROW_CAPACITY(oldCapacity);
-    array->values = GROW_ARRAY(Value, array->values,
-                               oldCapacity, array->capacity);
-  }
+#include <ostream>
+#include <string>
 
-  array->values[array->count] = value;
-  array->count++;
-}
-void freeValueArray(ValueArray* array) {
-  FREE_ARRAY(Value, array->values, array->capacity);
-  initValueArray(array);
-}
-void printValue(Value value) {
-  switch (value.type) {
-    case VAL_BOOL:   printf(AS_BOOL(value) ? "true" : "false"); break;
-    case VAL_NIL:    printf("nil"); break;
-    case VAL_NUMBER: printf("%g", AS_NUMBER(value)); break;
-    case VAL_OBJ:    printObject(value); break;
-  }
-}
-bool valuesEqual(Value a, Value b) {
-  if (a.type != b.type) return false;
+#include "object.hpp"
 
-  switch (a.type) {
-    case VAL_BOOL:   return AS_BOOL(a) == AS_BOOL(b);
-    case VAL_NIL:    return true;
-    case VAL_NUMBER: return AS_NUMBER(a) == AS_NUMBER(b);
-    case VAL_OBJ:    return AS_OBJ(a) == AS_OBJ(b);
-  }
+namespace {
+    std::ostream& operator<<(std::ostream& os, ObjFunction* function) {
+        if (function->name) {
+            os << "<fn " << function->name->str << ">";
+        } else {
+            os << "<script>";
+        }
+
+        return os;
+    }
+
+    struct Ostream_visitor : boost::static_visitor<void> {
+        std::ostream& os;
+        explicit Ostream_visitor(std::ostream& os_arg) :
+            os {os_arg}
+        {}
+
+        auto operator()(bool value) {
+            os << std::boolalpha << value;
+        }
+
+        auto operator()(std::nullptr_t) {
+            os << "nil";
+        }
+
+        auto operator()(double value) {
+            os << value;
+        }
+
+        auto operator()(ObjClass* klass) {
+            os << klass->name->str;
+        }
+
+        auto operator()(ObjInstance* instance) {
+            os << instance->klass->name->str << " instance";
+        }
+
+        auto operator()(ObjFunction* function) {
+            os << function;
+        }
+
+        auto operator()(ObjClosure* closure) {
+            os << closure->function;
+        }
+
+        auto operator()(ObjBoundMethod* bound) {
+            os << bound->method->function;
+        }
+
+        auto operator()(ObjNative*) {
+            os << "<native fn>";
+        }
+
+        auto operator()(ObjString* string) {
+            os << string->str;
+        }
+
+        auto operator()(ObjUpvalue*) {
+            os << "upvalue";
+        }
+    };
+}
+
+bool operator==(const Value& a, const Value& b) {
+    return a.variant == b.variant;
+}
+
+std::ostream& operator<<(std::ostream& os, const Value& value) {
+    Ostream_visitor ostream_visitor {os};
+    boost::apply_visitor(ostream_visitor, value.variant);
+    return os;
 }

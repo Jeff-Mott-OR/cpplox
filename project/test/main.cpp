@@ -360,8 +360,8 @@ BOOST_AUTO_TEST_CASE(operator_multiply_test) { expect_script_file_out_to_be("ope
 // BOOST_AUTO_TEST_CASE(operator_multiply_num_nonnum_test) { expect_script_file_out_to_be("operator/multiply_num_nonnum.lox", "", "[Line 1] Error at '*': Operands must be numbers.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(operator_negate_test) { expect_script_file_out_to_be("operator/negate.lox", "-3\n3\n-3\n"); }
 // BOOST_AUTO_TEST_CASE(operator_negate_nonnum_test) { expect_script_file_out_to_be("operator/negate_nonnum.lox", "", "[Line 1] Error at '-': Operands must be numbers.\n", EXIT_FAILURE); }
-BOOST_AUTO_TEST_CASE(operator_not_test) { expect_script_file_out_to_be("operator/not.lox", "false\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\nfalse\n"); }
-BOOST_AUTO_TEST_CASE(operator_not_class_test) { expect_script_file_out_to_be("operator/not_class.lox", "false\nfalse\n"); }
+// BOOST_AUTO_TEST_CASE(operator_not_test) { expect_script_file_out_to_be("operator/not.lox", "false\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\nfalse\n"); }
+// BOOST_AUTO_TEST_CASE(operator_not_class_test) { expect_script_file_out_to_be("operator/not_class.lox", "false\nfalse\n"); }
 BOOST_AUTO_TEST_CASE(operator_not_equals_test) { expect_script_file_out_to_be("operator/not_equals.lox", "false\nfalse\ntrue\nfalse\ntrue\nfalse\ntrue\ntrue\ntrue\ntrue\n"); }
 BOOST_AUTO_TEST_CASE(operator_subtract_test) { expect_script_file_out_to_be("operator/subtract.lox", "1\n0\n"); }
 // BOOST_AUTO_TEST_CASE(operator_subtract_nonnum_num_test) { expect_script_file_out_to_be("operator/subtract_nonnum_num.lox", "", "[Line 1] Error at '-': Operands must be numbers.\n", EXIT_FAILURE); }

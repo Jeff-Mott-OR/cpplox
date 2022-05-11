@@ -2,37 +2,61 @@
 #define clox_vm_h
 
 #include "object.hpp"
-#include "table.hpp"
 #include "value.hpp"
+void markCompilerRoots();
+
+#include <list>
 
 #define FRAMES_MAX 64
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
-typedef struct {
+struct CallFrame {
   ObjClosure* closure;
   uint8_t* ip;
-  Value* slots;
-} CallFrame;
+  std::vector<Value>::iterator slots;
+};
 
-typedef struct {
-  CallFrame frames[FRAMES_MAX];
-  int frameCount;
+Value clockNative(std::vector<Value> args);
+struct VM;
+extern VM* vmp;
 
-  Value stack[STACK_MAX];
-  Value* stackTop;
-  Table globals;
-  Table strings;
-  ObjString* initString;
-  ObjUpvalue* openUpvalues;
+struct VM {
+  std::vector<Value> stack;
+  std::vector<CallFrame> frames;
+  std::unordered_map<ObjString*, Value> globals;
+  std::list<ObjUpvalue*> open_upvalues;
 
-  size_t bytesAllocated;
-  size_t nextGC;
+  explicit VM() {
+    deferred_heap_.mark_callbacks.push_back([this] (auto do_mark) {
+      // markRoots();
+          for (auto slot = this->stack.begin(); slot != this->stack.end(); slot++) {
+            do_mark(*slot);
+          }
 
-  Obj* objects;
-  int grayCount;
-  int grayCapacity;
-  Obj** grayStack;
-} VM;
+          for (const auto frame : this->frames) {
+            do_mark(Value{frame.closure});
+          }
+
+          for (const auto& upvalue : this->open_upvalues) {
+            do_mark(Value{upvalue});
+          }
+
+          // markTable(&this->globals);
+              for (const auto& pair : this->globals) {
+                do_mark(Value{pair.first});
+                do_mark(pair.second);
+              }
+
+          markCompilerRoots();
+
+    });
+    vmp = this;
+    stack.reserve(STACK_MAX); // avoid invalidating iterators
+    stack.push_back(Value{deferred_heap_.make<ObjNative>(clockNative)}); // !!! TMP GC OWNER
+    globals[interned_strings_.get("clock")] = stack.back();
+    stack.pop_back(); // !!! TMP GC OWNER
+  }
+};
 
 typedef enum {
   INTERPRET_OK,
@@ -40,12 +64,7 @@ typedef enum {
   INTERPRET_RUNTIME_ERROR
 } InterpretResult;
 
-extern VM vm;
-
-void initVM();
-void freeVM();
-InterpretResult interpret(const char* source);
-void push(Value value);
+InterpretResult interpret(VM&, const char* source);
 Value pop();
 
 #endif

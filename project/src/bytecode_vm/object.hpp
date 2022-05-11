@@ -3,110 +3,165 @@
 
 #include "common.hpp"
 #include "chunk.hpp"
-#include "table.hpp"
 #include "value.hpp"
 
-#define OBJ_TYPE(value)         (AS_OBJ(value)->type)
+#include <functional>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
-#define IS_BOUND_METHOD(value)  isObjType(value, OBJ_BOUND_METHOD)
-#define IS_CLASS(value)         isObjType(value, OBJ_CLASS)
-#define IS_CLOSURE(value)       isObjType(value, OBJ_CLOSURE)
-#define IS_FUNCTION(value)      isObjType(value, OBJ_FUNCTION)
-#define IS_INSTANCE(value)      isObjType(value, OBJ_INSTANCE)
-#define IS_NATIVE(value)        isObjType(value, OBJ_NATIVE)
-#define IS_STRING(value)        isObjType(value, OBJ_STRING)
+struct Obj {
+    bool isMarked {false};
 
-#define AS_BOUND_METHOD(value)  ((ObjBoundMethod*)AS_OBJ(value))
-#define AS_CLASS(value)         ((ObjClass*)AS_OBJ(value))
-#define AS_CLOSURE(value)       ((ObjClosure*)AS_OBJ(value))
-#define AS_FUNCTION(value)      ((ObjFunction*)AS_OBJ(value))
-#define AS_INSTANCE(value)      ((ObjInstance*)AS_OBJ(value))
-#define AS_NATIVE(value)        (((ObjNative*)AS_OBJ(value))->function)
-#define AS_STRING(value)        ((ObjString*)AS_OBJ(value))
-#define AS_CSTRING(value)       (((ObjString*)AS_OBJ(value))->chars)
-
-typedef enum {
-  OBJ_BOUND_METHOD,
-  OBJ_CLASS,
-  OBJ_CLOSURE,
-  OBJ_FUNCTION,
-  OBJ_INSTANCE,
-  OBJ_NATIVE,
-  OBJ_STRING,
-  OBJ_UPVALUE
-} ObjType;
-
-struct sObj {
-  ObjType type;
-  bool isMarked;
-  struct sObj* next;
+    virtual ~Obj() = default;
+    virtual void blackenObject() {}
+    virtual int size() const = 0;
 };
 
-typedef struct {
-  Obj obj;
-  int arity;
-  int upvalueCount;
+template<typename T>
+    struct ObjX : Obj {
+        int size() const override {
+            return sizeof(T);
+        }
+    };
+
+struct Deferred_heap {
+    size_t bytesAllocated = 0;
+    size_t nextGC = 1024 * 1024;
+    std::vector<Obj*> deferred_ptrs;
+    std::vector<Obj*> gray_ptrs;
+
+    using do_mark_fn = std::function<void(Value)>;
+    std::vector<std::function<void(do_mark_fn)>> mark_callbacks;
+
+    ~Deferred_heap();
+
+    template<typename T, typename ...Args>
+        T* make(Args... args) {
+            bytesAllocated += sizeof(T);
+            if (bytesAllocated > nextGC) {
+                collect();
+            }
+
+            auto object = new T {std::forward<Args>(args)...};
+            deferred_ptrs.push_back(object);
+
+            return object;
+        }
+
+    void destroy(Obj*);
+    void collect();
+    void mark(Obj&);
+    void mark(Value);
+};
+
+extern Deferred_heap deferred_heap_;
+
+struct ObjString : ObjX<ObjString> {
+  std::string str;
+  explicit ObjString(std::string&& str_arg) : str{std::move(str_arg)} {}
+};
+
+struct ObjFunction : ObjX<ObjFunction> {
+  int arity {0};
+  int upvalueCount {0};
   Chunk chunk;
-  ObjString* name;
-} ObjFunction;
+  ObjString* name {nullptr};
 
-typedef Value (*NativeFn)(int argCount, Value* args);
-
-typedef struct {
-  Obj obj;
-  NativeFn function;
-} ObjNative;
-
-struct sObjString {
-  Obj obj;
-  int length;
-  char* chars;
-  uint32_t hash;
+  void blackenObject() override {
+      if (name) deferred_heap_.mark(*name);
+      for (auto value : chunk.constants) {
+        deferred_heap_.mark(value);
+      }
+  }
 };
-typedef struct ObjUpvalue {
-  Obj obj;
+
+struct ObjNative : ObjX<ObjNative> {
+  std::function<Value(std::vector<Value>)> function;
+  explicit ObjNative(std::function<Value(std::vector<Value>)>&& function_arg) : function {function_arg} {}
+};
+
+struct ObjUpvalue : ObjX<ObjUpvalue> {
   Value* location;
   Value closed;
-  struct ObjUpvalue* next;
-} ObjUpvalue;
-typedef struct {
-  Obj obj;
+  explicit ObjUpvalue(Value* location_arg) : location {location_arg} {}
+};
+
+struct ObjClosure : ObjX<ObjClosure> {
   ObjFunction* function;
-  ObjUpvalue** upvalues;
-  int upvalueCount;
-} ObjClosure;
+  std::vector<ObjUpvalue*> upvalues;
+  explicit ObjClosure(ObjFunction* function_arg) : function {function_arg} {}
 
-typedef struct {
-  Obj obj;
+  void blackenObject() override {
+      deferred_heap_.mark(*function);
+      for (const auto upvalue : upvalues) {
+        deferred_heap_.mark(*upvalue);
+      }
+  }
+};
+
+struct ObjClass : ObjX<ObjClass> {
   ObjString* name;
-  Table methods;
-} ObjClass;
+  std::unordered_map<ObjString*, Value> methods;
+  explicit ObjClass(ObjString* name_arg) : name {name_arg} {}
 
-typedef struct {
-  Obj obj;
+  void blackenObject() override {
+      deferred_heap_.mark(*name);
+      // markTable(&methods);
+          for (const auto& pair : methods) {
+            deferred_heap_.mark(*pair.first);
+            deferred_heap_.mark(pair.second);
+          }
+  }
+};
+
+struct ObjInstance : ObjX<ObjInstance> {
   ObjClass* klass;
-  Table fields; // [fields]
-} ObjInstance;
+  std::unordered_map<ObjString*, Value> fields; // [fields]
+  explicit ObjInstance(ObjClass* klass_arg) : klass {klass_arg} {}
 
-typedef struct {
-  Obj obj;
+  void blackenObject() override {
+      deferred_heap_.mark(*klass);
+      // markTable(&fields);
+          for (const auto& pair : fields) {
+            deferred_heap_.mark(*pair.first);
+            deferred_heap_.mark(pair.second);
+          }
+  }
+};
+
+struct ObjBoundMethod : ObjX<ObjBoundMethod> {
   Value receiver;
   ObjClosure* method;
-} ObjBoundMethod;
+  explicit ObjBoundMethod(Value receiver_arg, ObjClosure* method_arg) : receiver {receiver_arg}, method {method_arg} {}
 
-ObjBoundMethod* newBoundMethod(Value receiver, ObjClosure* method);
-ObjClass* newClass(ObjString* name);
-ObjClosure* newClosure(ObjFunction* function);
-ObjFunction* newFunction();
-ObjInstance* newInstance(ObjClass* klass);
-ObjNative* newNative(NativeFn function);
-ObjString* takeString(char* chars, int length);
-ObjString* copyString(const char* chars, int length);
-ObjUpvalue* newUpvalue(Value* slot);
-void printObject(Value value);
+  void blackenObject() override {
+      deferred_heap_.mark(receiver);
+      deferred_heap_.mark(*method);
+  }
+};
 
-static inline bool isObjType(Value value, ObjType type) {
-  return IS_OBJ(value) && AS_OBJ(value)->type == type;
-}
+class Interned_strings : private std::unordered_set<ObjString*> {
+    public:
+        using std::unordered_set<ObjString*>::begin;
+        using std::unordered_set<ObjString*>::end;
+        using std::unordered_set<ObjString*>::erase;
+
+        ObjString* get(std::string&& new_string) {
+            const auto found_interned = std::find_if(cbegin(), cend(), [&] (const auto& interned_string) {
+                return new_string == interned_string->str;
+            });
+            if (found_interned != cend()) {
+                return *found_interned;
+            }
+
+            const auto interned_string = deferred_heap_.make<ObjString>(std::move(new_string));
+            insert(interned_string);
+
+            return interned_string;
+        }
+};
+
+extern Interned_strings interned_strings_;
 
 #endif

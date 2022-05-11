@@ -1,40 +1,52 @@
 #ifndef clox_scanner_h
 #define clox_scanner_h
 
-typedef enum {
+enum class Token_type {
   // Single-character tokens.
-  TOKEN_LEFT_PAREN, TOKEN_RIGHT_PAREN,
-  TOKEN_LEFT_BRACE, TOKEN_RIGHT_BRACE,
-  TOKEN_COMMA, TOKEN_DOT, TOKEN_MINUS, TOKEN_PLUS,
-  TOKEN_SEMICOLON, TOKEN_SLASH, TOKEN_STAR,
+  left_paren_, right_paren_,
+  left_brace_, right_brace_,
+  comma_, dot_, minus_, plus_,
+  semicolon_, slash_, star_,
 
   // One or two character tokens.
-  TOKEN_BANG, TOKEN_BANG_EQUAL,
-  TOKEN_EQUAL, TOKEN_EQUAL_EQUAL,
-  TOKEN_GREATER, TOKEN_GREATER_EQUAL,
-  TOKEN_LESS, TOKEN_LESS_EQUAL,
+  bang_, bang_equal_,
+  equal_, equal_equal_,
+  greater_, greater_equal_,
+  less_, less_equal_,
 
   // Literals.
-  TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
+  identifier_, string_, number_,
 
   // Keywords.
-  TOKEN_AND, TOKEN_CLASS, TOKEN_ELSE, TOKEN_FALSE,
-  TOKEN_FOR, TOKEN_FUN, TOKEN_IF, TOKEN_NIL, TOKEN_OR,
-  TOKEN_PRINT, TOKEN_RETURN, TOKEN_SUPER, TOKEN_THIS,
-  TOKEN_TRUE, TOKEN_VAR, TOKEN_WHILE,
+  and_, class_, else_, false_,
+  for_, fun_, if_, nil_, or_,
+  print_, return_, super_, this_,
+  true_, var_, while_,
 
-  TOKEN_ERROR,
-  TOKEN_EOF
-} TokenType;
+  error_,
+  eof_
+};
 
 typedef struct {
-  TokenType type;
+  Token_type type;
   const char* start;
   int length;
   int line;
 } Token;
 
-void initScanner(const char* source);
-Token scanToken();
+struct Scanner {
+  const char* start;
+  const char* current;
+  int line;
+
+  Scanner(const char* source) :
+    start {source},
+    current {source},
+    line {1}
+  {
+  }
+};
+
+Token scanToken(Scanner&);
 
 #endif

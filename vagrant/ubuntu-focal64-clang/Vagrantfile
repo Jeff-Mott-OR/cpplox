@@ -17,7 +17,7 @@ Vagrant.configure("2") do |config|
 
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://vagrantcloud.com/search.
-  config.vm.box = "ubuntu/xenial64"
+  config.vm.box = "ubuntu/focal64"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -69,18 +69,26 @@ Vagrant.configure("2") do |config|
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
   config.vm.provision "shell", inline: <<-SHELL
-    sudo apt-add-repository -y ppa:llvm-toolchain-trusty-5.0
-    sudo add-apt-repository -y ppa:openjdk-r/ppa
-    sudo apt-get update
-    sudo apt-get install -y build-essential clang-5.0 valgrind openjdk-9-jdk
-    echo "export CC=clang-5.0 && export CXX=clang++-5.0" >> /home/vagrant/.profile
-    echo "PATH=\"/usr/lib/jvm/java-9-openjdk-amd64/bin:\\$PATH\"" >> /home/vagrant/.profile
+    sudo apt update
 
-    curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
-    sudo apt-get install -y nodejs
+    sudo apt install build-essential -y
 
-    wget https://cmake.org/files/v3.10/cmake-3.10.2-Linux-x86_64.tar.gz
-    tar -xf cmake-3.10.2-Linux-x86_64.tar.gz
-    echo "PATH=\"$PWD/cmake-3.10.2-Linux-x86_64/bin:\\$PATH\"" >> /home/vagrant/.profile
+    sudo apt install clang -y
+    echo "export CC=clang && export CXX=clang++" >> /home/vagrant/.profile
+
+    wget https://github.com/Kitware/CMake/releases/download/v3.19.6/cmake-3.19.6-Linux-x86_64.tar.gz
+    tar xvf cmake-3.19.6-Linux-x86_64.tar.gz
+    echo "PATH=/home/vagrant/cmake-3.19.6-Linux-x86_64/bin:\\$PATH" >> /home/vagrant/.profile
+
+    sudo apt install python -y
+
+    sudo apt install valgrind -y
+
+    wget https://download.java.net/java/GA/jdk15.0.2/0d1cfde4252546c6931946de8db48ee2/7/GPL/openjdk-15.0.2_linux-x64_bin.tar.gz
+    tar xvf openjdk-15.0.2_linux-x64_bin.tar.gz
+    echo "PATH=/home/vagrant/jdk-15.0.2/bin:\\$PATH" >> /home/vagrant/.profile
+
+    curl -fsSL https://deb.nodesource.com/setup_15.x | sudo -E bash -
+    sudo apt install nodejs -y
   SHELL
 end
