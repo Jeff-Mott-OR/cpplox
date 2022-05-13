@@ -2,65 +2,24 @@
 
 #include <cctype>
 #include <stdexcept>
-#include <utility>
-
-#include <boost/algorithm/string.hpp>
-
-using std::isalnum;
-using std::isalpha;
-using std::isdigit;
-using std::logic_error;
-using std::move;
-using std::ostream;
-using std::string;
-
-using boost::is_any_of;
-using boost::to_upper;
-using boost::trim_right_if;
+#include <string>
 
 namespace motts { namespace lox {
-    ostream& operator<<(ostream& os, Token_type token_type) {
-        // IIFE so I can use return rather than assign-and-break
-        string name {([&] () {
-            switch (token_type) {
-                #define X(name) \
-                    case Token_type::name: \
-                        return #name;
-                MOTTS_LOX_TOKEN_TYPE_NAMES
-                #undef X
-
-                default:
-                    throw logic_error{"Unexpected token type."};
-            }
-        })()};
-
-        // Field names should print as uppercase without trailing underscores
-        trim_right_if(name, is_any_of("_"));
-        to_upper(name);
-
-        os << name;
-
-        return os;
-    }
-
-    bool operator==(const Token& lhs, const Token& rhs) {
-        return (
-            lhs.type == rhs.type &&
-            lhs.begin == rhs.begin && lhs.end == rhs.end &&
-            lhs.line == rhs.line
-        );
-    }
-
-    Token_iterator::Token_iterator(const string& source) :
-        token_begin_ {source.cbegin()},
-        token_end_ {source.cbegin()},
-        source_end_ {source.cend()},
+    Token_iterator::Token_iterator(const gsl::cstring_span<>& source) :
+        token_begin_ {source.data()},
+        token_end_ {source.data()},
+        source_end_ {source.data() + source.size()},
         token_ {consume_token()}
-    {}
+    {
+    }
 
-    Token_iterator::Token_iterator() :
-        token_ {Token_type::eof, {}, {}, {}}
-    {}
+    const Token& Token_iterator::operator*() const {
+        return token_;
+    }
+
+    const Token* Token_iterator::operator->() const {
+        return &token_;
+    }
 
     Token_iterator& Token_iterator::operator++() {
         token_ = consume_token();
@@ -68,135 +27,129 @@ namespace motts { namespace lox {
     }
 
     Token_iterator Token_iterator::operator++(int) {
-        Token_iterator copy {*this};
+        const auto copy = *this;
         operator++();
-
         return copy;
     }
 
-    bool Token_iterator::operator==(const Token_iterator& rhs) const {
-        return (token_.type == Token_type::eof && rhs.token_.type == Token_type::eof) || token_ == rhs.token_;
-    }
-
-    bool Token_iterator::operator!=(const Token_iterator& rhs) const {
-        return !(*this == rhs);
-    }
-
-    const Token& Token_iterator::operator*() const & {
-        return token_;
-    }
-
-    Token&& Token_iterator::operator*() && {
-        return move(token_);
-    }
-
-    const Token* Token_iterator::operator->() const {
-        return &token_;
-    }
-
     Token Token_iterator::consume_token() {
-        consume_whitespace();
-        if (token_end_ == source_end_) {
-            return Token{Token_type::eof, {}, {}, {}};
-        }
-
-        token_begin_ = token_end_;
-        const auto c = *token_end_++;
-
-        if (isalpha(c) || c == '_') return consume_identifier();
-        if (isdigit(c)) return consume_number();
-
-        switch (c) {
-            case '(': return make_token(Token_type::left_paren);
-            case ')': return make_token(Token_type::right_paren);
-            case '{': return make_token(Token_type::left_brace);
-            case '}': return make_token(Token_type::right_brace);
-            case ';': return make_token(Token_type::semicolon);
-            case ',': return make_token(Token_type::comma);
-            case '.': return make_token(Token_type::dot);
-            case '-': return make_token(Token_type::minus);
-            case '+': return make_token(Token_type::plus);
-            case '/': return make_token(Token_type::slash);
-            case '*': return make_token(Token_type::star);
-            case '!':
-                return make_token(advance_if_match('=') ? Token_type::bang_equal : Token_type::bang);
-            case '=':
-                return make_token(advance_if_match('=') ? Token_type::equal_equal : Token_type::equal);
-            case '<':
-                return make_token(advance_if_match('=') ? Token_type::less_equal : Token_type::less);
-            case '>':
-                return make_token(advance_if_match('=') ? Token_type::greater_equal : Token_type::greater);
-            case '"':
-                return consume_string();
-        }
-
-        throw Scanner_error{"Unexpected character."};
-    }
-
-    void Token_iterator::consume_whitespace() {
         while (token_end_ != source_end_) {
-            const auto c = *token_end_;
+            token_begin_ = token_end_;
+            const auto char_ = *token_end_++;
 
-            switch (c) {
+            if (std::isalpha(char_) || char_ == '_') {
+                return consume_identifier();
+            }
+
+            if (std::isdigit(char_)) {
+                return consume_number();
+            }
+
+            switch (char_) {
+                default:
+                    throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unexpected character."};
+
+                // Skip whitespace
                 case ' ':
                 case '\r':
                 case '\t':
-                    ++token_end_;
                     continue;
 
+                // Count lines then skip whitespace
                 case '\n':
                     ++line_;
-                    ++token_end_;
                     continue;
 
+                // Slash or line comment
                 case '/':
-                    // If not two slashes, then not whitespace
-                    if ((token_end_ + 1) == source_end_ || *(token_end_ + 1) != '/') {
-                        return;
+                    // Two consecutive slashes means line comment
+                    if (consume_if_match('/')) {
+                        while (token_end_ != source_end_ && *token_end_ != '\n') {
+                            ++token_end_;
+                        }
+                        continue;
                     }
 
-                    // Consume two slashes
-                    token_end_ += 2;
+                    // Otherwise, single slash token
+                    return {Token_type::slash, {token_begin_, token_end_}, line_};
 
-                    while (token_end_ != source_end_ && *token_end_ != '\n') {
-                        ++token_end_;
-                    }
+                case '"':
+                    return consume_string();
 
-                    continue;
+                case '!': return {consume_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
+                case '=': return {consume_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
+                case '<': return {consume_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
+                case '>': return {consume_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
 
-                default:
-                    return;
+                case '(': return {Token_type::left_paren, {token_begin_, token_end_}, line_};
+                case ')': return {Token_type::right_paren, {token_begin_, token_end_}, line_};
+                case '{': return {Token_type::left_brace, {token_begin_, token_end_}, line_};
+                case '}': return {Token_type::right_brace, {token_begin_, token_end_}, line_};
+                case ';': return {Token_type::semicolon, {token_begin_, token_end_}, line_};
+                case ',': return {Token_type::comma, {token_begin_, token_end_}, line_};
+                case '.': return {Token_type::dot, {token_begin_, token_end_}, line_};
+                case '-': return {Token_type::minus, {token_begin_, token_end_}, line_};
+                case '+': return {Token_type::plus, {token_begin_, token_end_}, line_};
+                case '*': return {Token_type::star, {token_begin_, token_end_}, line_};
             }
         }
+
+        return Token{Token_type::eof, nullptr, line_};
     }
 
     Token Token_iterator::consume_identifier() {
-        while (token_end_ != source_end_ && (isalnum(*token_end_) || *token_end_ == '_')) {
+        while (
+            token_end_ != source_end_ &&
+            (std::isalnum(*token_end_) || *token_end_ == '_')
+        ) {
             ++token_end_;
         }
 
-        return make_token(identifier_type());
+        // For ease of writing comparisons
+        gsl::cstring_span<> token_str {token_begin_, token_end_};
+
+        const auto token_type = ([&] () {
+            if (token_str == "and") return Token_type::and_;
+            if (token_str == "class") return Token_type::class_;
+            if (token_str == "else") return Token_type::else_;
+            if (token_str == "false") return Token_type::false_;
+            if (token_str == "for") return Token_type::for_;
+            if (token_str == "fun") return Token_type::fun_;
+            if (token_str == "if") return Token_type::if_;
+            if (token_str == "nil") return Token_type::nil;
+            if (token_str == "or") return Token_type::or_;
+            if (token_str == "print") return Token_type::print;
+            if (token_str == "return") return Token_type::return_;
+            if (token_str == "super") return Token_type::super_;
+            if (token_str == "this") return Token_type::this_;
+            if (token_str == "true") return Token_type::true_;
+            if (token_str == "var") return Token_type::var_;
+            if (token_str == "while") return Token_type::while_;
+            return Token_type::identifier;
+        })();
+
+        return {token_type, {token_begin_, token_end_}, line_};
     }
 
     Token Token_iterator::consume_number() {
-        while (token_end_ != source_end_ && isdigit(*token_end_)) {
+        while (token_end_ != source_end_ && std::isdigit(*token_end_)) {
             ++token_end_;
         }
 
-        // Look for fractional part
+        // Look for a fractional part
         if (
             token_end_ != source_end_ && *token_end_ == '.' &&
-            (token_end_ + 1) != source_end_ && isdigit(*(token_end_ + 1))
+            (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))
         ) {
             // Consume the "." and digit
             token_end_ += 2;
 
-            while (token_end_ != source_end_ && isdigit(*token_end_)) {
+            while (token_end_ != source_end_ && std::isdigit(*token_end_)) {
                 ++token_end_;
             }
         }
 
-        return make_token(Token_type::number);
+        return {Token_type::number, {token_begin_, token_end_}, line_};
     }
 
     Token Token_iterator::consume_string() {
@@ -208,77 +161,21 @@ namespace motts { namespace lox {
         }
 
         if (token_end_ == source_end_) {
-            throw Scanner_error{"Unterminated string."};
+            throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unterminated string."};
         }
 
         // The closing quote
         ++token_end_;
 
-        return make_token(Token_type::string);
+        return {Token_type::string, {token_begin_, token_end_}, line_};
     }
 
-    Token Token_iterator::make_token(Token_type type) {
-        return Token{type, token_begin_, token_end_, line_};
-    }
-
-    bool Token_iterator::advance_if_match(char expected) {
-        if (token_end_ == source_end_ || *token_end_ != expected) {
-            return false;
+    bool Token_iterator::consume_if_match(char expected) {
+        if (token_end_ != source_end_ && *token_end_ == expected) {
+            ++token_end_;
+            return true;
         }
 
-        ++token_end_;
-
-        return true;
-    }
-
-    Token_type Token_iterator::identifier_type() {
-        switch (*token_begin_) {
-            case 'a': return keyword_or_identifier(token_begin_ + 1, "nd", Token_type::and_);
-            case 'c': return keyword_or_identifier(token_begin_ + 1, "lass", Token_type::class_);
-            case 'e': return keyword_or_identifier(token_begin_ + 1, "lse", Token_type::else_);
-            case 'f':
-                if ((token_begin_ + 1) != token_end_) {
-                    switch (*(token_begin_ + 1)) {
-                        case 'a': return keyword_or_identifier(token_begin_ + 2, "lse", Token_type::false_);
-                        case 'o': return keyword_or_identifier(token_begin_ + 2, "r", Token_type::for_);
-                        case 'u': return keyword_or_identifier(token_begin_ + 2, "n", Token_type::fun);
-                    }
-                }
-
-                break;
-
-            case 'i': return keyword_or_identifier(token_begin_ + 1, "f", Token_type::if_);
-            case 'n': return keyword_or_identifier(token_begin_ + 1, "il", Token_type::nil);
-            case 'o': return keyword_or_identifier(token_begin_ + 1, "r", Token_type::or_);
-            case 'p': return keyword_or_identifier(token_begin_ + 1, "rint", Token_type::print);
-            case 'r': return keyword_or_identifier(token_begin_ + 1, "eturn", Token_type::return_);
-            case 's': return keyword_or_identifier(token_begin_ + 1, "uper", Token_type::super);
-            case 't':
-                if ((token_begin_ + 1) != token_end_) {
-                    switch (*(token_begin_ + 1)) {
-                        case 'h': return keyword_or_identifier(token_begin_ + 2, "is", Token_type::this_);
-                        case 'r': return keyword_or_identifier(token_begin_ + 2, "ue", Token_type::true_);
-                    }
-                }
-
-                break;
-
-            case 'v': return keyword_or_identifier(token_begin_ + 1, "ar", Token_type::var);
-            case 'w': return keyword_or_identifier(token_begin_ + 1, "hile", Token_type::while_);
-        }
-
-        return Token_type::identifier;
-    }
-
-    Token_type Token_iterator::keyword_or_identifier(
-        string::const_iterator begin,
-        const char* rest_keyword,
-        Token_type type_if_match
-    ) {
-        if (string{begin, token_end_} == rest_keyword) {
-            return type_if_match;
-        }
-
-        return Token_type::identifier;
+        return false;
     }
 }}

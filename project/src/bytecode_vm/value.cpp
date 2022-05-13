@@ -1,64 +1,77 @@
 #include "value.hpp"
 
-#include <ios>
-#include <iostream>
-#include <ostream>
+#include <iomanip>
+#include <gsl/gsl_assert>
 
-#include "function.hpp"
+#include "object.hpp"
 
-using std::boolalpha;
-using std::cout;
-using std::nullptr_t;
-using std::ostream;
-using std::string;
+namespace motts { namespace lox {
+    bool operator==(const Value& a, const Value& b) {
+        return a.variant == b.variant;
+    }
 
-using boost::apply_visitor;
-using boost::static_visitor;
+    struct Ostream_visitor : boost::static_visitor<void> {
+        std::ostream& os;
 
-using namespace motts::lox;
-
-namespace {
-    struct Ostream_visitor : static_visitor<void> {
-        ostream& os;
-
-        explicit Ostream_visitor(ostream& os_arg) :
+        Ostream_visitor(std::ostream& os_arg) :
             os {os_arg}
-        {}
-
-        auto operator()(const string& value) {
-            os << value;
+        {
         }
 
-        auto operator()(double value) {
-            os << value;
-        }
-
-        auto operator()(bool value) {
-            os << boolalpha << value;
-        }
-
-        auto operator()(nullptr_t) {
+        auto operator()(std::nullptr_t) const {
             os << "nil";
         }
 
-        auto operator()(const Function* fn) {
-            if (fn->name.empty()) {
-                os << "<script>";
-                return;
-            }
-
-            os << "<fn " << fn->name << ">";
+        auto operator()(double value) const {
+            os << value;
         }
 
-        auto operator()(const Native_fn*) {
+        auto operator()(bool value) const {
+            os << std::boolalpha << value;
+        }
+
+        auto operator()(const GC_ptr<std::string>& string) const {
+            Expects(string);
+            os << *string;
+        }
+
+        auto operator()(const GC_ptr<Native_fn>&) const {
             os << "<native fn>";
         }
-    };
-}
 
-namespace motts { namespace lox {
-    void print_value(const Value& value) {
-        Ostream_visitor ostream_visitor {cout};
-        apply_visitor(ostream_visitor, value.variant);
+        auto operator()(const GC_ptr<Function>& fn) const {
+            Expects(fn);
+            os << *fn;
+        }
+
+        auto operator()(const GC_ptr<Closure>& closure) const {
+            Expects(closure && closure->function);
+            os << *closure->function;
+        }
+
+        auto operator()(const GC_ptr<Upvalue>&) const {
+            os << "upvalue";
+        }
+
+        auto operator()(const GC_ptr<Class>& klass) const {
+            Expects(klass && klass->name);
+            os << *klass->name;
+        }
+
+        auto operator()(const GC_ptr<Instance>& instance) const {
+            Expects(instance && instance->klass && instance->klass->name);
+            os << *instance->klass->name << " instance";
+        }
+
+        auto operator()(const GC_ptr<Bound_method>& bound) const {
+            Expects(bound && bound->method && bound->method->function);
+            os << *bound->method->function;
+        }
+
+    };
+
+    std::ostream& operator<<(std::ostream& os, const Value& value) {
+        boost::apply_visitor(Ostream_visitor{os}, value.variant);
+        return os;
     }
 }}

@@ -41,6 +41,7 @@ namespace {
             }
         }
         if (!resolver_errors.empty()) {
+            resolver_errors.erase(resolver_errors.end() - 1);
             throw loxns::Resolver_error{resolver_errors};
         }
 

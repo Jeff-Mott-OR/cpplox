@@ -9,7 +9,7 @@ namespace motts { namespace lox {
         deferred_ptr<const Expr>&& /*lhs_expr*/,
         deferred_ptr<const Expr>&& /*rhs_expr*/,
         deferred_heap&,
-        const Runtime_error& throwable_if_not_lvalue
+        const Parser_error& throwable_if_not_lvalue
     ) const {
         throw throwable_if_not_lvalue;
     }

@@ -23,7 +23,7 @@ set_property(DIRECTORY PROPERTY EP_BASE "${CMAKE_CURRENT_BINARY_DIR}/ExternalPro
 
 ExternalProject_Add(
     boost
-    URL https://dl.bintray.com/boostorg/release/1.65.1/source/boost_1_65_1.tar.gz
+    URL https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.gz
     EXCLUDE_FROM_ALL TRUE
     BUILD_IN_SOURCE TRUE
     # If testing is enabled, then we need to configure and build several boost libraries, but if
@@ -44,7 +44,7 @@ if(ENABLE_TESTING)
             # An out-of-source install would be ideal, but that involves copying
             # all the header files, which is super slow on windows
             ./b2 "--stagedir=<SOURCE_DIR>"
-            --with-filesystem --with-program_options --with-test
+            --with-system --with-filesystem --with-program_options --with-test
             variant=$<IF:$<STREQUAL:${CMAKE_BUILD_TYPE},Debug>,debug,release>
             # Boost doesn't seem to infer the appropriate address model from
             # Visual Studio's platform name / architecture
@@ -75,7 +75,7 @@ ExternalProject_Add(
     URL https://github.com/Microsoft/GSL/archive/1f87ef73f1477e8adafa8b10ccee042897612a20.zip
     DEPENDS python_patch
     EXCLUDE_FROM_ALL TRUE
-    PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+    PATCH_COMMAND python "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
         "${CMAKE_CURRENT_SOURCE_DIR}/patch/gsl/final_action_move_assign.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )
@@ -87,7 +87,7 @@ ExternalProject_Add(
     DEPENDS gsl python_patch
     URL https://github.com/hsutter/gcpp/archive/3be430dd62fe29e92b42c66fd1f9ee3803edbca4.zip
     EXCLUDE_FROM_ALL TRUE
-    PATCH_COMMAND "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
+    PATCH_COMMAND python "${python_patch_SOURCE_DIR}/patch.py" "--directory=<SOURCE_DIR>"
         "${CMAKE_CURRENT_SOURCE_DIR}/patch/gcpp/static_pointer_cast.diff"
     CONFIGURE_COMMAND "" BUILD_COMMAND "" INSTALL_COMMAND ""
 )

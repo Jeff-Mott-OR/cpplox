@@ -1,34 +1,33 @@
 #pragma once
 
-#include <stdexcept>
-#include <string>
-#include <unordered_map>
+#include <cstdint>
 #include <vector>
 
-#include "chunk.hpp"
+#include "memory.hpp"
+#include "object.hpp"
 #include "value.hpp"
 
 namespace motts { namespace lox {
-    struct Call_frame {
-        const Function& function;
-        std::vector<std::uint8_t>::const_iterator ip;
-        std::vector<Value>::iterator stack_begin;
-    };
-
     class VM {
+        struct Call_frame {
+            GC_ptr<Closure> closure {};
+            std::vector<std::uint8_t>::const_iterator opcode_iter;
+            std::vector<Value>::size_type stack_begin_index;
+        };
+
+        struct Push_stack_frame_visitor;
+
+        GC_heap& gc_heap_;
+        std::size_t gc_heap_last_collect_size_ {};
+        Interned_strings& interned_strings_;
+
+        std::unordered_map<GC_ptr<std::string>, Value> globals_;
+        std::vector<Value> stack_;
+        std::vector<Call_frame> frames_;
+        std::vector<GC_ptr<Upvalue>> open_upvalues_;
+
         public:
-            void interpret(const std::string& source);
-
-        private:
-            void run();
-
-            std::vector<Call_frame> frames_;
-            std::vector<Value> stack_;
-            std::unordered_map<std::string, Value> globals_;
-    };
-
-    struct VM_error : std::runtime_error {
-        using std::runtime_error::runtime_error;
-        VM_error(const std::string& what, const std::vector<Call_frame>&);
+            VM(GC_heap&, Interned_strings&);
+            void run(const GC_ptr<Closure>& closure, bool debug);
     };
 }}

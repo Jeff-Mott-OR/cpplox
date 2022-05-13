@@ -1,16 +1,10 @@
 #pragma once
 
-#include <stdexcept>
-#include <string>
+#include <gsl/gsl_util>
 
-#include "function.hpp"
-#include "scanner.hpp"
+#include "memory.hpp"
+#include "object.hpp"
 
 namespace motts { namespace lox {
-    Function compile(const std::string& source);
-
-    struct Compiler_error : std::runtime_error {
-        using std::runtime_error::runtime_error;
-        Compiler_error(const Token&, const std::string& what);
-    };
+    GC_ptr<Closure> compile(GC_heap& gc_heap, Interned_strings& interned_strings, const gsl::cstring_span<>& source);
 }}

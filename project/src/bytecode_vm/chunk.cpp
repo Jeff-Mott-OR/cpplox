@@ -1,37 +1,32 @@
 #include "chunk.hpp"
-#include <gsl/gsl_util>
 
-using std::size_t;
-using std::uint8_t;
-using std::vector;
+#include <stdexcept>
+#include <string>
 
-using gsl::narrow;
+#include <boost/algorithm/string.hpp>
 
 namespace motts { namespace lox {
-    void Chunk::bytecode_push_back(Op_code opcode, int line) {
-        bytecode_push_back(narrow<uint8_t>(static_cast<int>(opcode)), line);
-    }
+    std::ostream& operator<<(std::ostream& os, Opcode opcode) {
+        // IIFE so I can use return rather than assign-and-break
+        std::string name {([&] () {
+            switch (opcode) {
+                default:
+                    throw std::logic_error{"Unreachable"};
 
-    void Chunk::bytecode_push_back(uint8_t byte, int line) {
-        code.push_back(byte);
-        lines.push_back(line);
-    }
+                #define X(name) \
+                    case Opcode::name: \
+                        return #name;
+                MOTTS_LOX_OPCODE_NAMES
+                #undef X
+            }
+        })()};
 
-    void Chunk::bytecode_push_back(int byte, int line) {
-        bytecode_push_back(narrow<uint8_t>(byte), line);
-    }
+        // Field names should print as uppercase without trailing underscores
+        boost::trim_right_if(name, boost::is_any_of("_"));
+        boost::to_upper(name);
 
-    void Chunk::bytecode_push_back(size_t byte, int line) {
-        bytecode_push_back(narrow<uint8_t>(byte), line);
-    }
+        os << name;
 
-    void Chunk::bytecode_push_back(ptrdiff_t byte, int line) {
-        bytecode_push_back(narrow<uint8_t>(byte), line);
-    }
-
-    vector<Value>::size_type Chunk::constants_push_back(Value value) {
-        const auto offset = constants.size();
-        constants.push_back(value);
-        return offset;
+        return os;
     }
 }}

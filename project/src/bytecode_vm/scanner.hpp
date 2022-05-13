@@ -1,92 +1,62 @@
 #pragma once
 
-#include <iterator>
-#include <ostream>
-#include <stdexcept>
-#include <string>
+#include <gsl/string_span>
 
 namespace motts { namespace lox {
-    // X-macro
-    #define MOTTS_LOX_TOKEN_TYPE_NAMES \
-        X(left_paren) X(right_paren) \
-        X(left_brace) X(right_brace) \
-        X(comma) X(dot) X(minus) X(plus) \
-        X(semicolon) X(slash) X(star) \
-        \
-        X(bang) X(bang_equal) \
-        X(equal) X(equal_equal) \
-        X(greater) X(greater_equal) \
-        X(less) X(less_equal) \
-        \
-        X(identifier) X(string) X(number) \
-        \
-        X(and_) X(class_) X(else_) X(false_) \
-        X(for_) X(fun) X(if_) X(nil) X(or_) \
-        X(print) X(return_) X(super) X(this_) \
-        X(true_) X(var) X(while_) \
-        \
-        X(eof)
-
     enum class Token_type {
-        #define X(name) name,
-        MOTTS_LOX_TOKEN_TYPE_NAMES
-        #undef X
+        // Single-character tokens
+        left_paren, right_paren,
+        left_brace, right_brace,
+        comma, dot, minus, plus,
+        semicolon, slash, star,
+
+        // One or two character tokens
+        bang, bang_equal,
+        equal, equal_equal,
+        greater, greater_equal,
+        less, less_equal,
+
+        // Literals
+        identifier, string, number,
+
+        // Keywords
+        and_, class_, else_, false_,
+        for_, fun_, if_, nil, or_,
+        print, return_, super_, this_,
+        true_, var_, while_,
+
+        error,
+        eof
     };
 
-    std::ostream& operator<<(std::ostream&, Token_type);
-
+    // Cheap to copy; two ints and two pointers
     struct Token {
         Token_type type;
-        std::string::const_iterator begin;
-        std::string::const_iterator end;
-        int line;
+        gsl::cstring_span<> lexeme;
+        int line {};
     };
 
-    bool operator==(const Token&, const Token&);
+    class Token_iterator {
+        const char* token_begin_;
+        const char* token_end_;
+        const char* source_end_;
+        int line_ {1};
+        Token token_;
 
-    class Token_iterator : public std::iterator<std::forward_iterator_tag, Token> {
         public:
-            // Begin
-            explicit Token_iterator(const std::string& source);
+            Token_iterator(const gsl::cstring_span<>& source);
 
-            // End
-            explicit Token_iterator();
+            const Token& operator*() const;
+            const Token* operator->() const;
 
             Token_iterator& operator++();
             Token_iterator operator++(int);
 
-            bool operator==(const Token_iterator&) const;
-            bool operator!=(const Token_iterator&) const;
-
-            const Token& operator*() const &;
-            Token&& operator*() &&;
-
-            const Token* operator->() const;
-
         private:
             Token consume_token();
-            void consume_whitespace();
             Token consume_identifier();
             Token consume_number();
             Token consume_string();
-
-            Token make_token(Token_type);
-            bool advance_if_match(char expected);
-            Token_type identifier_type();
-            Token_type keyword_or_identifier(
-                std::string::const_iterator begin,
-                const char* rest_keyword,
-                Token_type type_if_match
-            );
-
-            int line_ {1};
-            std::string::const_iterator token_begin_;
-            std::string::const_iterator token_end_;
-            std::string::const_iterator source_end_;
-            Token token_;
-    };
-
-    struct Scanner_error : std::runtime_error {
-        using std::runtime_error::runtime_error;
+            bool consume_if_match(char expected);
     };
 }}
