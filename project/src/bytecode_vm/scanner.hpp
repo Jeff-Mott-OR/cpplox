@@ -24,6 +24,7 @@ namespace motts { namespace lox {
         for_, fun_, if_, nil, or_,
         print, return_, super_, this_,
         true_, var_, while_,
+        break_, continue_,
 
         error,
         eof

@@ -6,5 +6,5 @@
 #include "object.hpp"
 
 namespace motts { namespace lox {
-    GC_ptr<Closure> compile(GC_heap& gc_heap, Interned_strings& interned_strings, const gsl::cstring_span<>& source);
+    GC_ptr<Closure> compile(GC_heap&, Interned_strings&, const gsl::cstring_span<>& source);
 }}

@@ -435,7 +435,7 @@ BOOST_AUTO_TEST_CASE(variable_use_local_in_initializer_test) { expect_script_fil
 BOOST_AUTO_TEST_CASE(variable_use_nil_as_var_test) { expect_script_file_out_to_be("variable/use_nil_as_var.lox", "", "[Line 2] Error at 'nil': Expected variable name.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(variable_use_this_as_var_test) { expect_script_file_out_to_be("variable/use_this_as_var.lox", "", "[Line 2] Error at 'this': Expected variable name.\n", EXIT_FAILURE); }
 
-// BOOST_AUTO_TEST_CASE(while_break_continue_test) { expect_script_file_out_to_be("while/break_continue.lox", "1\n1\n3\n"); }
+BOOST_AUTO_TEST_CASE(while_break_continue_test) { expect_script_file_out_to_be("while/break_continue.lox", "1\n1\n3\n"); }
 BOOST_AUTO_TEST_CASE(while_class_in_body_test) { expect_script_file_out_to_be("while/class_in_body.lox", "", "[Line 2] Error at 'class': Expected expression.\n", EXIT_FAILURE); }
 BOOST_AUTO_TEST_CASE(while_closure_in_body_test) { expect_script_file_out_to_be("while/closure_in_body.lox", "1\n2\n3\n"); }
 BOOST_AUTO_TEST_CASE(while_return_closure_test) { expect_script_file_out_to_be("while/return_closure.lox", "i\n"); }

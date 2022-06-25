@@ -125,6 +125,8 @@ namespace motts { namespace lox {
             if (token_str == "true") return Token_type::true_;
             if (token_str == "var") return Token_type::var_;
             if (token_str == "while") return Token_type::while_;
+            if (token_str == "break") return Token_type::break_;
+            if (token_str == "continue") return Token_type::continue_;
             return Token_type::identifier;
         })();
 

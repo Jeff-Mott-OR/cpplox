@@ -52,6 +52,16 @@ namespace {
         bool has_superclass {false};
     };
 
+    struct Tracked_loop {
+        std::size_t loop_begin_offset;
+        std::vector<std::function<void()>> on_loop_emit_end;
+
+        Tracked_loop(std::size_t loop_begin_offset_arg) :
+            loop_begin_offset{loop_begin_offset_arg}
+        {
+        }
+    };
+
     enum class Function_type {
         function,
         initializer,
@@ -174,6 +184,7 @@ namespace {
         Token_iterator token_iter;
         std::vector<Function_translation_unit> translation_units;
         std::vector<Tracked_class> tracked_classes;
+        std::vector<Tracked_loop> tracked_loops;
         std::function<void(const std::exception&)> on_resumable_error;
 
         Compiler(
@@ -482,6 +493,10 @@ namespace {
                 compile_for_statement();
             } else if (consume_if(Token_type::while_)) {
                 compile_while_statement();
+            } else if (consume_if(Token_type::break_)) {
+                compile_break_statement(stmt_begin_token);
+            } else if (consume_if(Token_type::continue_)) {
+                compile_continue_statement(stmt_begin_token);
             } else if (consume_if(Token_type::left_brace)) {
                 translation_units.back().begin_scope();
                 const auto _ = gsl::finally([&] () {
@@ -652,8 +667,36 @@ namespace {
             }
         }
 
+        void compile_break_statement(const Token& break_token) {
+            consume(Token_type::semicolon, "Expected ';' after break.");
+
+            translation_units.back().emit(Opcode::jump, break_token);
+            const auto to_end_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
+            translation_units.back().emit(0, 0, break_token);
+
+            tracked_loops.back().on_loop_emit_end.push_back([this, to_end_jump_distance_offset] () {
+                // Patch jump to end
+                const auto to_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_end_jump_distance_offset - 2;
+                translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset) = to_end_jump_distance >> 8;
+                translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset + 1) = to_end_jump_distance & 0xff;
+            });
+        }
+
+        void compile_continue_statement(const Token& continue_token) {
+            consume(Token_type::semicolon, "Expected ';' after break.");
+
+            translation_units.back().emit(Opcode::loop, continue_token);
+            const auto to_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - tracked_loops.back().loop_begin_offset + 2;
+            translation_units.back().emit(to_begin_jump_distance >> 8, to_begin_jump_distance & 0xff, continue_token);
+        }
+
         void compile_while_statement() {
             const auto loop_begin_offset = translation_units.back().function->chunk.opcodes.size();
+
+            tracked_loops.push_back({loop_begin_offset});
+            const auto _ = gsl::finally([&] () {
+                tracked_loops.pop_back();
+            });
 
             // Condition
             consume(Token_type::left_paren, "Expected '(' after 'while'.");
@@ -663,9 +706,19 @@ namespace {
             const auto to_end_jump_distance_offset = translation_units.back().function->chunk.opcodes.size();
             translation_units.back().emit(0, 0, right_paren_token);
 
+            const auto stmt_begin_token = *token_iter;
+            tracked_loops.back().on_loop_emit_end.push_back([this, to_end_jump_distance_offset, stmt_begin_token] () {
+                // Patch jump to end
+                const auto to_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_end_jump_distance_offset - 2;
+                if (to_end_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
+                    throw Resumable_compiler_error{stmt_begin_token, "Too much code to jump over."};
+                }
+                translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset) = to_end_jump_distance >> 8;
+                translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset + 1) = to_end_jump_distance & 0xff;
+            });
+
             // But if condition is true, pop expr result and fall through
             translation_units.back().emit(Opcode::pop, right_paren_token);
-            const auto stmt_begin_token = *token_iter;
             compile_statement();
             translation_units.back().emit(Opcode::loop, stmt_begin_token);
             const auto to_begin_jump_distance = translation_units.back().function->chunk.opcodes.size() - loop_begin_offset + 2;
@@ -674,16 +727,13 @@ namespace {
             }
             translation_units.back().emit(to_begin_jump_distance >> 8, to_begin_jump_distance & 0xff, stmt_begin_token);
 
-            // Patch jump to end
-            const auto to_end_jump_distance = translation_units.back().function->chunk.opcodes.size() - to_end_jump_distance_offset - 2;
-            if (to_end_jump_distance > std::numeric_limits<std::uint16_t>::max()) {
-                throw Resumable_compiler_error{stmt_begin_token, "Too much code to jump over."};
-            }
-            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset) = to_end_jump_distance >> 8;
-            translation_units.back().function->chunk.opcodes.at(to_end_jump_distance_offset + 1) = to_end_jump_distance & 0xff;
-
             // If condition is false, we'll land here, so pop condition expr result
             translation_units.back().emit(Opcode::pop, right_paren_token);
+
+            // At end of loop bytecode; notify listeners
+            for (const auto& fn : tracked_loops.back().on_loop_emit_end) {
+                fn();
+            }
         }
 
         void compile_expression_statement() {

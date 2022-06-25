@@ -8,7 +8,7 @@
 namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, Opcode opcode) {
         // IIFE so I can use return rather than assign-and-break
-        std::string name {([&] () {
+        std::string name {([&] () -> std::string {
             switch (opcode) {
                 default:
                     throw std::logic_error{"Unreachable"};

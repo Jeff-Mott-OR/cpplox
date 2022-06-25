@@ -7,6 +7,7 @@
 #include "scanner.hpp"
 #include "value.hpp"
 
+// X-macro
 #define MOTTS_LOX_OPCODE_NAMES \
     X(constant) \
     X(nil) \
