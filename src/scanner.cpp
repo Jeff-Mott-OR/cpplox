@@ -77,7 +77,7 @@ namespace motts { namespace lox {
             token_begin_ = token_end_;
             const auto next_char = *token_end_++;
 
-            if (std::isalpha(next_char) || '_' == next_char) {
+            if (std::isalpha(next_char) || next_char == '_') {
                 return scan_identifier_token();
             }
 
@@ -91,6 +91,9 @@ namespace motts { namespace lox {
                         "[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."
                     };
 
+                case '"':
+                    return scan_string_token();
+
                 // Skip whitespace
                 case ' ':
                 case '\r':
@@ -102,14 +105,6 @@ namespace motts { namespace lox {
                     ++line_;
                     continue;
 
-                case '"':
-                    return scan_string_token();
-
-                case '!': return {scan_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
-                case '=': return {scan_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
-                case '>': return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
-                case '<': return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
-
                 // Slash or line comment
                 case '/':
                     // Two cosecutive slashes means line comment
@@ -117,7 +112,6 @@ namespace motts { namespace lox {
                         while (token_end_ != source_end_ && *token_end_ != '\n') {
                             ++token_end_;
                         }
-
                         continue;
                     }
 
@@ -134,6 +128,11 @@ namespace motts { namespace lox {
                 case '+': return Token{Token_type::plus, {token_begin_, token_end_}, line_};
                 case ';': return Token{Token_type::semicolon, {token_begin_, token_end_}, line_};
                 case '*': return Token{Token_type::star, {token_begin_, token_end_}, line_};
+
+                case '!': return {scan_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
+                case '=': return {scan_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
+                case '>': return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
+                case '<': return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
             }
 
             throw std::logic_error{"Unreachable"};
@@ -143,31 +142,31 @@ namespace motts { namespace lox {
     }
 
     Token Token_iterator::scan_identifier_token() {
-        while (token_end_ != source_end_ && (std::isalnum(*token_end_) || '_' == *token_end_)) {
+        while (token_end_ != source_end_ && (std::isalnum(*token_end_) || *token_end_ == '_')) {
             ++token_end_;
         }
 
         std::string_view token_lexeme {token_begin_, token_end_};
 
         const auto token_type = ([&] () {
-            if ("and" == token_lexeme) return Token_type::and_;
-            if ("break" == token_lexeme) return Token_type::break_;
-            if ("class" == token_lexeme) return Token_type::class_;
-            if ("continue" == token_lexeme) return Token_type::continue_;
-            if ("else" == token_lexeme) return Token_type::else_;
-            if ("false" == token_lexeme) return Token_type::false_;
-            if ("for" == token_lexeme) return Token_type::for_;
-            if ("fun" == token_lexeme) return Token_type::fun;
-            if ("if" == token_lexeme) return Token_type::if_;
-            if ("nil" == token_lexeme) return Token_type::nil;
-            if ("or" == token_lexeme) return Token_type::or_;
-            if ("print" == token_lexeme) return Token_type::print;
-            if ("return" == token_lexeme) return Token_type::return_;
-            if ("super" == token_lexeme) return Token_type::super;
-            if ("this" == token_lexeme) return Token_type::this_;
-            if ("true" == token_lexeme) return Token_type::true_;
-            if ("var" == token_lexeme) return Token_type::var;
-            if ("while" == token_lexeme) return Token_type::while_;
+            if (token_lexeme == "and") return Token_type::and_;
+            if (token_lexeme == "break") return Token_type::break_;
+            if (token_lexeme == "class") return Token_type::class_;
+            if (token_lexeme == "continue") return Token_type::continue_;
+            if (token_lexeme == "else") return Token_type::else_;
+            if (token_lexeme == "false") return Token_type::false_;
+            if (token_lexeme == "for") return Token_type::for_;
+            if (token_lexeme == "fun") return Token_type::fun;
+            if (token_lexeme == "if") return Token_type::if_;
+            if (token_lexeme == "nil") return Token_type::nil;
+            if (token_lexeme == "or") return Token_type::or_;
+            if (token_lexeme == "print") return Token_type::print;
+            if (token_lexeme == "return") return Token_type::return_;
+            if (token_lexeme == "super") return Token_type::super;
+            if (token_lexeme == "this") return Token_type::this_;
+            if (token_lexeme == "true") return Token_type::true_;
+            if (token_lexeme == "var") return Token_type::var;
+            if (token_lexeme == "while") return Token_type::while_;
             return Token_type::identifier;
         })();
 
@@ -181,7 +180,7 @@ namespace motts { namespace lox {
 
         // Fractional part
         if (
-            token_end_ != source_end_ && '.' == *token_end_ &&
+            token_end_ != source_end_ && *token_end_ == '.' &&
             (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))
         ) {
             // Consume the "." and digit

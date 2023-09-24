@@ -99,5 +99,4 @@ namespace motts { namespace lox {
     };
 
     bool operator!=(const Token_iterator&, const Token_iterator&);
-
 }}

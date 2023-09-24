@@ -51,9 +51,8 @@ std::ostream& operator<<(std::ostream& os, std::vector<std::string> vector) {
 int main(int argc, char* argv[]) {
     program_options::options_description options_description {"Usage"};
     options_description.add_options()
-        ("help", "Produce help message")
+        ("help", "Show help message")
         ("debug", program_options::bool_switch(), "Disassemble instructions")
-        ("include-path,I", program_options::value<std::vector<std::string>>(), "Include path")
         ("input-file", program_options::value<std::vector<std::string>>(), "Input file");
 
     program_options::positional_options_description positional_options_description;
@@ -71,9 +70,6 @@ int main(int argc, char* argv[]) {
     if (options_map.count("help")) {
         std::cout << options_description << "\n";
         return EXIT_SUCCESS;
-    }
-    if (options_map.count("include-path")) {
-        std::cout << "Include paths are: " << options_map["include-path"].as<std::vector<std::string>>() << "\n";
     }
     if (options_map.count("input-file")) {
         std::cout << "Input files are: " << options_map["input-file"].as<std::vector<std::string>>() << "\n";
