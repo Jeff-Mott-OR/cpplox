@@ -6,15 +6,20 @@
 
 #include "../src/compiler.hpp"
 
+using motts::lox::Dynamic_type_value;
+using motts::lox::Opcode;
+using motts::lox::Token;
+using motts::lox::Token_type;
+
 BOOST_AUTO_TEST_CASE(opcodes_can_be_printed) {
     std::ostringstream os;
-    os << motts::lox::Opcode::constant;
+    os << Opcode::constant;
     BOOST_TEST(os.str() == "CONSTANT");
 }
 
 BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw) {
     const auto invalid_opcode_value = 276'709; // don't panic
-    const auto invalid_opcode = reinterpret_cast<const motts::lox::Opcode&>(invalid_opcode_value);
+    const auto invalid_opcode = reinterpret_cast<const Opcode&>(invalid_opcode_value);
 
     std::ostringstream os;
     BOOST_CHECK_THROW(os << invalid_opcode, std::exception);
@@ -22,8 +27,8 @@ BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw) {
 
 BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-    chunk.emit_nil(motts::lox::Token{motts::lox::Token_type::nil, "nil", 2});
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::nil>(Token{Token_type::nil, "nil", 2});
 
     std::ostringstream os;
     os << chunk;

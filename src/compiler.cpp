@@ -62,10 +62,28 @@ namespace motts { namespace lox {
         return os;
     }
 
-    void Chunk::emit_add(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::add));
-        source_map_tokens_.push_back(source_map_token);
-    }
+    template<Opcode opcode>
+        void Chunk::emit(const Token& source_map_token) {
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
+            source_map_tokens_.push_back(source_map_token);
+        }
+
+    // Explicit instantiation of the opcodes allowed with this templated member function.
+    // `emit<Opcode::constant>`, for example, should *not* be accepted through this template.
+    template void Chunk::emit<Opcode::add>(const Token&);
+    template void Chunk::emit<Opcode::divide>(const Token&);
+    template void Chunk::emit<Opcode::false_>(const Token&);
+    template void Chunk::emit<Opcode::equal>(const Token&);
+    template void Chunk::emit<Opcode::greater>(const Token&);
+    template void Chunk::emit<Opcode::less>(const Token&);
+    template void Chunk::emit<Opcode::multiply>(const Token&);
+    template void Chunk::emit<Opcode::negate>(const Token&);
+    template void Chunk::emit<Opcode::nil>(const Token&);
+    template void Chunk::emit<Opcode::not_>(const Token&);
+    template void Chunk::emit<Opcode::pop>(const Token&);
+    template void Chunk::emit<Opcode::print>(const Token&);
+    template void Chunk::emit<Opcode::subtract>(const Token&);
+    template void Chunk::emit<Opcode::true_>(const Token&);
 
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = constants_.size();
@@ -75,71 +93,6 @@ namespace motts { namespace lox {
         bytecode_.push_back(constant_index);
 
         source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_divide(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::divide));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_equal(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::equal));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_greater(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::greater));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_false(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::false_));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_less(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::less));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_multiply(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::multiply));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_negate(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::negate));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_nil(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::nil));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_not(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::not_));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_pop(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::pop));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_print(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::print));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_subtract(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::subtract));
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_true(const Token& source_map_token) {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::true_));
         source_map_tokens_.push_back(source_map_token);
     }
 
@@ -221,7 +174,7 @@ namespace motts { namespace lox {
                 };
 
             case Token_type::false_:
-                chunk.emit_false(*token_iter);
+                chunk.emit<Opcode::false_>(*token_iter);
                 break;
 
             case Token_type::left_paren:
@@ -231,7 +184,7 @@ namespace motts { namespace lox {
                 break;
 
             case Token_type::nil:
-                chunk.emit_nil(*token_iter);
+                chunk.emit<Opcode::nil>(*token_iter);
                 break;
 
             case Token_type::number: {
@@ -247,7 +200,7 @@ namespace motts { namespace lox {
             }
 
             case Token_type::true_:
-                chunk.emit_true(*token_iter);
+                chunk.emit<Opcode::true_>(*token_iter);
                 break;
         }
 
@@ -267,11 +220,11 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unreachable"};
 
                 case Token_type::minus:
-                    chunk.emit_negate(unary_op_token);
+                    chunk.emit<Opcode::negate>(unary_op_token);
                     break;
 
                 case Token_type::bang:
-                    chunk.emit_not(unary_op_token);
+                    chunk.emit<Opcode::not_>(unary_op_token);
                     break;
             }
 
@@ -297,11 +250,11 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unreachable"};
 
                 case Token_type::star:
-                    chunk.emit_multiply(binary_op_token);
+                    chunk.emit<Opcode::multiply>(binary_op_token);
                     break;
 
                 case Token_type::slash:
-                    chunk.emit_divide(binary_op_token);
+                    chunk.emit<Opcode::divide>(binary_op_token);
                     break;
             }
         }
@@ -323,11 +276,11 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unreachable"};
 
                 case Token_type::plus:
-                    chunk.emit_add(binary_op_token);
+                    chunk.emit<Opcode::add>(binary_op_token);
                     break;
 
                 case Token_type::minus:
-                    chunk.emit_subtract(binary_op_token);
+                    chunk.emit<Opcode::subtract>(binary_op_token);
                     break;
             }
         }
@@ -352,21 +305,21 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unreachable"};
 
                 case Token_type::less:
-                    chunk.emit_less(comparison_token);
+                    chunk.emit<Opcode::less>(comparison_token);
                     break;
 
                 case Token_type::less_equal:
-                    chunk.emit_greater(comparison_token);
-                    chunk.emit_not(comparison_token);
+                    chunk.emit<Opcode::greater>(comparison_token);
+                    chunk.emit<Opcode::not_>(comparison_token);
                     break;
 
                 case Token_type::greater:
-                    chunk.emit_greater(comparison_token);
+                    chunk.emit<Opcode::greater>(comparison_token);
                     break;
 
                 case Token_type::greater_equal:
-                    chunk.emit_less(comparison_token);
-                    chunk.emit_not(comparison_token);
+                    chunk.emit<Opcode::less>(comparison_token);
+                    chunk.emit<Opcode::not_>(comparison_token);
                     break;
             }
         }
@@ -388,12 +341,12 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unreachable"};
 
                 case Token_type::equal_equal:
-                    chunk.emit_equal(equality_token);
+                    chunk.emit<Opcode::equal>(equality_token);
                     break;
 
                 case Token_type::bang_equal:
-                    chunk.emit_equal(equality_token);
-                    chunk.emit_not(equality_token);
+                    chunk.emit<Opcode::equal>(equality_token);
+                    chunk.emit<Opcode::not_>(equality_token);
                     break;
             }
         }
@@ -409,7 +362,7 @@ namespace motts { namespace lox {
                 ++token_iter;
 
                 compile_equality_precedence_expression(chunk, token_iter);
-                chunk.emit_print(print_token);
+                chunk.emit<Opcode::print>(print_token);
                 ensure_token_is(*token_iter, Token_type::semicolon);
                 ++token_iter;
 
@@ -417,7 +370,7 @@ namespace motts { namespace lox {
             }
 
             compile_equality_precedence_expression(chunk, token_iter);
-            chunk.emit_pop(*token_iter);
+            chunk.emit<Opcode::pop>(*token_iter);
             ensure_token_is(*token_iter, Token_type::semicolon);
             ++token_iter;
         }

@@ -61,21 +61,9 @@ namespace motts { namespace lox {
                 return source_map_tokens_;
             }
 
-            void emit_add(const Token& source_map_token);
+            template<Opcode> void emit(const Token& source_map_token);
+
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
-            void emit_divide(const Token& source_map_token);
-            void emit_equal(const Token& source_map_token);
-            void emit_false(const Token& source_map_token);
-            void emit_greater(const Token& source_map_token);
-            void emit_less(const Token& source_map_token);
-            void emit_multiply(const Token& source_map_token);
-            void emit_negate(const Token& source_map_token);
-            void emit_nil(const Token& source_map_token);
-            void emit_not(const Token& source_map_token);
-            void emit_pop(const Token& source_map_token);
-            void emit_print(const Token& source_map_token);
-            void emit_subtract(const Token& source_map_token);
-            void emit_true(const Token& source_map_token);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

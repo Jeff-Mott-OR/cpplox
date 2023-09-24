@@ -6,11 +6,16 @@
 
 #include "../src/vm.hpp"
 
+using motts::lox::Dynamic_type_value;
+using motts::lox::Opcode;
+using motts::lox::Token;
+using motts::lox::Token_type;
+
 BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{28.0}, motts::lox::Token{motts::lox::Token_type::number, "28", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{14.0}, motts::lox::Token{motts::lox::Token_type::number, "14", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{28.0}, Token{Token_type::number, "28", 1});
+    chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "14", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os, /* debug = */ true);
@@ -40,9 +45,9 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
 
 BOOST_AUTO_TEST_CASE(chunks_and_stacks_wont_print_when_debug_is_off) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{28.0}, motts::lox::Token{motts::lox::Token_type::number, "28", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{14.0}, motts::lox::Token{motts::lox::Token_type::number, "14", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{28.0}, Token{Token_type::number, "28", 1});
+    chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "14", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os, /* debug = */ false);
@@ -52,12 +57,12 @@ BOOST_AUTO_TEST_CASE(chunks_and_stacks_wont_print_when_debug_is_off) {
 
 BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{28.0}, motts::lox::Token{motts::lox::Token_type::number, "28", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{14.0}, motts::lox::Token{motts::lox::Token_type::number, "14", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::number, "\"hello\"", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"world"}, motts::lox::Token{motts::lox::Token_type::number, "\"world\"", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{28.0}, Token{Token_type::number, "28", 1});
+    chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "14", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::number, "\"hello\"", 1});
+    chunk.emit_constant(Dynamic_type_value{"world"}, Token{Token_type::number, "\"world\"", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os, /* debug = */ true);
@@ -105,9 +110,9 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
 
 BOOST_AUTO_TEST_CASE(invalid_plus_will_throw) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::number, "\"hello\"", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::number, "\"hello\"", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
     try {
@@ -120,20 +125,20 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw) {
 BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
     motts::lox::Chunk chunk;
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "hello", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "hello", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{nullptr}, motts::lox::Token{motts::lox::Token_type::nil, "nil", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{nullptr}, Token{Token_type::nil, "nil", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{false}, motts::lox::Token{motts::lox::Token_type::false_, "false", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{false}, Token{Token_type::false_, "false", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
@@ -150,20 +155,20 @@ BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
 BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_run) {
     motts::lox::Chunk chunk;
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{7.0}, motts::lox::Token{motts::lox::Token_type::number, "7", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{5.0}, motts::lox::Token{motts::lox::Token_type::number, "5", 1});
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit_constant(Dynamic_type_value{7.0}, Token{Token_type::number, "7", 1});
+    chunk.emit_constant(Dynamic_type_value{5.0}, Token{Token_type::number, "5", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{3.0}, motts::lox::Token{motts::lox::Token_type::number, "3", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{2.0}, motts::lox::Token{motts::lox::Token_type::number, "2", 1});
-    chunk.emit_multiply(motts::lox::Token{motts::lox::Token_type::star, "*", 1});
+    chunk.emit_constant(Dynamic_type_value{3.0}, Token{Token_type::number, "3", 1});
+    chunk.emit_constant(Dynamic_type_value{2.0}, Token{Token_type::number, "2", 1});
+    chunk.emit<Opcode::multiply>(Token{Token_type::star, "*", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-    chunk.emit_divide(motts::lox::Token{motts::lox::Token_type::slash, "/", 1});
+    chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+    chunk.emit<Opcode::divide>(Token{Token_type::slash, "/", 1});
 
-    chunk.emit_subtract(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+    chunk.emit<Opcode::subtract>(Token{Token_type::minus, "-", 1});
 
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
@@ -174,9 +179,9 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_run) {
 BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+        chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -186,9 +191,9 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_subtract(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+        chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit<Opcode::subtract>(Token{Token_type::minus, "-", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -198,9 +203,9 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_multiply(motts::lox::Token{motts::lox::Token_type::star, "*", 1});
+        chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit<Opcode::multiply>(Token{Token_type::star, "*", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -210,9 +215,9 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_divide(motts::lox::Token{motts::lox::Token_type::slash, "/", 1});
+        chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit<Opcode::divide>(Token{Token_type::slash, "/", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -225,15 +230,15 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
 BOOST_AUTO_TEST_CASE(numeric_negation_will_run) {
     motts::lox::Chunk chunk;
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-    chunk.emit_negate(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+    chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+    chunk.emit<Opcode::negate>(Token{Token_type::minus, "-", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-    chunk.emit_negate(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+    chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+    chunk.emit<Opcode::negate>(Token{Token_type::minus, "-", 1});
 
-    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+    chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
@@ -243,8 +248,8 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_run) {
 
 BOOST_AUTO_TEST_CASE(invalid_negation_will_throw) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\'", 1});
-    chunk.emit_negate(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+    chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\'", 1});
+    chunk.emit<Opcode::negate>(Token{Token_type::minus, "-", 1});
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
     try {
         motts::lox::run(chunk);
@@ -256,29 +261,29 @@ BOOST_AUTO_TEST_CASE(invalid_negation_will_throw) {
 BOOST_AUTO_TEST_CASE(false_and_nil_are_falsey_all_else_is_truthy) {
     motts::lox::Chunk chunk;
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{false}, motts::lox::Token{motts::lox::Token_type::false_, "false", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{false}, Token{Token_type::false_, "false", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{nullptr}, motts::lox::Token{motts::lox::Token_type::nil, "nil", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{nullptr}, Token{Token_type::nil, "nil", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{0.0}, motts::lox::Token{motts::lox::Token_type::number, "0", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{0.0}, Token{Token_type::number, "0", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\"", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang, "!", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang, "!", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
@@ -288,8 +293,8 @@ BOOST_AUTO_TEST_CASE(false_and_nil_are_falsey_all_else_is_truthy) {
 
 BOOST_AUTO_TEST_CASE(pop_will_run) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
-    chunk.emit_pop(motts::lox::Token{motts::lox::Token_type::semicolon, ";", 1});
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os, /* debug = */ true);
@@ -313,38 +318,38 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
 BOOST_AUTO_TEST_CASE(comparisons_will_run) {
     motts::lox::Chunk chunk;
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{2.0}, motts::lox::Token{motts::lox::Token_type::number, "2", 1});
-    chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::greater, ">", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+    chunk.emit_constant(Dynamic_type_value{2.0}, Token{Token_type::number, "2", 1});
+    chunk.emit<Opcode::greater>(Token{Token_type::greater, ">", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{3.0}, motts::lox::Token{motts::lox::Token_type::number, "3", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{5.0}, motts::lox::Token{motts::lox::Token_type::number, "5", 1});
-    chunk.emit_less(motts::lox::Token{motts::lox::Token_type::greater_equal, ">=", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::greater_equal, ">=", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{3.0}, Token{Token_type::number, "3", 1});
+    chunk.emit_constant(Dynamic_type_value{5.0}, Token{Token_type::number, "5", 1});
+    chunk.emit<Opcode::less>(Token{Token_type::greater_equal, ">=", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::greater_equal, ">=", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{7.0}, motts::lox::Token{motts::lox::Token_type::number, "7", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{11.0}, motts::lox::Token{motts::lox::Token_type::number, "11", 1});
-    chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::equal_equal, "==", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{7.0}, Token{Token_type::number, "7", 1});
+    chunk.emit_constant(Dynamic_type_value{11.0}, Token{Token_type::number, "11", 1});
+    chunk.emit<Opcode::equal>(Token{Token_type::equal_equal, "==", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{13.0}, motts::lox::Token{motts::lox::Token_type::number, "13", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{17.0}, motts::lox::Token{motts::lox::Token_type::number, "17", 1});
-    chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::bang_equal, "!=", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang_equal, "!=", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{13.0}, Token{Token_type::number, "13", 1});
+    chunk.emit_constant(Dynamic_type_value{17.0}, Token{Token_type::number, "17", 1});
+    chunk.emit<Opcode::equal>(Token{Token_type::bang_equal, "!=", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::bang_equal, "!=", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{19.0}, motts::lox::Token{motts::lox::Token_type::number, "19", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{23.0}, motts::lox::Token{motts::lox::Token_type::number, "23", 1});
-    chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::less_equal, "<=", 1});
-    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::less_equal, "<=", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{19.0}, Token{Token_type::number, "19", 1});
+    chunk.emit_constant(Dynamic_type_value{23.0}, Token{Token_type::number, "23", 1});
+    chunk.emit<Opcode::greater>(Token{Token_type::less_equal, "<=", 1});
+    chunk.emit<Opcode::not_>(Token{Token_type::less_equal, "<=", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    chunk.emit_constant(motts::lox::Dynamic_type_value{29.0}, motts::lox::Token{motts::lox::Token_type::number, "29", 1});
-    chunk.emit_constant(motts::lox::Dynamic_type_value{31.0}, motts::lox::Token{motts::lox::Token_type::number, "31", 1});
-    chunk.emit_less(motts::lox::Token{motts::lox::Token_type::less, "<", 1});
-    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{29.0}, Token{Token_type::number, "29", 1});
+    chunk.emit_constant(Dynamic_type_value{31.0}, Token{Token_type::number, "31", 1});
+    chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
@@ -355,9 +360,9 @@ BOOST_AUTO_TEST_CASE(comparisons_will_run) {
 BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::greater, ">", 1});
+        chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit<Opcode::greater>(Token{Token_type::greater, ">", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -367,9 +372,9 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\"", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
-        chunk.emit_less(motts::lox::Token{motts::lox::Token_type::less, "<", 1});
+        chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
+        chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
+        chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -379,9 +384,9 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
-        chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\"", 1});
-        chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::equal_equal, "==", 1});
+        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+        chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
+        chunk.emit<Opcode::equal>(Token{Token_type::equal_equal, "==", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
