@@ -73,6 +73,12 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile) {
 
 BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw) {
     BOOST_CHECK_THROW(motts::lox::compile("?"), std::exception);
+
+    try {
+        motts::lox::compile("?");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Unexpected character \"?\".");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
@@ -126,6 +132,12 @@ BOOST_AUTO_TEST_CASE(addition_will_compile) {
 
 BOOST_AUTO_TEST_CASE(invalid_addition_will_throw) {
     BOOST_CHECK_THROW(motts::lox::compile("42 + "), std::exception);
+
+    try {
+        motts::lox::compile("42 + ");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Unexpected token \"EOF\".");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(print_will_compile) {

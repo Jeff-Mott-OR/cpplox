@@ -1,83 +1,82 @@
-#include <cctype>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
-#include <ostream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <vector>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
-#include <gsl/gsl>
 
 #include "compiler.hpp"
-#include "scanner.hpp"
+#include "vm.hpp"
 
 namespace program_options = boost::program_options;
 
-namespace motts { namespace lox {
-    struct Lox {
-        void compile(std::string_view source);
-    };
+namespace {
+    using namespace motts::lox;
 
-    void Lox::compile(std::string_view source) {
-        const auto chunk = ::motts::lox::compile(source);
-        std::cout << chunk << "\n";
+    void run_file(const std::string& input_file, bool debug) {
+        const auto source = ([&] () {
+            std::ifstream in {input_file};
+            in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+        })();
+
+        const auto chunk = compile(source);
+        run(chunk, std::cout, debug);
     }
 
-    void run_prompt(Lox& lox) {
-        std::cout << "> ";
+    void run_prompt(bool debug) {
+        VM vm;
 
-        std::string source_line;
-        std::getline(std::cin, source_line);
+        while (true) {
+            std::cout << "> ";
 
-        // If the user makes a mistake, it shouldn't kill their entire session
-        try {
-            lox.compile(source_line);
-        } catch (const std::exception& error) {
-            std::cerr << error.what() << "\n";
+            std::string source_line;
+            std::getline(std::cin, source_line);
+
+            // If the user makes a mistake, it shouldn't kill their entire session
+            try {
+                const auto chunk = compile(source_line);
+                vm.run(chunk, std::cout, debug);
+            } catch (const std::exception& error) {
+                std::cerr << error.what() << "\n";
+            }
         }
     }
-}}
-
-std::ostream& operator<<(std::ostream& os, std::vector<std::string> vector) {
-    for (const auto& string : vector) {
-        std::cout << string << ' ';
-    }
-    return os;
 }
 
 int main(int argc, char* argv[]) {
-    program_options::options_description options_description {"Usage"};
-    options_description.add_options()
+    program_options::options_description options {"Usage"};
+    options.add_options()
         ("help", "Show help message")
         ("debug", program_options::bool_switch(), "Disassemble instructions")
-        ("input-file", program_options::value<std::vector<std::string>>(), "Input file");
+        ("input-file", program_options::value<std::string>(), "Input file");
 
-    program_options::positional_options_description positional_options_description;
-    positional_options_description.add("input-file", -1);
+    program_options::positional_options_description positional_options;
+    positional_options.add("input-file", 1);
 
     program_options::variables_map options_map;
     program_options::store(
         program_options::command_line_parser{argc, argv}
-            .options(options_description)
-            .positional(positional_options_description)
+            .options(options)
+            .positional(positional_options)
             .run(),
         options_map
     );
 
     if (options_map.count("help")) {
-        std::cout << options_description << "\n";
+        std::cout << options << "\n";
         return EXIT_SUCCESS;
     }
-    if (options_map.count("input-file")) {
-        std::cout << "Input files are: " << options_map["input-file"].as<std::vector<std::string>>() << "\n";
-    }
-    std::cout << "Debug is " << options_map["debug"].as<bool>() << "\n";
 
-    motts::lox::Lox lox;
-    if (!options_map.count("input-file")) {
-        motts::lox::run_prompt(lox);
+    try {
+        if (options_map.count("input-file")) {
+            run_file(options_map["input-file"].as<std::string>(), options_map["debug"].as<bool>());
+        } else {
+            run_prompt(options_map["debug"].as<bool>());
+        }
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << "\n";
+        return EXIT_FAILURE;
     }
 }

@@ -1,8 +1,6 @@
 #include "vm.hpp"
 
 #include <iomanip>
-#include <unordered_map>
-#include <vector>
 
 #include <boost/endian/conversion.hpp>
 
@@ -25,12 +23,14 @@ namespace {
 
 namespace motts { namespace lox {
     void run(const Chunk& chunk, std::ostream& os, bool debug) {
+        VM vm;
+        vm.run(chunk, os, debug);
+    }
+
+    void VM::run(const Chunk& chunk, std::ostream& os, bool debug) {
         if (debug) {
             os << "# Running chunk:\n" << chunk << "\n";
         }
-
-        std::vector<Dynamic_type_value> stack;
-        std::unordered_map<std::string, Dynamic_type_value> globals;
 
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
             const auto index = bytecode_iter - chunk.bytecode().cbegin();
@@ -46,20 +46,20 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::add: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (std::holds_alternative<double>(a.variant) && std::holds_alternative<double>(b.variant))
                     {
                         const auto result = std::get<double>(a.variant) + std::get<double>(b.variant);
-                        stack.erase(stack.cend() - 2, stack.cend());
-                        stack.push_back(Dynamic_type_value{result});
+                        stack_.erase(stack_.cend() - 2, stack_.cend());
+                        stack_.push_back(Dynamic_type_value{result});
                     }
                     else if (std::holds_alternative<std::string>(a.variant) && std::holds_alternative<std::string>(b.variant))
                     {
                         auto result = std::get<std::string>(a.variant) + std::get<std::string>(b.variant);
-                        stack.erase(stack.cend() - 2, stack.cend());
-                        stack.push_back(Dynamic_type_value{std::move(result)});
+                        stack_.erase(stack_.cend() - 2, stack_.cend());
+                        stack_.push_back(Dynamic_type_value{std::move(result)});
                     }
                     else
                     {
@@ -69,19 +69,22 @@ namespace motts { namespace lox {
                     }
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::constant: {
                     const auto constant_index = *(bytecode_iter + 1);
-                    stack.push_back(chunk.constants().at(constant_index));
+                    stack_.push_back(chunk.constants().at(constant_index));
+
                     bytecode_iter += 2;
+
                     break;
                 }
 
                 case Opcode::divide: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
                         throw std::runtime_error{
@@ -90,34 +93,32 @@ namespace motts { namespace lox {
                     }
 
                     const auto result = std::get<double>(a.variant) / std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::equal: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
-                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
-                    }
-
-                    const auto result = std::get<double>(a.variant) == std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    const auto result = a.variant == b.variant;
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::false_: {
-                    stack.push_back(Dynamic_type_value{false});
+                    stack_.push_back(Dynamic_type_value{false});
+
                     ++bytecode_iter;
+
                     break;
                 }
 
@@ -125,13 +126,13 @@ namespace motts { namespace lox {
                     const auto variable_name_constant_index = *(bytecode_iter + 1);
                     const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
 
-                    const auto global_iter = globals.find(variable_name);
-                    if (global_iter == globals.end()) {
+                    const auto global_iter = globals_.find(variable_name);
+                    if (global_iter == globals_.end()) {
                         throw std::runtime_error{
                             "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
                         };
                     }
-                    stack.push_back(global_iter->second);
+                    stack_.push_back(global_iter->second);
 
                     bytecode_iter += 2;
 
@@ -139,8 +140,8 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::greater: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
                         throw std::runtime_error{
@@ -149,16 +150,18 @@ namespace motts { namespace lox {
                     }
 
                     const auto result = std::get<double>(a.variant) > std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::jump: {
                     const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
                     const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
+
                     bytecode_iter += 3 + jump_distance;
 
                     break;
@@ -169,7 +172,7 @@ namespace motts { namespace lox {
                     const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
 
                     bytecode_iter += 3;
-                    if (! std::visit(Truthy_visitor{}, stack.back().variant)) {
+                    if (! std::visit(Truthy_visitor{}, stack_.back().variant)) {
                         bytecode_iter += jump_distance;
                     }
 
@@ -177,8 +180,8 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::less: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
                         throw std::runtime_error{
@@ -187,16 +190,17 @@ namespace motts { namespace lox {
                     }
 
                     const auto result = std::get<double>(a.variant) < std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::multiply: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
                         throw std::runtime_error{
@@ -205,62 +209,71 @@ namespace motts { namespace lox {
                     }
 
                     const auto result = std::get<double>(a.variant) * std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::negate: {
-                    if (! std::holds_alternative<double>(stack.back().variant)) {
+                    if (! std::holds_alternative<double>(stack_.back().variant)) {
                         throw std::runtime_error{
                             "[Line " + std::to_string(source_map_token.line) + "] Error: Operand must be a number."
                         };
                     }
 
-                    const auto negated_value = - std::get<double>(stack.back().variant);
+                    const auto negated_value = - std::get<double>(stack_.back().variant);
 
-                    stack.pop_back();
-                    stack.push_back(Dynamic_type_value{negated_value});
+                    stack_.pop_back();
+                    stack_.push_back(Dynamic_type_value{negated_value});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::nil: {
-                    stack.push_back(Dynamic_type_value{nullptr});
+                    stack_.push_back(Dynamic_type_value{nullptr});
+
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::not_: {
-                    const auto negated_value = ! std::visit(Truthy_visitor{}, stack.back().variant);
+                    const auto negated_value = ! std::visit(Truthy_visitor{}, stack_.back().variant);
 
-                    stack.pop_back();
-                    stack.push_back(Dynamic_type_value{negated_value});
+                    stack_.pop_back();
+                    stack_.push_back(Dynamic_type_value{negated_value});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::pop: {
-                    stack.pop_back();
+                    stack_.pop_back();
+
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::print: {
-                    os << stack.back() << "\n";
-                    stack.pop_back();
+                    os << stack_.back() << "\n";
+                    stack_.pop_back();
+
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::set_global: {
                     const auto variable_name_constant_index = *(bytecode_iter + 1);
                     const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
-                    globals[variable_name] = stack.back();
+                    globals_[variable_name] = stack_.back();
 
                     bytecode_iter += 2;
 
@@ -268,8 +281,8 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::subtract: {
-                    const auto& b = *(stack.cend() - 1);
-                    const auto& a = *(stack.cend() - 2);
+                    const auto& b = *(stack_.cend() - 1);
+                    const auto& a = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
                         throw std::runtime_error{
@@ -278,24 +291,27 @@ namespace motts { namespace lox {
                     }
 
                     const auto result = std::get<double>(a.variant) - std::get<double>(b.variant);
-                    stack.erase(stack.cend() - 2, stack.cend());
-                    stack.push_back(Dynamic_type_value{result});
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
+                    stack_.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+
                     break;
                 }
 
                 case Opcode::true_: {
-                    stack.push_back(Dynamic_type_value{true});
+                    stack_.push_back(Dynamic_type_value{true});
+
                     ++bytecode_iter;
+
                     break;
                 }
             }
 
             if (debug) {
                 os << "Stack:\n";
-                for (auto stack_iter = stack.crbegin(); stack_iter != stack.crend(); ++stack_iter) {
-                    const auto index = stack_iter.base() - 1 - stack.cbegin();
+                for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
+                    const auto index = stack_iter.base() - 1 - stack_.cbegin();
                     os << std::setw(5) << std::setfill(' ') << std::right << index << " : " << *stack_iter << "\n";
                 }
                 os << "\n";

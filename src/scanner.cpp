@@ -144,7 +144,7 @@ namespace motts { namespace lox {
             throw std::logic_error{"Unreachable"};
         }
 
-        return Token{Token_type::eof, "", 0};
+        return Token{Token_type::eof, "EOF", line_};
     }
 
     Token Token_iterator::scan_identifier_token() {

@@ -351,10 +351,20 @@ BOOST_AUTO_TEST_CASE(comparisons_will_run) {
     chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
+    chunk.emit_constant(Dynamic_type_value{"42"}, Token{Token_type::string, "\"42\"", 1});
+    chunk.emit_constant(Dynamic_type_value{"42"}, Token{Token_type::string, "\"42\"", 1});
+    chunk.emit<Opcode::equal>(Token{Token_type::equal_equal, "==", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    chunk.emit_constant(Dynamic_type_value{"42"}, Token{Token_type::string, "\"42\"", 1});
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::equal>(Token{Token_type::equal_equal, "==", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
     std::ostringstream os;
     motts::lox::run(chunk, os);
 
-    BOOST_TEST(os.str() == "false\nfalse\nfalse\ntrue\ntrue\ntrue\n");
+    BOOST_TEST(os.str() == "false\nfalse\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\n");
 }
 
 BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
@@ -375,18 +385,6 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
         chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
         chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
         chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
-        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
-        try {
-            motts::lox::run(chunk);
-        } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
-        }
-    }
-    {
-        motts::lox::Chunk chunk;
-        chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
-        chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
-        chunk.emit<Opcode::equal>(Token{Token_type::equal_equal, "==", 1});
         BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
         try {
             motts::lox::run(chunk);
@@ -473,4 +471,25 @@ BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw) {
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
     }
+}
+
+BOOST_AUTO_TEST_CASE(vm_state_can_persist_across_multiple_runs) {
+    motts::lox::VM vm;
+    std::ostringstream os;
+
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+        chunk.emit_set_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+        chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
+        vm.run(chunk, os);
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+        chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+        vm.run(chunk, os);
+    }
+
+    BOOST_TEST(os.str() == "42\n");
 }

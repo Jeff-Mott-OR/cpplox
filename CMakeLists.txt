@@ -7,7 +7,7 @@ option(ENABLE_TESTING "Build and run tests" FALSE)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
-set(BOOST_INCLUDE_LIBRARIES algorithm convert program_options test)
+set(BOOST_INCLUDE_LIBRARIES algorithm convert process program_options test)
 FetchContent_Declare(
     Boost
     GIT_REPOSITORY https://github.com/boostorg/boost.git
@@ -25,11 +25,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Boost Microsoft_GSL)
 
 if(NOT DEPS_ONLY)
-    add_executable(project src/main.cpp src/scanner.cpp src/compiler.cpp src/vm.cpp)
-    target_compile_features(project PUBLIC cxx_std_20)
-    target_compile_options(project PRIVATE -Wall -Wextra -Werror)
-    set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-    target_link_libraries(project PRIVATE Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL)
+    add_executable(cpploxbc src/main.cpp src/scanner.cpp src/compiler.cpp src/vm.cpp)
+    target_compile_features(cpploxbc PUBLIC cxx_std_20)
+    target_compile_options(cpploxbc PRIVATE -Wall -Wextra -Werror)
+    set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
+    target_link_libraries(cpploxbc PRIVATE Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL)
 
     if(ENABLE_TESTING)
         enable_testing()
@@ -67,5 +67,12 @@ if(NOT DEPS_ONLY)
             Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL
         )
         add_test(NAME vm_test COMMAND vm_test)
+
+        add_executable(cli_test test/cli-test.cpp)
+        target_compile_features(cli_test PUBLIC cxx_std_20)
+        target_compile_options(cli_test PRIVATE -Wall -Wextra -Werror)
+        set_property(TARGET cli_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
+        target_link_libraries(cli_test PRIVATE Boost::process Boost::unit_test_framework)
+        add_test(NAME cli_test COMMAND cli_test)
     endif()
 endif()
