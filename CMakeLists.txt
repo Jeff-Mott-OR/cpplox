@@ -28,5 +28,5 @@ if(NOT DEPS_ONLY)
     target_compile_features(project PUBLIC cxx_std_20)
     set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
     target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::algorithm Boost::program_options)
-    target_compile_options(project PRIVATE -Wall -Wextra)
+    target_compile_options(project PRIVATE -Wall -Wextra -Werror)
 endif()

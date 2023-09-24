@@ -15,7 +15,8 @@ namespace program_options = boost::program_options;
 
 namespace motts { namespace lox {
     #define MOTTS_LOX_TOKEN_TYPE_NAMES \
-        X(number) \
+        X(identifier) X(number) \
+        X(and_) X(or_) \
         X(eof)
 
     enum class Token_type {
@@ -27,18 +28,21 @@ namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, const Token_type& token_type) {
         std::string name {([&] () {
             switch (token_type) {
+                default:
+                    throw std::logic_error{"Unexpected token type."};
+
                 #define X(name) \
                     case Token_type::name: \
                         return #name;
                 MOTTS_LOX_TOKEN_TYPE_NAMES
                 #undef X
-
-                default:
-                    throw std::logic_error{"Unexpected token type."};
             }
         })()};
 
+        // Names should print as uppercase without trailing underscores
+        boost::trim_right_if(name, boost::is_any_of("_"));
         boost::to_upper(name);
+
         os << name;
 
         return os;
@@ -73,6 +77,7 @@ namespace motts { namespace lox {
 
         private:
             Token scan_token();
+            Token scan_identifier_token();
             Token scan_number_token();
     };
 
@@ -91,9 +96,13 @@ namespace motts { namespace lox {
     Token Token_iterator::scan_token() {
         while (token_end_ != source_end_) {
             token_begin_ = token_end_;
-            const auto char_ = *token_end_++;
+            const auto next_char = *token_end_++;
 
-            if (std::isdigit(char_)) {
+            if (std::isalpha(next_char) || '_' == next_char) {
+                return scan_identifier_token();
+            }
+
+            if (std::isdigit(next_char)) {
                 return scan_number_token();
             }
 
@@ -103,6 +112,22 @@ namespace motts { namespace lox {
         return Token{Token_type::eof, "", 0};
     }
 
+    Token Token_iterator::scan_identifier_token() {
+        while (token_end_ != source_end_ && (std::isalnum(*token_end_) || '_' == *token_end_)) {
+            ++token_end_;
+        }
+
+        std::string_view token_lexeme {token_begin_, token_end_};
+
+        const auto token_type = ([&] () {
+            if ("and" == token_lexeme) return Token_type::and_;
+            if ("or" == token_lexeme) return Token_type::or_;
+            return Token_type::identifier;
+        })();
+
+        return Token{token_type, token_lexeme, line_};
+    }
+
     Token Token_iterator::scan_number_token() {
         while (token_end_ != source_end_ && std::isdigit(*token_end_)) {
             ++token_end_;
@@ -110,7 +135,7 @@ namespace motts { namespace lox {
 
         // Fractional part
         if (
-            token_end_ != source_end_ && *token_end_ == '.' &&
+            token_end_ != source_end_ && '.' == *token_end_ &&
             (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))
         ) {
             // Consume the "." and digit
