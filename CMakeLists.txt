@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(Project)
 
+option(DEPS_ONLY "Fetch dependencies only" FALSE)
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
@@ -21,7 +23,10 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Microsoft_GSL Boost)
 
-add_executable(project main.cpp)
-target_compile_features(project PUBLIC cxx_std_20)
-set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::program_options)
+if(NOT DEPS_ONLY)
+    add_executable(project main.cpp)
+    target_compile_features(project PUBLIC cxx_std_20)
+    set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
+    target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::program_options)
+    target_compile_options(project PRIVATE -Wall -Wextra)
+endif()
