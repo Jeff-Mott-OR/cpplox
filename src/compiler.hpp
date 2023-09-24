@@ -15,7 +15,8 @@ namespace motts { namespace lox {
         X(constant) \
         X(nil) \
         X(true_) \
-        X(false_)
+        X(false_) \
+        X(add)
 
     enum class Opcode {
         #define X(name) name,
@@ -49,6 +50,7 @@ namespace motts { namespace lox {
                 return source_map_tokens_;
             }
 
+            void emit_add(const Token& source_map_token);
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             void emit_false(const Token& source_map_token);
             void emit_nil(const Token& source_map_token);

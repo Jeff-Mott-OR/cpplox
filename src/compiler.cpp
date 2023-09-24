@@ -51,6 +51,11 @@ namespace motts { namespace lox {
         return os;
     }
 
+    void Chunk::emit_add(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::add));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = constants_.size();
         constants_.push_back(constant_value);
@@ -109,6 +114,7 @@ namespace motts { namespace lox {
 
                     break;
 
+                case Opcode::add:
                 case Opcode::false_:
                 case Opcode::nil:
                 case Opcode::true_:
@@ -126,40 +132,57 @@ namespace motts { namespace lox {
         return os;
     }
 
+    void compile_primary_expression(Chunk& chunk, const Token_iterator& token_iter) {
+        switch (token_iter->type) {
+            default:
+                throw std::runtime_error{
+                    "[Line " + std::to_string(token_iter->line) + "] Error: Unexpected token \"" + std::string{token_iter->lexeme} + "\"."
+                };
+
+            case Token_type::false_:
+                chunk.emit_false(*token_iter);
+                break;
+
+            case Token_type::nil:
+                chunk.emit_nil(*token_iter);
+                break;
+
+            case Token_type::number: {
+                const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
+                chunk.emit_constant(Dynamic_type_value{number_value}, *token_iter);
+                break;
+            }
+
+            case Token_type::string: {
+                auto string_value = std::string{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
+                chunk.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter);
+                break;
+            }
+
+            case Token_type::true_:
+                chunk.emit_true(*token_iter);
+                break;
+        }
+    }
+
     Chunk compile(std::string_view source) {
         Chunk chunk;
 
         Token_iterator token_iter_end;
-        for (Token_iterator token_iter {source}; token_iter != token_iter_end; ++token_iter) {
-            switch (token_iter->type) {
-                default:
-                    throw std::runtime_error{
-                        "[Line " + std::to_string(token_iter->line) + "] Error: Unexpected token \"" + std::string{token_iter->lexeme} + "\"."
-                    };
+        for (Token_iterator token_iter {source}; token_iter != token_iter_end; ) {
+            // Left expression
+            compile_primary_expression(chunk, token_iter);
 
-                case Token_type::false_:
-                    chunk.emit_false(*token_iter);
-                    break;
+            ++token_iter;
+            while (token_iter->type == Token_type::plus) {
+                const auto plus_token = *token_iter;
 
-                case Token_type::nil:
-                    chunk.emit_nil(*token_iter);
-                    break;
+                // Right expression
+                ++token_iter;
+                compile_primary_expression(chunk, token_iter);
+                chunk.emit_add(plus_token);
 
-                case Token_type::number: {
-                    const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
-                    chunk.emit_constant(Dynamic_type_value{number_value}, *token_iter);
-                    break;
-                }
-
-                case Token_type::string: {
-                    auto string_value = std::string{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
-                    chunk.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter);
-                    break;
-                }
-
-                case Token_type::true_:
-                    chunk.emit_true(*token_iter);
-                    break;
+                ++token_iter;
             }
         }
 

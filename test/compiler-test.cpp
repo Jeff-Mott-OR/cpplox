@@ -95,3 +95,24 @@ BOOST_AUTO_TEST_CASE(string_literals_compile) {
         "    0 : 00 00 CONSTANT [0] ; \"hello\" @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(addition_will_compile) {
+    const auto chunk = motts::lox::compile("28 + 14");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 28\n"
+        "    1 : 14\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; 28 @ 1\n"
+        "    2 : 00 01 CONSTANT [1] ; 14 @ 1\n"
+        "    4 : 04    ADD          ; + @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(invalid_addition_will_throw) {
+    BOOST_CHECK_THROW(motts::lox::compile("42 + "), std::exception);
+}
