@@ -467,6 +467,7 @@ namespace {
                         tracked_locals_.push_back({fun_name_token, scope_depth_});
 
                         ensure_token_is(*token_iter_++, Token_type::left_paren);
+                        auto param_count = 0;
                         if (token_iter_->type == Token_type::right_paren) {
                             ++token_iter_;
                         } else {
@@ -476,6 +477,7 @@ namespace {
                                 // The caller already put the argument on the stack. Within the function's body,
                                 // we track that stack position and access it through the parameter's name.
                                 tracked_locals_.push_back({param_token, scope_depth_});
+                                ++param_count;
                             } while (
                                 [&] {
                                     const auto is_comma_token = token_iter_->type == Token_type::comma;
@@ -501,7 +503,7 @@ namespace {
                         }
                         --scope_depth_;
 
-                        const auto fn_gc_ptr = gc_heap_.make<Function>({fun_name_token.lexeme, std::move(function_chunks_.back())});
+                        const auto fn_gc_ptr = gc_heap_.make<Function>({fun_name_token.lexeme, std::move(function_chunks_.back()), param_count});
                         function_chunks_.pop_back();
                         function_chunks_.back().emit_constant(Dynamic_type_value{fn_gc_ptr}, fun_token);
 

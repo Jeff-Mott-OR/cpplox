@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
         options_map
     );
 
-    if (options_map.count("help")) {
+    if (options_map.contains("help")) {
         std::cout << options << '\n';
         return EXIT_SUCCESS;
     }

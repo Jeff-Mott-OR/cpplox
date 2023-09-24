@@ -659,7 +659,7 @@ BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
     fn_f_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "f", 1});
     fn_f_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "x", 1});
     motts::lox::Chunk main_chunk;
-    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk)})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
 
@@ -716,7 +716,7 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
     fn_f_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
     motts::lox::Chunk main_chunk;
     main_chunk.emit<Opcode::nil>(Token{Token_type::nil, "nil", 1}); // force call frame stack offset to be significant
-    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk)})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
     main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
@@ -791,4 +791,34 @@ BOOST_AUTO_TEST_CASE(reachable_function_objects_wont_be_collected) {
     lox.vm.run(lox.compile("f();"));
 }
 
-// TODO Test calling a non-callable
+BOOST_AUTO_TEST_CASE(function_calls_will_wrong_arity_will_throw) {
+    motts::lox::Lox lox;
+
+    motts::lox::Chunk fn_f_chunk;
+    fn_f_chunk.emit<Opcode::nil>(Token{Token_type::fun, "fun", 1});
+    fn_f_chunk.emit<Opcode::return_>(Token{Token_type::fun, "fun", 1});
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "f", 1});
+
+    BOOST_CHECK_THROW(lox.vm.run(main_chunk), std::exception);
+    try {
+        lox.vm.run(main_chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error at \"f\": Expected 1 arguments but got 0.");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(calling_a_noncallable_will_throw) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit_call(0, Token{Token_type::number, "42", 1});
+
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    try {
+        lox.vm.run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Can only call functions.");
+    }
+}

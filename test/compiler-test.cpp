@@ -840,5 +840,3 @@ BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_n
         "    4 : 18       RETURN                  ; fun @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
-
-// TODO Enforce arity

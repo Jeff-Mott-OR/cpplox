@@ -110,7 +110,20 @@ namespace motts { namespace lox {
                     const auto arg_count = *(call_frames_.back().bytecode_iter + 1);
                     call_frames_.back().bytecode_iter += 2;
 
-                    const auto callable = std::get<GC_ptr<Function>>((stack_.cend() - arg_count - 1)->variant);
+                    const auto& maybe_callable = *(stack_.cend() - arg_count - 1);
+                    if (! std::holds_alternative<GC_ptr<Function>>(maybe_callable.variant)) {
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
+                            << "Can only call functions.";
+                        throw std::runtime_error{os.str()};
+                    }
+                    const auto& callable = std::get<GC_ptr<Function>>(maybe_callable.variant);
+                    if (callable->arity != arg_count) {
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
+                            << "Expected " << callable->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                        throw std::runtime_error{os.str()};
+                    }
                     call_frames_.push_back({callable->chunk, callable->chunk.bytecode().cbegin(), stack_.size() - arg_count - 1});
 
                     break;

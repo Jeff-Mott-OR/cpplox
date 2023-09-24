@@ -42,7 +42,7 @@ namespace motts { namespace lox {
                 const auto chunk = compile(source_line);
                 vm.run(chunk);
             } catch (const std::exception& error) {
-                std::cerr << error.what() << "\n";
+                std::cerr << error.what() << '\n';
             }
         }
     }
