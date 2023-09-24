@@ -63,6 +63,12 @@ namespace motts { namespace lox {
                     ++bytecode_iter;
                     break;
 
+                case Opcode::print:
+                    os << stack.back() << "\n";
+                    stack.pop_back();
+                    ++bytecode_iter;
+                    break;
+
                 case Opcode::true_:
                     stack.push_back(Dynamic_type_value{true});
                     ++bytecode_iter;

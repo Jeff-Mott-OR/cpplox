@@ -1,5 +1,6 @@
 #include "compiler.hpp"
 
+#include <cstddef>
 #include <iomanip>
 #include <sstream>
 
@@ -8,6 +9,29 @@
 #include <gsl/gsl>
 
 #include "scanner.hpp"
+
+namespace {
+    struct Print_visitor {
+        std::ostream& os;
+        Print_visitor(std::ostream& os_arg)
+            : os {os_arg}
+        {
+        }
+
+        auto operator()(std::nullptr_t) {
+            os << "nil";
+        }
+
+        auto operator()(bool value) {
+            os << std::boolalpha << value;
+        }
+
+        template<typename T>
+            auto operator()(const T& value) {
+                os << value;
+            }
+    };
+}
 
 namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, const Opcode& opcode) {
@@ -32,19 +56,6 @@ namespace motts { namespace lox {
 
         return os;
     }
-
-    struct Print_visitor {
-        std::ostream& os;
-        Print_visitor(std::ostream& os_arg)
-            : os {os_arg}
-        {
-        }
-
-        template<typename T>
-            auto operator()(const T& value) {
-                os << value;
-            }
-    };
 
     std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value) {
         std::visit(Print_visitor{os}, value.variant);
@@ -74,6 +85,11 @@ namespace motts { namespace lox {
 
     void Chunk::emit_nil(const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::nil));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_print(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::print));
         source_map_tokens_.push_back(source_map_token);
     }
 
@@ -117,6 +133,7 @@ namespace motts { namespace lox {
                 case Opcode::add:
                 case Opcode::false_:
                 case Opcode::nil:
+                case Opcode::print:
                 case Opcode::true_:
                     line << std::setw(3) << std::setfill(' ') << " " << opcode;
                     bytecode_iter += 1;
@@ -132,7 +149,7 @@ namespace motts { namespace lox {
         return os;
     }
 
-    void compile_primary_expression(Chunk& chunk, const Token_iterator& token_iter) {
+    void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
         switch (token_iter->type) {
             default:
                 throw std::runtime_error{
@@ -163,6 +180,22 @@ namespace motts { namespace lox {
                 chunk.emit_true(*token_iter);
                 break;
         }
+
+        ++token_iter;
+    }
+
+    void compile_expression(Chunk& chunk, Token_iterator& token_iter) {
+        // Left expression
+        compile_primary_expression(chunk, token_iter);
+
+        while (token_iter->type == Token_type::plus) {
+            const auto plus_token = *token_iter;
+            ++token_iter;
+
+            // Right expression
+            compile_primary_expression(chunk, token_iter);
+            chunk.emit_add(plus_token);
+        }
     }
 
     Chunk compile(std::string_view source) {
@@ -170,20 +203,24 @@ namespace motts { namespace lox {
 
         Token_iterator token_iter_end;
         for (Token_iterator token_iter {source}; token_iter != token_iter_end; ) {
-            // Left expression
-            compile_primary_expression(chunk, token_iter);
-
-            ++token_iter;
-            while (token_iter->type == Token_type::plus) {
-                const auto plus_token = *token_iter;
-
-                // Right expression
+            if (token_iter->type == Token_type::print) {
+                const auto print_token = *token_iter;
                 ++token_iter;
-                compile_primary_expression(chunk, token_iter);
-                chunk.emit_add(plus_token);
 
+                compile_expression(chunk, token_iter);
+                chunk.emit_print(print_token);
+
+                if (token_iter->type != Token_type::semicolon) {
+                    throw std::runtime_error{
+                        "[Line " + std::to_string(token_iter->line) + "] Error: Expected ';', at \"" + std::string{token_iter->lexeme} + "\"."
+                    };
+                }
                 ++token_iter;
+
+                continue;
             }
+
+            compile_expression(chunk, token_iter);
         }
 
         return chunk;

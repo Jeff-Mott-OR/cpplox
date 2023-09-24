@@ -111,3 +111,33 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw) {
 
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
 }
+
+BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
+    motts::lox::Chunk chunk;
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "hello", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{nullptr}, motts::lox::Token{motts::lox::Token_type::nil, "nil", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{false}, motts::lox::Token{motts::lox::Token_type::false_, "false", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    const auto expected =
+        "42\n"
+        "hello\n"
+        "nil\n"
+        "true\n"
+        "false\n";
+    BOOST_TEST(os.str() == expected);
+}

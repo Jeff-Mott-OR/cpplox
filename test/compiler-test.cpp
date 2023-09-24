@@ -116,3 +116,18 @@ BOOST_AUTO_TEST_CASE(addition_will_compile) {
 BOOST_AUTO_TEST_CASE(invalid_addition_will_throw) {
     BOOST_CHECK_THROW(motts::lox::compile("42 + "), std::exception);
 }
+
+BOOST_AUTO_TEST_CASE(print_will_compile) {
+    const auto chunk = motts::lox::compile("print 42;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
+        "    2 : 05    PRINT        ; print @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
