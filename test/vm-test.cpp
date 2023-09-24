@@ -141,3 +141,27 @@ BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
         "false\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_run) {
+    motts::lox::Chunk chunk;
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{7.0}, motts::lox::Token{motts::lox::Token_type::number, "7", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{5.0}, motts::lox::Token{motts::lox::Token_type::number, "5", 1});
+    chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{3.0}, motts::lox::Token{motts::lox::Token_type::number, "3", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{2.0}, motts::lox::Token{motts::lox::Token_type::number, "2", 1});
+    chunk.emit_multiply(motts::lox::Token{motts::lox::Token_type::star, "*", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
+    chunk.emit_divide(motts::lox::Token{motts::lox::Token_type::slash, "/", 1});
+
+    chunk.emit_subtract(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "6\n");
+}

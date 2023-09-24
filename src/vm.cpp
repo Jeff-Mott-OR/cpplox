@@ -53,10 +53,32 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Opcode::divide: {
+                    const auto b = (stack.cend() - 1)->variant;
+                    const auto a = (stack.cend() - 2)->variant;
+                    stack.erase(stack.cend() - 2, stack.cend());
+
+                    stack.push_back(Dynamic_type_value{std::get<double>(a) / std::get<double>(b)});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
                 case Opcode::false_:
                     stack.push_back(Dynamic_type_value{false});
                     ++bytecode_iter;
                     break;
+
+                case Opcode::multiply: {
+                    const auto b = (stack.cend() - 1)->variant;
+                    const auto a = (stack.cend() - 2)->variant;
+                    stack.erase(stack.cend() - 2, stack.cend());
+
+                    stack.push_back(Dynamic_type_value{std::get<double>(a) * std::get<double>(b)});
+
+                    ++bytecode_iter;
+                    break;
+                }
 
                 case Opcode::nil:
                     stack.push_back(Dynamic_type_value{nullptr});
@@ -68,6 +90,17 @@ namespace motts { namespace lox {
                     stack.pop_back();
                     ++bytecode_iter;
                     break;
+
+                case Opcode::subtract: {
+                    const auto b = (stack.cend() - 1)->variant;
+                    const auto a = (stack.cend() - 2)->variant;
+                    stack.erase(stack.cend() - 2, stack.cend());
+
+                    stack.push_back(Dynamic_type_value{std::get<double>(a) - std::get<double>(b)});
+
+                    ++bytecode_iter;
+                    break;
+                }
 
                 case Opcode::true_:
                     stack.push_back(Dynamic_type_value{true});

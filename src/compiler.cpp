@@ -78,8 +78,18 @@ namespace motts { namespace lox {
         source_map_tokens_.push_back(source_map_token);
     }
 
+    void Chunk::emit_divide(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::divide));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     void Chunk::emit_false(const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::false_));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_multiply(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::multiply));
         source_map_tokens_.push_back(source_map_token);
     }
 
@@ -90,6 +100,11 @@ namespace motts { namespace lox {
 
     void Chunk::emit_print(const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::print));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_subtract(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::subtract));
         source_map_tokens_.push_back(source_map_token);
     }
 
@@ -131,9 +146,12 @@ namespace motts { namespace lox {
                     break;
 
                 case Opcode::add:
+                case Opcode::divide:
                 case Opcode::false_:
+                case Opcode::multiply:
                 case Opcode::nil:
                 case Opcode::print:
+                case Opcode::subtract:
                 case Opcode::true_:
                     line << std::setw(3) << std::setfill(' ') << " " << opcode;
                     bytecode_iter += 1;
@@ -184,17 +202,55 @@ namespace motts { namespace lox {
         ++token_iter;
     }
 
-    void compile_expression(Chunk& chunk, Token_iterator& token_iter) {
+    void compile_multiplication_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
         // Left expression
         compile_primary_expression(chunk, token_iter);
 
-        while (token_iter->type == Token_type::plus) {
-            const auto plus_token = *token_iter;
+        while (token_iter->type == Token_type::star || token_iter->type == Token_type::slash) {
+            const auto binary_op_token = *token_iter;
             ++token_iter;
 
             // Right expression
             compile_primary_expression(chunk, token_iter);
-            chunk.emit_add(plus_token);
+
+            switch (binary_op_token.type) {
+                default:
+                    throw std::logic_error{"Unreachable"};
+
+                case Token_type::star:
+                    chunk.emit_multiply(binary_op_token);
+                    break;
+
+                case Token_type::slash:
+                    chunk.emit_divide(binary_op_token);
+                    break;
+            }
+        }
+    }
+
+    void compile_addition_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
+        // Left expression
+        compile_multiplication_precedence_expression(chunk, token_iter);
+
+        while (token_iter->type == Token_type::plus || token_iter->type == Token_type::minus) {
+            const auto binary_op_token = *token_iter;
+            ++token_iter;
+
+            // Right expression
+            compile_multiplication_precedence_expression(chunk, token_iter);
+
+            switch (binary_op_token.type) {
+                default:
+                    throw std::logic_error{"Unreachable"};
+
+                case Token_type::plus:
+                    chunk.emit_add(binary_op_token);
+                    break;
+
+                case Token_type::minus:
+                    chunk.emit_subtract(binary_op_token);
+                    break;
+            }
         }
     }
 
@@ -207,7 +263,7 @@ namespace motts { namespace lox {
                 const auto print_token = *token_iter;
                 ++token_iter;
 
-                compile_expression(chunk, token_iter);
+                compile_addition_precedence_expression(chunk, token_iter);
                 chunk.emit_print(print_token);
 
                 if (token_iter->type != Token_type::semicolon) {
@@ -220,7 +276,7 @@ namespace motts { namespace lox {
                 continue;
             }
 
-            compile_expression(chunk, token_iter);
+            compile_addition_precedence_expression(chunk, token_iter);
         }
 
         return chunk;

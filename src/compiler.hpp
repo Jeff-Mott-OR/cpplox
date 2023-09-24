@@ -18,7 +18,10 @@ namespace motts { namespace lox {
         X(true_) \
         X(false_) \
         X(add) \
-        X(print)
+        X(print) \
+        X(subtract) \
+        X(multiply) \
+        X(divide)
 
     enum class Opcode {
         #define X(name) name,
@@ -54,9 +57,12 @@ namespace motts { namespace lox {
 
             void emit_add(const Token& source_map_token);
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
+            void emit_divide(const Token& source_map_token);
             void emit_false(const Token& source_map_token);
+            void emit_multiply(const Token& source_map_token);
             void emit_nil(const Token& source_map_token);
             void emit_print(const Token& source_map_token);
+            void emit_subtract(const Token& source_map_token);
             void emit_true(const Token& source_map_token);
     };
 

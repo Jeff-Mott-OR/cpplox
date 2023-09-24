@@ -131,3 +131,29 @@ BOOST_AUTO_TEST_CASE(print_will_compile) {
         "    2 : 05    PRINT        ; print @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
+    const auto chunk = motts::lox::compile("7 + 5 - 3 * 2 / 1");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 7\n"
+        "    1 : 5\n"
+        "    2 : 3\n"
+        "    3 : 2\n"
+        "    4 : 1\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; 7 @ 1\n"
+        "    2 : 00 01 CONSTANT [1] ; 5 @ 1\n"
+        "    4 : 04    ADD          ; + @ 1\n"
+        "    5 : 00 02 CONSTANT [2] ; 3 @ 1\n"
+        "    7 : 00 03 CONSTANT [3] ; 2 @ 1\n"
+        "    9 : 07    MULTIPLY     ; * @ 1\n"
+        "   10 : 00 04 CONSTANT [4] ; 1 @ 1\n"
+        "   12 : 08    DIVIDE       ; / @ 1\n"
+        "   13 : 06    SUBTRACT     ; - @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
