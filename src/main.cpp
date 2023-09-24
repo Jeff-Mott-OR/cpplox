@@ -34,10 +34,11 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        if (options_map.count("input-file")) {
-            motts::lox::run_file(options_map["input-file"].as<std::string>(), std::cout, options_map.count("debug"));
+        motts::lox::Lox lox {std::cout, options_map.contains("debug")};
+        if (options_map.contains("input-file")) {
+            lox.run_file(options_map["input-file"].as<std::string>());
         } else {
-            motts::lox::run_prompt(options_map.count("debug"));
+            lox.run_prompt();
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

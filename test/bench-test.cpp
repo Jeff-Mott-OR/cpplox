@@ -11,7 +11,8 @@ static void bench_run_file(benchmark::State& state) {
     for (auto _ : state) {
         // This code gets timed
         std::ostringstream os;
-        motts::lox::run_file("../test/lox/hello.lox", os, /* debug = */ false);
+        motts::lox::Lox lox {os};
+        lox.run_file("../test/lox/hello.lox");
     }
 }
 // Register the function as a benchmark

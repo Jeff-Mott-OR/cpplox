@@ -1,6 +1,6 @@
 FROM ubuntu:22.04 AS base
 
-    RUN apt update && apt install -y git ninja-build cmake cppcheck
+    RUN apt update && apt install -y git ninja-build cmake cppcheck valgrind
 
 FROM base AS gcc
 

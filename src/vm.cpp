@@ -1,10 +1,12 @@
 #include "vm.hpp"
 
 #include <iomanip>
-
 #include <boost/endian/conversion.hpp>
+#include "object.hpp"
 
 namespace {
+    using namespace motts::lox;
+
     struct Truthy_visitor {
         auto operator()(std::nullptr_t) const {
             return false;
@@ -19,19 +21,48 @@ namespace {
                return true;
             }
     };
+
+    struct Mark_objects_visitor {
+        GC_heap& gc_heap;
+
+        Mark_objects_visitor(GC_heap& gc_heap_arg)
+            : gc_heap {gc_heap_arg}
+        {}
+
+        auto operator()(GC_ptr<Function> fn) {
+            gc_heap.mark(fn);
+        }
+
+        template<typename T> auto operator()(const T&) {}
+    };
 }
 
 namespace motts { namespace lox {
-    void run(const Chunk& chunk, std::ostream& os, bool debug) {
-        VM vm;
-        vm.run(chunk, os, debug);
+    VM::VM(GC_heap& gc_heap, std::ostream& os, bool debug)
+        : gc_heap_ {gc_heap},
+          os_ {os},
+          debug_ {debug}
+    {
+        gc_heap_.on_mark_roots.push_back([&] {
+            for (const auto& root_value : stack_) {
+                std::visit(Mark_objects_visitor{gc_heap_}, root_value.variant);
+            }
+
+            for (const auto& [_, root_value] : globals_) {
+                std::visit(Mark_objects_visitor{gc_heap_}, root_value.variant);
+            }
+        });
     }
 
-    void VM::run(const Chunk& chunk, std::ostream& os, bool debug) {
+    VM::~VM() {
+        gc_heap_.on_mark_roots.pop_back();
+    }
+
+    void VM::run(const Chunk& chunk) {
         call_frames_.push_back({chunk, chunk.bytecode().cbegin(), 0});
 
-        if (debug) {
-            os << "\n# Running chunk:\n\n" << call_frames_.back().chunk << "\n";
+        if (debug_) {
+            os_ << "\n# Running chunk:\n\n" << call_frames_.back().chunk << '\n';
         }
 
         while (call_frames_.back().bytecode_iter != call_frames_.back().chunk.bytecode().cend()) {
@@ -79,7 +110,7 @@ namespace motts { namespace lox {
                     const auto arg_count = *(call_frames_.back().bytecode_iter + 1);
                     call_frames_.back().bytecode_iter += 2;
 
-                    const auto callable = std::get<Function*>((stack_.cend() - arg_count - 1)->variant);
+                    const auto callable = std::get<GC_ptr<Function>>((stack_.cend() - arg_count - 1)->variant);
                     call_frames_.push_back({callable->chunk, callable->chunk.bytecode().cbegin(), stack_.size() - arg_count - 1});
 
                     break;
@@ -165,7 +196,7 @@ namespace motts { namespace lox {
 
                 case Opcode::get_local: {
                     const auto local_stack_index = *(call_frames_.back().bytecode_iter + 1);
-                    stack_.push_back(stack_.at(local_stack_index));
+                    stack_.push_back(stack_.at(call_frames_.back().stack_begin_index + local_stack_index));
 
                     call_frames_.back().bytecode_iter += 2;
 
@@ -304,7 +335,7 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::print: {
-                    os << stack_.back() << "\n";
+                    os_ << stack_.back() << "\n";
                     stack_.pop_back();
 
                     ++call_frames_.back().bytecode_iter;
@@ -338,7 +369,7 @@ namespace motts { namespace lox {
 
                 case Opcode::set_local: {
                     const auto local_stack_index = *(call_frames_.back().bytecode_iter + 1);
-                    stack_.at(local_stack_index) = stack_.back();
+                    stack_.at(call_frames_.back().stack_begin_index + local_stack_index) = stack_.back();
 
                     call_frames_.back().bytecode_iter += 2;
 
@@ -373,14 +404,16 @@ namespace motts { namespace lox {
                 }
             }
 
-            if (debug) {
-                os << "Stack:\n";
+            if (debug_) {
+                os_ << "Stack:\n";
                 for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
                     const auto stack_index = stack_iter.base() - 1 - stack_.cbegin();
-                    os << std::setw(5) << std::setfill(' ') << std::right << stack_index << " : " << *stack_iter << "\n";
+                    os_ << std::setw(5) << std::setfill(' ') << std::right << stack_index << " : " << *stack_iter << "\n";
                 }
-                os << "\n";
+                os_ << "\n";
             }
         }
+
+        gc_heap_.collect_garbage();
     }
 }}

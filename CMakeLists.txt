@@ -45,18 +45,24 @@ set_target_properties(
 
 if(NOT DEPS_ONLY)
     set(cpploxbc_sources
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/lox.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/scanner.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/chunk.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/lox.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/memory.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/object.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/scanner.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/value.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/vm.cpp"
     )
-    set(cpploxbc_link_deps Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL)
 
-    add_executable(cpploxbc src/main.cpp ${cpploxbc_sources})
-    target_compile_features(cpploxbc PUBLIC cxx_std_20)
-    target_compile_options(cpploxbc PRIVATE -Wall -Wextra -Werror)
+    add_library(cpploxbc_lib STATIC ${cpploxbc_sources})
+    target_link_libraries(cpploxbc_lib PUBLIC Boost::algorithm Boost::convert Microsoft.GSL::GSL)
+    target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
+    target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
+
+    add_executable(cpploxbc src/main.cpp)
+    target_link_libraries(cpploxbc PRIVATE cpploxbc_lib Boost::program_options)
     set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-    target_link_libraries(cpploxbc PRIVATE ${cpploxbc_link_deps})
 
     if(ENABLE_TESTING)
         enable_testing()
@@ -66,38 +72,37 @@ if(NOT DEPS_ONLY)
             COMMAND cppcheck --error-exitcode=1 "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" ${cpploxbc_sources}
         )
 
-        add_executable(scanner_test test/scanner-test.cpp src/scanner.cpp)
-        target_compile_features(scanner_test PUBLIC cxx_std_20)
-        target_compile_options(scanner_test PRIVATE -Wall -Wextra -Werror)
-        set_property(TARGET scanner_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(scanner_test PRIVATE Boost::unit_test_framework ${cpploxbc_link_deps})
+        find_program(VALGRIND_COMMAND valgrind)
+        message(STATUS "Check for valgrind: ${VALGRIND_COMMAND}")
+        if(NOT VALGRIND_COMMAND STREQUAL "VALGRIND_COMMAND-NOTFOUND")
+            add_test(
+                NAME valgrind_test
+                COMMAND "${VALGRIND_COMMAND}" --error-exitcode=1 --leak-check=yes
+                    "$<TARGET_FILE:cpploxbc>" "${CMAKE_CURRENT_SOURCE_DIR}/test/lox/function.lox"
+            )
+        endif()
+
+        add_executable(scanner_test test/scanner-test.cpp)
+        target_link_libraries(scanner_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME scanner_test COMMAND scanner_test)
 
-        add_executable(compiler_test test/compiler-test.cpp src/compiler.cpp src/scanner.cpp)
-        target_compile_features(compiler_test PUBLIC cxx_std_20)
-        target_compile_options(compiler_test PRIVATE -Wall -Wextra -Werror)
-        set_property(TARGET compiler_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(compiler_test PRIVATE Boost::unit_test_framework ${cpploxbc_link_deps})
+        add_executable(compiler_test test/compiler-test.cpp)
+        target_link_libraries(compiler_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME compiler_test COMMAND compiler_test)
 
-        add_executable(vm_test test/vm-test.cpp src/vm.cpp src/compiler.cpp src/scanner.cpp)
-        target_compile_features(vm_test PUBLIC cxx_std_20)
-        target_compile_options(vm_test PRIVATE -Wall -Wextra -Werror)
-        set_property(TARGET vm_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(vm_test PRIVATE Boost::unit_test_framework ${cpploxbc_link_deps})
+        add_executable(vm_test test/vm-test.cpp)
+        target_link_libraries(vm_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME vm_test COMMAND vm_test)
 
+        add_executable(memory_test test/memory-test.cpp)
+        target_link_libraries(memory_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
+        add_test(NAME memory_test COMMAND memory_test)
+
         add_executable(cli_test test/cli-test.cpp)
-        target_compile_features(cli_test PUBLIC cxx_std_20)
-        target_compile_options(cli_test PRIVATE -Wall -Wextra -Werror)
-        set_property(TARGET cli_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
         target_link_libraries(cli_test PRIVATE Boost::process Boost::unit_test_framework)
         add_test(NAME cli_test COMMAND cli_test)
 
-        add_executable(bench_test test/bench-test.cpp ${cpploxbc_sources})
-        target_compile_features(bench_test PUBLIC cxx_std_20)
-        target_compile_options(bench_test PRIVATE -Wall -Wextra -Werror)
-        set_property(TARGET bench_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(bench_test PRIVATE benchmark::benchmark Boost::process ${cpploxbc_link_deps})
+        add_executable(bench_test test/bench-test.cpp)
+        target_link_libraries(bench_test PRIVATE cpploxbc_lib benchmark::benchmark Boost::process)
     endif()
 endif()

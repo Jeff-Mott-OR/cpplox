@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "../src/compiler.hpp"
+#include "../src/lox.hpp"
 
 using motts::lox::Dynamic_type_value;
 using motts::lox::Opcode;
@@ -47,7 +48,8 @@ BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
 }
 
 BOOST_AUTO_TEST_CASE(number_literals_compile) {
-    const auto chunk = motts::lox::compile("42;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("42;");
 
     std::ostringstream os;
     os << chunk;
@@ -62,7 +64,8 @@ BOOST_AUTO_TEST_CASE(number_literals_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(nil_literals_compile) {
-    const auto chunk = motts::lox::compile("nil;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -76,17 +79,19 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw) {
-    BOOST_CHECK_THROW(motts::lox::compile("?"), std::exception);
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.compile("?"), std::exception);
 
     try {
-        motts::lox::compile("?");
+        lox.compile("?");
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Unexpected character \"?\".");
     }
 }
 
 BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
-    const auto chunk = motts::lox::compile("true; false;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("true; false;");
 
     std::ostringstream os;
     os << chunk;
@@ -102,7 +107,8 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(string_literals_compile) {
-    const auto chunk = motts::lox::compile("\"hello\";");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("\"hello\";");
 
     std::ostringstream os;
     os << chunk;
@@ -117,7 +123,8 @@ BOOST_AUTO_TEST_CASE(string_literals_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(addition_will_compile) {
-    const auto chunk = motts::lox::compile("28 + 14;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("28 + 14;");
 
     std::ostringstream os;
     os << chunk;
@@ -135,17 +142,19 @@ BOOST_AUTO_TEST_CASE(addition_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(invalid_addition_will_throw) {
-    BOOST_CHECK_THROW(motts::lox::compile("42 + "), std::exception);
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.compile("42 + "), std::exception);
 
     try {
-        motts::lox::compile("42 + ");
+        lox.compile("42 + ");
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Unexpected token \"EOF\".");
     }
 }
 
 BOOST_AUTO_TEST_CASE(print_will_compile) {
-    const auto chunk = motts::lox::compile("print 42;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("print 42;");
 
     std::ostringstream os;
     os << chunk;
@@ -160,7 +169,8 @@ BOOST_AUTO_TEST_CASE(print_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
-    const auto chunk = motts::lox::compile("1 + 2 - 3 * 5 / 7;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("1 + 2 - 3 * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
@@ -187,7 +197,8 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(parens_will_compile) {
-    const auto chunk = motts::lox::compile("1 + (2 - 3) * 5 / 7;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("1 + (2 - 3) * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
@@ -214,7 +225,8 @@ BOOST_AUTO_TEST_CASE(parens_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(numeric_negation_will_compile) {
-    const auto chunk = motts::lox::compile("-1 + -1;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("-1 + -1;");
 
     std::ostringstream os;
     os << chunk;
@@ -233,7 +245,8 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(boolean_negation_will_compile) {
-    const auto chunk = motts::lox::compile("!true;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("!true;");
 
     std::ostringstream os;
     os << chunk;
@@ -248,7 +261,8 @@ BOOST_AUTO_TEST_CASE(boolean_negation_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(expression_statements_will_compile) {
-    const auto chunk = motts::lox::compile("42;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("42;");
 
     std::ostringstream os;
     os << chunk;
@@ -263,7 +277,8 @@ BOOST_AUTO_TEST_CASE(expression_statements_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(comparisons_will_compile) {
-    const auto chunk = motts::lox::compile("1 > 2; 3 >= 5; 7 == 11; 13 != 17; 19 <= 23; 29 < 31;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("1 > 2; 3 >= 5; 7 == 11; 13 != 17; 19 <= 23; 29 < 31;");
 
     std::ostringstream os;
     os << chunk;
@@ -319,7 +334,8 @@ BOOST_AUTO_TEST_CASE(comparisons_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile) {
-    const auto chunk = motts::lox::compile("true and false;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("true and false;");
 
     std::ostringstream os;
     os << chunk;
@@ -336,7 +352,8 @@ BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile) {
-    const auto chunk = motts::lox::compile("true or false;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("true or false;");
 
     std::ostringstream os;
     os << chunk;
@@ -354,7 +371,8 @@ BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(global_assignment_will_compile) {
-    const auto chunk = motts::lox::compile("x = 42;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("x = 42;");
 
     std::ostringstream os;
     os << chunk;
@@ -371,7 +389,8 @@ BOOST_AUTO_TEST_CASE(global_assignment_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(global_identifier_will_compile) {
-    const auto chunk = motts::lox::compile("x;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("x;");
 
     std::ostringstream os;
     os << chunk;
@@ -386,11 +405,12 @@ BOOST_AUTO_TEST_CASE(global_identifier_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
-    const auto chunk_loop_expr = motts::lox::compile("x = 42; while (x > 0) x = x - 1;");
+    motts::lox::Lox lox;
+    const auto chunk_loop_expr = lox.compile("x = 42; while (x > 0) x = x - 1;");
     std::ostringstream os_loop_expr;
     os_loop_expr << chunk_loop_expr;
 
-    const auto chunk_loop_block = motts::lox::compile("x = 42; while (x > 0) { x = x - 1; }");
+    const auto chunk_loop_block = lox.compile("x = 42; while (x > 0) { x = x - 1; }");
     std::ostringstream os_loop_block;
     os_loop_block << chunk_loop_block;
 
@@ -421,7 +441,8 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile) {
-    const auto chunk = motts::lox::compile("{ 42; }");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("{ 42; }");
 
     std::ostringstream os;
     os << chunk;
@@ -436,7 +457,8 @@ BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(var_declaration_will_compile) {
-    const auto chunk = motts::lox::compile("var x;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("var x;");
 
     std::ostringstream os;
     os << chunk;
@@ -451,7 +473,8 @@ BOOST_AUTO_TEST_CASE(var_declaration_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized) {
-    const auto chunk = motts::lox::compile("var x = 42;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("var x = 42;");
 
     std::ostringstream os;
     os << chunk;
@@ -467,7 +490,8 @@ BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized) {
 }
 
 BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces) {
-    const auto chunk = motts::lox::compile("var x; { var x; x; x = 42; } x;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("var x; { var x; x; x = 42; } x;");
 
     std::ostringstream os;
     os << chunk;
@@ -492,27 +516,30 @@ BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces) {
 }
 
 BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw) {
-    BOOST_CHECK_THROW(motts::lox::compile("{ var x; var x; }"), std::exception);
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.compile("{ var x; var x; }"), std::exception);
 
     try {
-        motts::lox::compile("{ var x; var x; }");
+        lox.compile("{ var x; var x; }");
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Variable with this name already declared in this scope.");
     }
 }
 
 BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw) {
-    BOOST_CHECK_THROW(motts::lox::compile("{ var x = x; }"), std::exception);
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.compile("{ var x = x; }"), std::exception);
 
     try {
-        motts::lox::compile("{ var x = x; }");
+        lox.compile("{ var x = x; }");
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Cannot read local variable in its own initializer.");
     }
 }
 
 BOOST_AUTO_TEST_CASE(if_will_compile) {
-    const auto chunk = motts::lox::compile("if (true) nil;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("if (true) nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -530,7 +557,8 @@ BOOST_AUTO_TEST_CASE(if_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(if_else_will_compile) {
-    const auto chunk = motts::lox::compile("if (true) nil; else nil;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("if (true) nil; else nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -551,7 +579,8 @@ BOOST_AUTO_TEST_CASE(if_else_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(for_loops_will_compile) {
-    const auto chunk = motts::lox::compile("for (var x = 0; x != 3; x = x + 1) nil;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("for (var x = 0; x != 3; x = x + 1) nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -585,7 +614,8 @@ BOOST_AUTO_TEST_CASE(for_loops_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank) {
-    const auto chunk = motts::lox::compile("for (;;) nil;");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("for (;;) nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -606,7 +636,8 @@ BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank) {
 }
 
 BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local) {
-    const auto chunk = motts::lox::compile("{ var x = 42; for (var x = 0; x != 3; x = x + 1) nil; }");
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile("{ var x = 42; for (var x = 0; x != 3; x = x + 1) nil; }");
 
     std::ostringstream os;
     os << chunk;
@@ -643,17 +674,19 @@ BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local) {
 }
 
 BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw) {
-    BOOST_CHECK_THROW(motts::lox::compile("for (print x;;) nil;"), std::exception);
+    motts::lox::Lox lox;
+    BOOST_CHECK_THROW(lox.compile("for (print x;;) nil;"), std::exception);
 
     try {
-        motts::lox::compile("for (print x;;)");
+        lox.compile("for (print x;;)");
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Unexpected token \"print\".");
     }
 }
 
 BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile) {
-    const auto chunk = motts::lox::compile(
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile(
         "fun f() {}\n"
         "f();\n"
         "{ fun g() {} }\n"
@@ -663,7 +696,6 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile) {
     os << chunk;
 
     const auto expected =
-        "## main chunk\n"
         "Constants:\n"
         "    0 : <fn f>\n"
         "    1 : f\n"
@@ -690,7 +722,8 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile) {
-    const auto chunk = motts::lox::compile(
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile(
         "fun f(x) { x; }\n"
         "f(42);\n"
     );
@@ -699,7 +732,6 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile) {
     os << chunk;
 
     const auto expected =
-        "## main chunk\n"
         "Constants:\n"
         "    0 : <fn f>\n"
         "    1 : f\n"
@@ -722,7 +754,8 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(function_return_will_compile) {
-    const auto chunk = motts::lox::compile(
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile(
         "fun f(x) { return x; }\n"
         "f(42);\n"
     );
@@ -731,7 +764,6 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile) {
     os << chunk;
 
     const auto expected =
-        "## main chunk\n"
         "Constants:\n"
         "    0 : <fn f>\n"
         "    1 : f\n"
@@ -754,7 +786,8 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(empty_return_will_return_nil) {
-    const auto chunk = motts::lox::compile(
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile(
         "fun f() { return; }\n"
         "f();\n"
     );
@@ -763,7 +796,6 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil) {
     os << chunk;
 
     const auto expected =
-        "## main chunk\n"
         "Constants:\n"
         "    0 : <fn f>\n"
         "    1 : f\n"
@@ -784,7 +816,8 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil) {
 }
 
 BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_name) {
-    const auto chunk = motts::lox::compile(
+    motts::lox::Lox lox;
+    const auto chunk = lox.compile(
         "fun f() { f; }\n"
     );
 
@@ -792,7 +825,6 @@ BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_n
     os << chunk;
 
     const auto expected =
-        "## main chunk\n"
         "Constants:\n"
         "    0 : <fn f>\n"
         "    1 : f\n"
