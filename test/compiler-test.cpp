@@ -319,3 +319,21 @@ BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile) {
         "    6 : 0b       POP                   ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile) {
+    const auto chunk = motts::lox::compile("true or false;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02       TRUE                  ; true @ 1\n"
+        "    1 : 0f 00 03 JUMP_IF_FALSE +3 -> 7 ; or @ 1\n"
+        "    4 : 10 00 02 JUMP +2 -> 9          ; or @ 1\n"
+        "    7 : 0b       POP                   ; or @ 1\n"
+        "    8 : 03       FALSE                 ; false @ 1\n"
+        "    9 : 0b       POP                   ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}

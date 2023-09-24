@@ -28,7 +28,8 @@ namespace motts { namespace lox {
         X(less) \
         X(greater) \
         X(equal) \
-        X(jump_if_false)
+        X(jump_if_false) \
+        X(jump)
 
     enum class Opcode {
         #define X(name) name,
@@ -78,6 +79,7 @@ namespace motts { namespace lox {
 
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
+            Jump_backpatch emit_jump(const Token& source_map_token);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

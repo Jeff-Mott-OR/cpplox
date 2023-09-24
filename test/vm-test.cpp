@@ -430,3 +430,20 @@ BOOST_AUTO_TEST_CASE(jump_if_false_will_run) {
         "fall through\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(jump_will_run) {
+    motts::lox::Chunk chunk;
+
+    auto jump_backpatch = chunk.emit_jump(Token{Token_type::or_, "or", 1});
+    chunk.emit_constant(Dynamic_type_value{"skip"}, Token{Token_type::string, "\"skip\"", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    jump_backpatch.to_next_opcode();
+
+    chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "fall through\n");
+}

@@ -137,8 +137,17 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Opcode::jump: {
+                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
+                    const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
+                    bytecode_iter += 3 + jump_distance;
+
+                    break;
+                }
+
                 case Opcode::jump_if_false: {
-                    const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
+                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
+                    const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
 
                     bytecode_iter += 3;
                     if (! std::visit(Truthy_visitor{}, stack.back().variant)) {

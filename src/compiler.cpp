@@ -121,6 +121,18 @@ namespace motts { namespace lox {
         return Jump_backpatch{bytecode_};
     }
 
+    Jump_backpatch Chunk::emit_jump(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::jump));
+        bytecode_.push_back(0);
+        bytecode_.push_back(0);
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+
+        return Jump_backpatch{bytecode_};
+    }
+
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
         os << "Constants:\n";
 
@@ -155,7 +167,8 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::jump_if_false: {
+                case Opcode::jump_if_false:
+                case Opcode::jump: {
                     const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << " " << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 2))
@@ -204,7 +217,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void compile_and_precedence_expression(Chunk&, Token_iterator&);
+    void compile_or_precedence_expression(Chunk&, Token_iterator&);
 
     void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
         switch (token_iter->type) {
@@ -219,7 +232,7 @@ namespace motts { namespace lox {
 
             case Token_type::left_paren:
                 ++token_iter;
-                compile_and_precedence_expression(chunk, token_iter);
+                compile_or_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::right_paren);
                 break;
 
@@ -404,6 +417,26 @@ namespace motts { namespace lox {
         }
     }
 
+    void compile_or_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
+        // Left expression
+        compile_and_precedence_expression(chunk, token_iter);
+
+        while (token_iter->type == Token_type::or_) {
+            auto to_rhs_jump_backpatch = chunk.emit_jump_if_false(*token_iter);
+            auto to_end_jump_backpatch = chunk.emit_jump(*token_iter);
+
+            to_rhs_jump_backpatch.to_next_opcode();
+            // If the LHS was false, then the expression now depends solely on the RHS, and we can discard the LHS
+            chunk.emit<Opcode::pop>(*token_iter);
+            ++token_iter;
+
+            // Right expression
+            compile_and_precedence_expression(chunk, token_iter);
+
+            to_end_jump_backpatch.to_next_opcode();
+        }
+    }
+
     Chunk compile(std::string_view source) {
         Chunk chunk;
 
@@ -412,7 +445,7 @@ namespace motts { namespace lox {
             if (token_iter->type == Token_type::print) {
                 const auto print_token = *token_iter++;
 
-                compile_and_precedence_expression(chunk, token_iter);
+                compile_or_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::semicolon);
                 chunk.emit<Opcode::print>(print_token);
                 ++token_iter;
@@ -420,7 +453,7 @@ namespace motts { namespace lox {
                 continue;
             }
 
-            compile_and_precedence_expression(chunk, token_iter);
+            compile_or_precedence_expression(chunk, token_iter);
             ensure_token_is(*token_iter, Token_type::semicolon);
             chunk.emit<Opcode::pop>(*token_iter);
             ++token_iter;
