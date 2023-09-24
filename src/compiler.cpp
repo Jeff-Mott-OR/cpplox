@@ -789,8 +789,13 @@ namespace
                 }
 
                 case Token_type::return_: {
-                    const auto return_token = *token_iter++;
+                    if (function_chunks.size() == 1) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(token_iter->line) + "] Error: Can't return from top-level code."
+                        };
+                    }
 
+                    const auto return_token = *token_iter++;
                     if (advance_if_match(Token_type::semicolon)) {
                         if (function_chunks.back().is_class_init_method) {
                             function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});

@@ -896,6 +896,18 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
     BOOST_TEST(os.str() == expected);
 }
 
+BOOST_AUTO_TEST_CASE(return_outside_function_will_throw)
+{
+    motts::lox::GC_heap gc_heap;
+
+    BOOST_CHECK_THROW(compile(gc_heap, "return;"), std::runtime_error);
+    try {
+        compile(gc_heap, "return;");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Can't return from top-level code.");
+    }
+}
+
 BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_name)
 {
     motts::lox::GC_heap gc_heap;
@@ -1433,7 +1445,6 @@ BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw)
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
-
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
