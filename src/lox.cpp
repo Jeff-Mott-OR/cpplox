@@ -7,42 +7,40 @@
 #include "compiler.hpp"
 
 namespace motts { namespace lox {
-    Lox::Lox(std::ostream& os_arg, bool debug_arg)
-        : os {os_arg},
-          debug {debug_arg}
+    Lox::Lox(std::ostream& cout_arg, std::ostream& cerr_arg, std::istream& cin_arg, bool debug_arg)
+        : debug {debug_arg},
+          cout {cout_arg},
+          cerr {cerr_arg},
+          cin {cin_arg}
     {}
 
-    Chunk Lox::compile(std::string_view source) {
-        return motts::lox::compile(gc_heap, source);
-    }
-
-    void Lox::run_file(const std::string& input_file) {
+    void run_file(Lox& lox, const std::string& file_path) {
         const auto source = [&] {
-            std::ifstream in {input_file};
-            in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
+            std::ifstream file_stream {file_path};
+            file_stream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+            return std::string{std::istreambuf_iterator<char>{file_stream}, std::istreambuf_iterator<char>{}};
         }();
 
-        const auto chunk = compile(source);
-        vm.run(chunk);
+        const auto chunk = compile(lox.gc_heap, source);
+        lox.vm.run(chunk);
     }
 
-    void Lox::run_prompt() {
+    void run_prompt(Lox& lox) {
         std::vector<std::string> source_lines_owner;
 
         while (true) {
-            std::cout << "> ";
+            lox.cout << "> ";
 
             source_lines_owner.push_back({});
             auto& source_line = source_lines_owner.back();
-            std::getline(std::cin, source_line);
+            std::getline(lox.cin, source_line);
 
-            // If the user makes a mistake, it shouldn't kill their entire session
+            // If the user makes a mistake, it shouldn't kill their entire session.
             try {
-                const auto chunk = compile(source_line);
-                vm.run(chunk);
+                const auto chunk = compile(lox.gc_heap, source_line);
+                lox.vm.run(chunk);
             } catch (const std::exception& error) {
-                std::cerr << error.what() << '\n';
+                lox.cerr << error.what() << '\n';
             }
         }
     }

@@ -36,7 +36,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(Boost Google_Benchmark Microsoft_GSL)
 
-# Mark Boost_Process as system include to avoid clang warnings from Boost headers
+# Mark Boost_Process as system include to avoid clang warnings from Boost headers.
 set_target_properties(
     boost_process
     PROPERTIES INTERFACE_SYSTEM_INCLUDE_DIRECTORIES

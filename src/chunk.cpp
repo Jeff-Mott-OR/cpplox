@@ -24,7 +24,7 @@ namespace motts { namespace lox {
             }
         }()};
 
-        // Names should print as uppercase without trailing underscores
+        // Names should print as uppercase without trailing underscores.
         boost::trim_right_if(name, boost::is_any_of("_"));
         boost::to_upper(name);
 
@@ -86,7 +86,7 @@ namespace motts { namespace lox {
             const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
 
             bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
-            bytecode_.push_back(constant_index);
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(constant_index));
 
             source_map_tokens_.push_back(source_map_token);
             source_map_tokens_.push_back(source_map_token);
@@ -120,7 +120,7 @@ namespace motts { namespace lox {
         const auto constant_index = insert_constant(std::move(constant_value));
 
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::constant));
-        bytecode_.push_back(constant_index);
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(constant_index));
 
         source_map_tokens_.push_back(source_map_token);
         source_map_tokens_.push_back(source_map_token);

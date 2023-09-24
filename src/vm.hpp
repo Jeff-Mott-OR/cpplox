@@ -4,14 +4,15 @@
 #include <unordered_map>
 #include <vector>
 
-#include "compiler.hpp"
+#include "chunk.hpp"
 #include "memory.hpp"
+#include "value.hpp"
 
 namespace motts { namespace lox {
     class VM {
-        GC_heap& gc_heap_;
+        const bool debug_;
         std::ostream& os_;
-        bool debug_;
+        GC_heap gc_heap_;
 
         std::vector<Dynamic_type_value> stack_;
         std::unordered_map<std::string, Dynamic_type_value> globals_;
@@ -24,8 +25,9 @@ namespace motts { namespace lox {
         std::vector<Call_frame> call_frames_;
 
         public:
-            VM(GC_heap&, std::ostream&, bool debug);
+            VM(GC_heap&, std::ostream&, bool debug = false);
             ~VM();
+
             void run(const Chunk&);
     };
 }}

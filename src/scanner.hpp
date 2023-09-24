@@ -81,20 +81,23 @@ namespace motts { namespace lox {
         public:
             Token_iterator(std::string_view source);
 
-            // Default constructor makes end iterator
+            // Default constructor makes end iterator.
             Token_iterator();
 
             Token_iterator& operator++();
             Token_iterator operator++(int);
-            bool operator==(const Token_iterator&) const;
+
             const Token& operator*() const;
             const Token* operator->() const;
+
+            bool operator==(const Token_iterator&) const;
 
         private:
             Token scan_token();
             Token scan_identifier_token();
             Token scan_number_token();
             Token scan_string_token();
+
             bool scan_if_match(char expected);
     };
 

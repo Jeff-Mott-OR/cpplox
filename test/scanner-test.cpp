@@ -25,7 +25,7 @@ BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
         int as_int;
     };
     Invalid_token_type invalid_token_type;
-    invalid_token_type.as_int = 276'709; // don't panic
+    invalid_token_type.as_int = 276'709; // Don't panic.
 
     std::ostringstream os;
     BOOST_CHECK_THROW(os << invalid_token_type.as_token_type, std::exception);
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -61,7 +61,7 @@ BOOST_AUTO_TEST_CASE(tokens_track_what_line_they_came_from) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -77,7 +77,7 @@ BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(whitespace_is_skipped_and_ignored) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -107,7 +107,7 @@ BOOST_AUTO_TEST_CASE(double_quoted_strings_tokenize) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     BOOST_TEST(os.str() == "Token { type: STRING, lexeme: \"123 and ( { ,\", line: 1 }\n");
@@ -119,7 +119,7 @@ BOOST_AUTO_TEST_CASE(strings_can_be_multiline) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     BOOST_TEST(os.str() == "Token { type: STRING, lexeme: \"123\nand\", line: 1 }\n");
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -168,7 +168,7 @@ BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize) {
 
     std::ostringstream os;
     for (; token_iter != token_iter_end; ++token_iter) {
-        os << *token_iter << "\n";
+        os << *token_iter << '\n';
     }
 
     const auto expected =
@@ -181,15 +181,14 @@ BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize) {
         "Token { type: LESS, lexeme: <, line: 1 }\n"
         "Token { type: LESS_EQUAL, lexeme: <=, line: 1 }\n";
     BOOST_TEST(os.str() == expected);
-
 }
 
 BOOST_AUTO_TEST_CASE(accessing_and_dereferencing_end_iterator_is_allowed) {
     motts::lox::Token_iterator token_iter_end;
 
-    BOOST_TEST((*token_iter_end).type == motts::lox::Token_type::eof);
+    BOOST_TEST(token_iter_end->type == motts::lox::Token_type::eof);
 
     ++token_iter_end;
 
-    BOOST_TEST((*token_iter_end).type == motts::lox::Token_type::eof);
+    BOOST_TEST(token_iter_end->type == motts::lox::Token_type::eof);
 }

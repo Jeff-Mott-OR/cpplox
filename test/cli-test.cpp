@@ -75,33 +75,32 @@ BOOST_AUTO_TEST_CASE(invalid_syntax_will_print_to_stderr_and_set_exit_code) {
     BOOST_TEST(actual_out == "");
     BOOST_TEST(actual_err == "[Line 1] Error: Unexpected character \"?\".\n");
     BOOST_TEST(exit_code == 1);
-
 }
 
 BOOST_AUTO_TEST_CASE(no_script_file_will_start_interactive_repl) {
     process::ipstream cpplox_out;
     process::ipstream cpplox_err;
     process::opstream cpplox_in;
-    std::string cpplox_out_line;
 
-    auto child_process = process::child(
+    const auto child_process = process::child(
         "cpploxbc",
         process::std_out > cpplox_out,
         process::std_err > cpplox_err,
         process::std_in < cpplox_in
     );
 
-    cpplox_out >> cpplox_out_line;
-    BOOST_TEST(cpplox_out_line == ">");
+    std::string line;
+    cpplox_out >> line;
+    BOOST_TEST(line == ">");
 
     cpplox_in << "var x = 42;" << std::endl;
-    cpplox_out >> cpplox_out_line;
-    BOOST_TEST(cpplox_out_line == ">");
+    cpplox_out >> line;
+    BOOST_TEST(line == ">");
 
     cpplox_in << "print x;" << std::endl;
-    cpplox_out >> cpplox_out_line;
-    BOOST_TEST(cpplox_out_line == "42");
+    cpplox_out >> line;
+    BOOST_TEST(line == "42");
 
-    cpplox_out >> cpplox_out_line;
-    BOOST_TEST(cpplox_out_line == ">");
+    cpplox_out >> line;
+    BOOST_TEST(line == ">");
 }

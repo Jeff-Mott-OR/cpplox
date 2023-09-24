@@ -8,7 +8,7 @@
 
 namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, const Token_type& token_type) {
-        std::string name {([&] () {
+        std::string name {[&] {
             switch (token_type) {
                 default:
                     throw std::logic_error{"Unexpected token type."};
@@ -19,9 +19,9 @@ namespace motts { namespace lox {
                 MOTTS_LOX_TOKEN_TYPE_NAMES
                 #undef X
             }
-        })()};
+        }()};
 
-        // Names should print as uppercase without trailing underscores
+        // Names should print as uppercase without trailing underscores.
         boost::trim_right_if(name, boost::is_any_of("_"));
         boost::to_upper(name);
 
@@ -44,8 +44,7 @@ namespace motts { namespace lox {
           token_end_ {source.cbegin()},
           source_end_ {source.cend()},
           token_ {scan_token()}
-    {
-    }
+    {}
 
     Token_iterator::Token_iterator()
         : token_ {Token_type::eof, "", 0}
@@ -62,20 +61,21 @@ namespace motts { namespace lox {
         return copy;
     }
 
-    bool Token_iterator::operator==(const Token_iterator& rhs) const {
-        return token_.type == rhs.token_.type;
-    }
-
-    bool operator!=(const Token_iterator& lhs, const Token_iterator& rhs) {
-        return !(lhs == rhs);
-    }
-
     const Token& Token_iterator::operator*() const {
         return token_;
     }
 
     const Token* Token_iterator::operator->() const {
         return &token_;
+    }
+
+    bool Token_iterator::operator==(const Token_iterator& rhs) const {
+        // For now this comparison is good enough since all we ever need to check is whether we're at token type EOF.
+        return token_.type == rhs.token_.type;
+    }
+
+    bool operator!=(const Token_iterator& lhs, const Token_iterator& rhs) {
+        return !(lhs == rhs);
     }
 
     Token Token_iterator::scan_token() {
@@ -100,20 +100,19 @@ namespace motts { namespace lox {
                 case '"':
                     return scan_string_token();
 
-                // Skip whitespace
+                // Skip whitespace.
                 case ' ':
                 case '\r':
                 case '\t':
                     continue;
 
-                // Count lines then skip whitespace
+                // Count lines then skip whitespace.
                 case '\n':
                     ++line_;
                     continue;
 
-                // Slash or line comment
                 case '/':
-                    // Two cosecutive slashes means line comment
+                    // Two cosecutive slashes means line comment.
                     if (scan_if_match('/')) {
                         while (token_end_ != source_end_ && *token_end_ != '\n') {
                             ++token_end_;
@@ -121,7 +120,7 @@ namespace motts { namespace lox {
                         continue;
                     }
 
-                    // Else, single slash token
+                    // Else, single slash token.
                     return Token{Token_type::slash, {token_begin_, token_end_}, line_};
 
                 case '(': return Token{Token_type::left_paren, {token_begin_, token_end_}, line_};
@@ -141,7 +140,7 @@ namespace motts { namespace lox {
                 case '<': return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
             }
 
-            throw std::logic_error{"Unreachable"};
+            throw std::logic_error{"Unreachable."};
         }
 
         return Token{Token_type::eof, "EOF", line_};
@@ -154,7 +153,7 @@ namespace motts { namespace lox {
 
         std::string_view token_lexeme {token_begin_, token_end_};
 
-        const auto token_type = ([&] () {
+        const auto token_type = [&] {
             if (token_lexeme == "and") return Token_type::and_;
             if (token_lexeme == "break") return Token_type::break_;
             if (token_lexeme == "class") return Token_type::class_;
@@ -173,8 +172,9 @@ namespace motts { namespace lox {
             if (token_lexeme == "true") return Token_type::true_;
             if (token_lexeme == "var") return Token_type::var;
             if (token_lexeme == "while") return Token_type::while_;
+
             return Token_type::identifier;
-        })();
+        }();
 
         return Token{token_type, token_lexeme, line_};
     }
@@ -214,7 +214,7 @@ namespace motts { namespace lox {
             throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unterminated string."};
         }
 
-        // The closing quote
+        // The closing quote.
         ++token_end_;
 
         return Token{Token_type::string, {token_begin_, token_end_}, string_begin_line};

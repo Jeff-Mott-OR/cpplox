@@ -4,6 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
+#include "../src/compiler.hpp"
 #include "../src/lox.hpp"
 #include "../src/object.hpp"
 #include "../src/vm.hpp"
@@ -20,8 +21,9 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
     chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -53,8 +55,9 @@ BOOST_AUTO_TEST_CASE(chunks_and_stacks_wont_print_when_debug_is_off) {
     chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ false};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "");
 }
@@ -69,8 +72,9 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
     chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -119,10 +123,13 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw) {
     chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::number, "\"hello\"", 1});
     chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
-    motts::lox::Lox lox;
-    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
     try {
-        lox.vm.run(chunk);
+        vm.run(chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
     }
@@ -147,8 +154,9 @@ BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     const auto expected =
         "42\n"
@@ -178,23 +186,27 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_run) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "6\n");
 }
 
 BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
-    motts::lox::Lox lox;
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
 
     {
         motts::lox::Chunk chunk;
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
         chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
         }
@@ -204,9 +216,10 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
         chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::subtract>(Token{Token_type::minus, "-", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
@@ -216,9 +229,10 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
         chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::multiply>(Token{Token_type::star, "*", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
@@ -228,9 +242,10 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
         chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::divide>(Token{Token_type::slash, "/", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
@@ -251,8 +266,9 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_run) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "-2\n");
 }
@@ -262,10 +278,13 @@ BOOST_AUTO_TEST_CASE(invalid_negation_will_throw) {
     chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\'", 1});
     chunk.emit<Opcode::negate>(Token{Token_type::minus, "-", 1});
 
-    motts::lox::Lox lox;
-    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
     try {
-        lox.vm.run(chunk);
+        vm.run(chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Operand must be a number.");
     }
@@ -299,8 +318,9 @@ BOOST_AUTO_TEST_CASE(false_and_nil_are_falsey_all_else_is_truthy) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "true\ntrue\nfalse\nfalse\nfalse\nfalse\n");
 }
@@ -311,8 +331,9 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
     chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -377,23 +398,27 @@ BOOST_AUTO_TEST_CASE(comparisons_will_run) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "false\nfalse\nfalse\ntrue\ntrue\ntrue\ntrue\nfalse\n");
 }
 
 BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
-    motts::lox::Lox lox;
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
 
     {
         motts::lox::Chunk chunk;
         chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
         chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::greater>(Token{Token_type::greater, ">", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
@@ -403,9 +428,10 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
         chunk.emit_constant(Dynamic_type_value{"hello"}, Token{Token_type::string, "\"hello\"", 1});
         chunk.emit_constant(Dynamic_type_value{1.0}, Token{Token_type::number, "1", 1});
         chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
-        BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+
+        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
         try {
-            lox.vm.run(chunk);
+            vm.run(chunk);
         } catch (const std::exception& error) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
@@ -418,33 +444,34 @@ BOOST_AUTO_TEST_CASE(jump_if_false_will_run) {
     chunk.emit<Opcode::true_>(Token{Token_type::true_, "true", 1});
     {
         auto jump_backpatch = chunk.emit_jump_if_false(Token{Token_type::and_, "and", 1});
-        chunk.emit_constant(Dynamic_type_value{"true path"}, Token{Token_type::string, "\"true path\"", 1});
+        chunk.emit_constant(Dynamic_type_value{"if true"}, Token{Token_type::string, "\"if true\"", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
         jump_backpatch.to_next_opcode();
 
-        chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+        chunk.emit_constant(Dynamic_type_value{"if end"}, Token{Token_type::string, "\"if end\"", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
     }
 
     chunk.emit<Opcode::false_>(Token{Token_type::false_, "false", 1});
     {
         auto jump_backpatch = chunk.emit_jump_if_false(Token{Token_type::and_, "and", 1});
-        chunk.emit_constant(Dynamic_type_value{"true path"}, Token{Token_type::string, "\"true path\"", 1});
+        chunk.emit_constant(Dynamic_type_value{"if true"}, Token{Token_type::string, "\"if true\"", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
         jump_backpatch.to_next_opcode();
 
-        chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+        chunk.emit_constant(Dynamic_type_value{"if end"}, Token{Token_type::string, "\"if end\"", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
     }
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     const auto expected =
-        "true path\n"
-        "fall through\n"
-        "fall through\n";
+        "if true\n"
+        "if end\n"
+        "if end\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -456,14 +483,15 @@ BOOST_AUTO_TEST_CASE(jump_will_run) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
     jump_backpatch.to_next_opcode();
 
-    chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+    chunk.emit_constant(Dynamic_type_value{"end"}, Token{Token_type::string, "\"end\"", 1});
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
-    BOOST_TEST(os.str() == "fall through\n");
+    BOOST_TEST(os.str() == "end\n");
 }
 
 BOOST_AUTO_TEST_CASE(set_get_global_will_run) {
@@ -477,8 +505,9 @@ BOOST_AUTO_TEST_CASE(set_get_global_will_run) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "42\n");
 }
@@ -487,10 +516,13 @@ BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw) {
     motts::lox::Chunk chunk;
     chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
 
-    motts::lox::Lox lox;
-    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
     try {
-        lox.vm.run(chunk);
+        vm.run(chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
     }
@@ -501,10 +533,13 @@ BOOST_AUTO_TEST_CASE(set_global_of_undeclared_will_throw) {
     chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
 
-    motts::lox::Lox lox;
-    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
     try {
-        lox.vm.run(chunk);
+        vm.run(chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
     }
@@ -512,34 +547,47 @@ BOOST_AUTO_TEST_CASE(set_global_of_undeclared_will_throw) {
 
 BOOST_AUTO_TEST_CASE(vm_state_can_persist_across_multiple_runs) {
     std::ostringstream os;
-    motts::lox::Lox lox {os};
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
 
     {
         motts::lox::Chunk chunk;
-        chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
-        chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
-        chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
-        chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
-        lox.vm.run(chunk);
+        chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
+
+        vm.run(chunk);
     }
     {
         motts::lox::Chunk chunk;
         chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
-        lox.vm.run(chunk);
+
+        vm.run(chunk);
     }
 
     BOOST_TEST(os.str() == "42\n");
 }
 
-BOOST_AUTO_TEST_CASE(while_will_run) {
-    std::ostringstream os;
-    motts::lox::Lox lox {os};
-    const auto chunk = lox.compile("var x = 3; while (x > 0) print x = x - 1;");
-    lox.vm.run(chunk);
+BOOST_AUTO_TEST_CASE(loop_will_run) {
+    motts::lox::Chunk chunk;
 
-    BOOST_TEST(os.str() == "2\n1\n0\n");
+    chunk.emit_constant(Dynamic_type_value{true}, Token{Token_type::true_, "true", 1});
+    const auto condition_begin_bytecode_index = chunk.bytecode().size();
+    auto jump_backpatch = chunk.emit_jump_if_false(Token{Token_type::while_, "while", 1});
+
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    chunk.emit_constant(Dynamic_type_value{false}, Token{Token_type::false_, "false", 1});
+    chunk.emit_loop(condition_begin_bytecode_index, Token{Token_type::while_, "while", 1});
+
+    jump_backpatch.to_next_opcode();
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
+
+    BOOST_TEST(os.str() == "true\nfalse\n");
 }
 
 BOOST_AUTO_TEST_CASE(global_var_declaration_will_run) {
@@ -548,8 +596,9 @@ BOOST_AUTO_TEST_CASE(global_var_declaration_will_run) {
     chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+    vm.run(chunk);
 
     BOOST_TEST(os.str() == "");
 }
@@ -562,8 +611,9 @@ BOOST_AUTO_TEST_CASE(global_var_will_initialize_from_stack) {
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -596,8 +646,9 @@ BOOST_AUTO_TEST_CASE(local_var_will_get_from_stack) {
     chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "x", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -624,8 +675,9 @@ BOOST_AUTO_TEST_CASE(local_var_will_set_to_stack) {
     chunk.emit<Opcode::set_local>(0, Token{Token_type::identifier, "x", 1});
 
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
-    lox.vm.run(chunk);
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+    vm.run(chunk);
 
     const auto expected =
         "\n# Running chunk:\n\n"
@@ -653,17 +705,20 @@ BOOST_AUTO_TEST_CASE(local_var_will_set_to_stack) {
 
 BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
 
     motts::lox::Chunk fn_f_chunk;
     fn_f_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "f", 1});
     fn_f_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "x", 1});
+    const auto fn_f = gc_heap.make<motts::lox::Function>({"f", 1, std::move(fn_f_chunk)});
+
     motts::lox::Chunk main_chunk;
-    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
 
-    lox.vm.run(main_chunk);
+    vm.run(main_chunk);
 
     const auto expected =
         "\n# Running chunk:\n"
@@ -708,20 +763,23 @@ BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
 
 BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
     std::ostringstream os;
-    motts::lox::Lox lox {os, /* debug = */ true};
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
 
     motts::lox::Chunk fn_f_chunk;
     fn_f_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "f", 1});
     fn_f_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "x", 1});
     fn_f_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_f = gc_heap.make<motts::lox::Function>({"f", 1, std::move(fn_f_chunk)});
+
     motts::lox::Chunk main_chunk;
-    main_chunk.emit<Opcode::nil>(Token{Token_type::nil, "nil", 1}); // force call frame stack offset to be significant
-    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit<Opcode::nil>(Token{Token_type::nil, "nil", 1}); // Force the call frame's stack offset to matter.
+    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
     main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
-    lox.vm.run(main_chunk);
+    vm.run(main_chunk);
 
     const auto expected =
         "\n# Running chunk:\n"
@@ -785,25 +843,31 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
 
 BOOST_AUTO_TEST_CASE(reachable_function_objects_wont_be_collected) {
     std::ostringstream os;
-    motts::lox::Lox lox {os};
-    lox.vm.run(lox.compile("fun f() {}"));
-    // A failing test will throw std::bad_variant_access: std::get: wrong index for variant
-    lox.vm.run(lox.compile("f();"));
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    vm.run(compile(gc_heap, "fun f() {}"));
+    // A failing test will throw std::bad_variant_access: std::get: wrong index for variant.
+    vm.run(compile(gc_heap, "f();"));
 }
 
 BOOST_AUTO_TEST_CASE(function_calls_will_wrong_arity_will_throw) {
-    motts::lox::Lox lox;
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
 
     motts::lox::Chunk fn_f_chunk;
     fn_f_chunk.emit<Opcode::nil>(Token{Token_type::fun, "fun", 1});
     fn_f_chunk.emit<Opcode::return_>(Token{Token_type::fun, "fun", 1});
+    const auto fn_f = gc_heap.make<motts::lox::Function>({"f", 1, std::move(fn_f_chunk)});
+
     motts::lox::Chunk main_chunk;
-    main_chunk.emit_constant(Dynamic_type_value{lox.gc_heap.make<motts::lox::Function>({"f", std::move(fn_f_chunk), 1})}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_call(0, Token{Token_type::identifier, "f", 1});
 
-    BOOST_CHECK_THROW(lox.vm.run(main_chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(main_chunk), std::exception);
     try {
-        lox.vm.run(main_chunk);
+        vm.run(main_chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"f\": Expected 1 arguments but got 0.");
     }
@@ -814,10 +878,13 @@ BOOST_AUTO_TEST_CASE(calling_a_noncallable_will_throw) {
     chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     chunk.emit_call(0, Token{Token_type::number, "42", 1});
 
-    motts::lox::Lox lox;
-    BOOST_CHECK_THROW(lox.vm.run(chunk), std::exception);
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
     try {
-        lox.vm.run(chunk);
+        vm.run(chunk);
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Can only call functions.");
     }

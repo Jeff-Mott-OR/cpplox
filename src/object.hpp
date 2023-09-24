@@ -8,7 +8,7 @@
 namespace motts { namespace lox {
     struct Function {
         std::string_view name;
-        Chunk chunk;
         int arity {0};
+        Chunk chunk;
     };
 }}
