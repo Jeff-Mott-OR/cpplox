@@ -108,6 +108,19 @@ namespace motts { namespace lox {
             ++token_end_;
         }
 
+        // Fractional part
+        if (
+            token_end_ != source_end_ && *token_end_ == '.' &&
+            (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))
+        ) {
+            // Consume the "." and digit
+            token_end_ += 2;
+
+            while (token_end_ != source_end_ && std::isdigit(*token_end_)) {
+                ++token_end_;
+            }
+        }
+
         return Token{Token_type::number, {token_begin_, token_end_}, line_};
     }
 
