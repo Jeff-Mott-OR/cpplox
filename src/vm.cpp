@@ -34,10 +34,12 @@ namespace motts { namespace lox {
 
             const auto& opcode = static_cast<Opcode>(*bytecode_iter);
             switch (opcode) {
-                default:
-                    throw std::runtime_error{
-                        "[Line " + std::to_string(source_map_token.line) + "] Error: Unexpected opcode \"" + std::string{source_map_token.lexeme} + "\"."
-                    };
+                default: {
+                    std::ostringstream os;
+                    os << "[Line " << source_map_token.line << "] Error: Unexpected opcode " << opcode
+                        << ", generated from source \"" << source_map_token.lexeme << "\".";
+                    throw std::runtime_error{os.str()};
+                }
 
                 case Opcode::add: {
                     const auto b = (stack.cend() - 1)->variant;
@@ -126,6 +128,12 @@ namespace motts { namespace lox {
                     stack.pop_back();
                     stack.push_back(Dynamic_type_value{negated_value});
 
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::pop: {
+                    stack.pop_back();
                     ++bytecode_iter;
                     break;
                 }

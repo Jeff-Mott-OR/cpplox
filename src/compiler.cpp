@@ -108,6 +108,11 @@ namespace motts { namespace lox {
         source_map_tokens_.push_back(source_map_token);
     }
 
+    void Chunk::emit_pop(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::pop));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     void Chunk::emit_print(const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::print));
         source_map_tokens_.push_back(source_map_token);
@@ -162,6 +167,7 @@ namespace motts { namespace lox {
                 case Opcode::negate:
                 case Opcode::nil:
                 case Opcode::not_:
+                case Opcode::pop:
                 case Opcode::print:
                 case Opcode::subtract:
                 case Opcode::true_:
@@ -328,6 +334,9 @@ namespace motts { namespace lox {
             }
 
             compile_addition_precedence_expression(chunk, token_iter);
+            chunk.emit_pop(*token_iter);
+            ensure_next_token_is(token_iter, Token_type::semicolon);
+            ++token_iter;
         }
 
         return chunk;

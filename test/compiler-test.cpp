@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
 }
 
 BOOST_AUTO_TEST_CASE(number_literals_compile) {
-    const auto chunk = motts::lox::compile("42");
+    const auto chunk = motts::lox::compile("42;");
 
     std::ostringstream os;
     os << chunk;
@@ -47,12 +47,13 @@ BOOST_AUTO_TEST_CASE(number_literals_compile) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n";
+        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
+        "    2 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(nil_literals_compile) {
-    const auto chunk = motts::lox::compile("nil");
+    const auto chunk = motts::lox::compile("nil;");
 
     std::ostringstream os;
     os << chunk;
@@ -60,7 +61,8 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 01    NIL          ; nil @ 1\n";
+        "    0 : 01    NIL          ; nil @ 1\n"
+        "    1 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -69,7 +71,7 @@ BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw) {
 }
 
 BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
-    const auto chunk = motts::lox::compile("true false");
+    const auto chunk = motts::lox::compile("true; false;");
 
     std::ostringstream os;
     os << chunk;
@@ -78,12 +80,14 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
         "Constants:\n"
         "Bytecode:\n"
         "    0 : 02    TRUE         ; true @ 1\n"
-        "    1 : 03    FALSE        ; false @ 1\n";
+        "    1 : 0b    POP          ; ; @ 1\n"
+        "    2 : 03    FALSE        ; false @ 1\n"
+        "    3 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(string_literals_compile) {
-    const auto chunk = motts::lox::compile("\"hello\"");
+    const auto chunk = motts::lox::compile("\"hello\";");
 
     std::ostringstream os;
     os << chunk;
@@ -92,12 +96,13 @@ BOOST_AUTO_TEST_CASE(string_literals_compile) {
         "Constants:\n"
         "    0 : hello\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0] ; \"hello\" @ 1\n";
+        "    0 : 00 00 CONSTANT [0] ; \"hello\" @ 1\n"
+        "    2 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(addition_will_compile) {
-    const auto chunk = motts::lox::compile("28 + 14");
+    const auto chunk = motts::lox::compile("28 + 14;");
 
     std::ostringstream os;
     os << chunk;
@@ -109,7 +114,8 @@ BOOST_AUTO_TEST_CASE(addition_will_compile) {
         "Bytecode:\n"
         "    0 : 00 00 CONSTANT [0] ; 28 @ 1\n"
         "    2 : 00 01 CONSTANT [1] ; 14 @ 1\n"
-        "    4 : 04    ADD          ; + @ 1\n";
+        "    4 : 04    ADD          ; + @ 1\n"
+        "    5 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -133,7 +139,7 @@ BOOST_AUTO_TEST_CASE(print_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
-    const auto chunk = motts::lox::compile("1 + 2 - 3 * 5 / 7");
+    const auto chunk = motts::lox::compile("1 + 2 - 3 * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
@@ -154,12 +160,13 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
         "    9 : 07    MULTIPLY     ; * @ 1\n"
         "   10 : 00 04 CONSTANT [4] ; 7 @ 1\n"
         "   12 : 08    DIVIDE       ; / @ 1\n"
-        "   13 : 06    SUBTRACT     ; - @ 1\n";
+        "   13 : 06    SUBTRACT     ; - @ 1\n"
+        "   14 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(parens_will_compile) {
-    const auto chunk = motts::lox::compile("1 + (2 - 3) * 5 / 7");
+    const auto chunk = motts::lox::compile("1 + (2 - 3) * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
@@ -180,12 +187,13 @@ BOOST_AUTO_TEST_CASE(parens_will_compile) {
         "    9 : 07    MULTIPLY     ; * @ 1\n"
         "   10 : 00 04 CONSTANT [4] ; 7 @ 1\n"
         "   12 : 08    DIVIDE       ; / @ 1\n"
-        "   13 : 04    ADD          ; + @ 1\n";
+        "   13 : 04    ADD          ; + @ 1\n"
+        "   14 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(numeric_negation_will_compile) {
-    const auto chunk = motts::lox::compile("-1 + -1");
+    const auto chunk = motts::lox::compile("-1 + -1;");
 
     std::ostringstream os;
     os << chunk;
@@ -199,12 +207,13 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_compile) {
         "    2 : 09    NEGATE       ; - @ 1\n"
         "    3 : 00 01 CONSTANT [1] ; 1 @ 1\n"
         "    5 : 09    NEGATE       ; - @ 1\n"
-        "    6 : 04    ADD          ; + @ 1\n";
+        "    6 : 04    ADD          ; + @ 1\n"
+        "    7 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(boolean_negation_will_compile) {
-    const auto chunk = motts::lox::compile("!true");
+    const auto chunk = motts::lox::compile("!true;");
 
     std::ostringstream os;
     os << chunk;
@@ -213,6 +222,22 @@ BOOST_AUTO_TEST_CASE(boolean_negation_will_compile) {
         "Constants:\n"
         "Bytecode:\n"
         "    0 : 02    TRUE         ; true @ 1\n"
-        "    1 : 0a    NOT          ; ! @ 1\n";
+        "    1 : 0a    NOT          ; ! @ 1\n"
+        "    2 : 0b    POP          ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(expression_statements_will_compile) {
+    const auto chunk = motts::lox::compile("42;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
+        "    2 : 0b    POP          ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }

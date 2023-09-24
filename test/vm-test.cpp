@@ -224,3 +224,27 @@ BOOST_AUTO_TEST_CASE(false_and_nil_are_falsey_all_else_is_truthy) {
 
     BOOST_TEST(os.str() == "true\ntrue\nfalse\nfalse\nfalse\nfalse\n");
 }
+
+BOOST_AUTO_TEST_CASE(pop_will_run) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+    chunk.emit_pop(motts::lox::Token{motts::lox::Token_type::semicolon, ";", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "# Running chunk:\n"
+        "Constants:\n"
+        "    0 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
+        "    2 : 0b    POP          ; ; @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 42\n"
+        "\n"
+        "Stack:\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
+}
