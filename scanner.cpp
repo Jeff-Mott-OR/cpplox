@@ -102,6 +102,9 @@ namespace motts { namespace lox {
                     ++line_;
                     continue;
 
+                case '"':
+                    return scan_string_token();
+
                 // Slash or line comment
                 case '/':
                     // Two cosecutive slashes means line comment
@@ -167,6 +170,26 @@ namespace motts { namespace lox {
         }
 
         return Token{Token_type::number, {token_begin_, token_end_}, line_};
+    }
+
+    Token Token_iterator::scan_string_token() {
+        const auto string_begin_line = line_;
+
+        while (token_end_ != source_end_ && *token_end_ != '"') {
+            if (*token_end_ == '\n') {
+                ++line_;
+            }
+            ++token_end_;
+        }
+
+        if (token_end_ == source_end_) {
+            throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unterminated string."};
+        }
+
+        // The closing quote
+        ++token_end_;
+
+        return Token{Token_type::string, {token_begin_, token_end_}, string_begin_line};
     }
 
     bool Token_iterator::scan_if_match(char expected) {

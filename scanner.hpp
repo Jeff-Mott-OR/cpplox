@@ -11,7 +11,7 @@ namespace motts { namespace lox {
         X(comma) X(dot) X(minus) X(plus) \
         X(semicolon) X(slash) X(star) \
         \
-        X(identifier) X(number) \
+        X(identifier) X(string) X(number) \
         X(and_) X(or_) \
         X(eof)
 
@@ -54,6 +54,7 @@ namespace motts { namespace lox {
             Token scan_token();
             Token scan_identifier_token();
             Token scan_number_token();
+            Token scan_string_token();
             bool scan_if_match(char expected);
     };
 
