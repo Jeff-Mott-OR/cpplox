@@ -3,6 +3,23 @@
 #include <iomanip>
 #include <vector>
 
+namespace {
+    struct Truthy_visitor {
+        auto operator()(std::nullptr_t) const {
+            return false;
+        }
+
+        auto operator()(bool value) const {
+            return value;
+        }
+
+        template<typename T>
+            auto operator()(const T&) const {
+               return true;
+            }
+    };
+}
+
 namespace motts { namespace lox {
     void run(const Chunk& chunk, std::ostream& os, bool debug) {
         if (debug) {
@@ -64,10 +81,11 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::false_:
+                case Opcode::false_: {
                     stack.push_back(Dynamic_type_value{false});
                     ++bytecode_iter;
                     break;
+                }
 
                 case Opcode::multiply: {
                     const auto b = (stack.cend() - 1)->variant;
@@ -80,16 +98,44 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::nil:
+                case Opcode::negate: {
+                    if (! std::holds_alternative<double>(stack.back().variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operand must be a number."
+                        };
+                    }
+
+                    const auto negated_value = - std::get<double>(stack.back().variant);
+
+                    stack.pop_back();
+                    stack.push_back(Dynamic_type_value{negated_value});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::nil: {
                     stack.push_back(Dynamic_type_value{nullptr});
                     ++bytecode_iter;
                     break;
+                }
 
-                case Opcode::print:
+                case Opcode::not_: {
+                    const auto negated_value = ! std::visit(Truthy_visitor{}, stack.back().variant);
+
+                    stack.pop_back();
+                    stack.push_back(Dynamic_type_value{negated_value});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::print: {
                     os << stack.back() << "\n";
                     stack.pop_back();
                     ++bytecode_iter;
                     break;
+                }
 
                 case Opcode::subtract: {
                     const auto b = (stack.cend() - 1)->variant;
@@ -102,10 +148,11 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::true_:
+                case Opcode::true_: {
                     stack.push_back(Dynamic_type_value{true});
                     ++bytecode_iter;
                     break;
+                }
             }
 
             if (debug) {

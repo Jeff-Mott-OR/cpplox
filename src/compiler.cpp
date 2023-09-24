@@ -93,8 +93,18 @@ namespace motts { namespace lox {
         source_map_tokens_.push_back(source_map_token);
     }
 
+    void Chunk::emit_negate(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::negate));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     void Chunk::emit_nil(const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::nil));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_not(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::not_));
         source_map_tokens_.push_back(source_map_token);
     }
 
@@ -149,7 +159,9 @@ namespace motts { namespace lox {
                 case Opcode::divide:
                 case Opcode::false_:
                 case Opcode::multiply:
+                case Opcode::negate:
                 case Opcode::nil:
+                case Opcode::not_:
                 case Opcode::print:
                 case Opcode::subtract:
                 case Opcode::true_:
@@ -219,16 +231,43 @@ namespace motts { namespace lox {
         ++token_iter;
     }
 
+    void compile_unary_expression(Chunk& chunk, Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::minus || token_iter->type == Token_type::bang) {
+            const auto unary_op_token = *token_iter;
+            ++token_iter;
+
+            // Right expression
+            compile_unary_expression(chunk, token_iter);
+
+            switch (unary_op_token.type) {
+                default:
+                    throw std::logic_error{"Unreachable"};
+
+                case Token_type::minus:
+                    chunk.emit_negate(unary_op_token);
+                    break;
+
+                case Token_type::bang:
+                    chunk.emit_not(unary_op_token);
+                    break;
+            }
+
+            return;
+        }
+
+        compile_primary_expression(chunk, token_iter);
+    }
+
     void compile_multiplication_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
         // Left expression
-        compile_primary_expression(chunk, token_iter);
+        compile_unary_expression(chunk, token_iter);
 
         while (token_iter->type == Token_type::star || token_iter->type == Token_type::slash) {
             const auto binary_op_token = *token_iter;
             ++token_iter;
 
             // Right expression
-            compile_primary_expression(chunk, token_iter);
+            compile_unary_expression(chunk, token_iter);
 
             switch (binary_op_token.type) {
                 default:

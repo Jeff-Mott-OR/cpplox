@@ -21,7 +21,9 @@ namespace motts { namespace lox {
         X(print) \
         X(subtract) \
         X(multiply) \
-        X(divide)
+        X(divide) \
+        X(negate) \
+        X(not_)
 
     enum class Opcode {
         #define X(name) name,
@@ -60,7 +62,9 @@ namespace motts { namespace lox {
             void emit_divide(const Token& source_map_token);
             void emit_false(const Token& source_map_token);
             void emit_multiply(const Token& source_map_token);
+            void emit_negate(const Token& source_map_token);
             void emit_nil(const Token& source_map_token);
+            void emit_not(const Token& source_map_token);
             void emit_print(const Token& source_map_token);
             void emit_subtract(const Token& source_map_token);
             void emit_true(const Token& source_map_token);
