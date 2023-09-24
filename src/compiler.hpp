@@ -10,7 +10,9 @@
 namespace motts { namespace lox {
     #define MOTTS_LOX_OPCODE_NAMES \
         X(constant) \
-        X(nil)
+        X(nil) \
+        X(true_) \
+        X(false_)
 
     enum class Opcode {
         #define X(name) name,
@@ -31,7 +33,9 @@ namespace motts { namespace lox {
             const decltype(source_map_tokens_)& source_map_tokens() const;
 
             void emit_constant(double constant_value, const Token& source_map_token);
+            void emit_false(const Token& source_map_token);
             void emit_nil(const Token& source_map_token);
+            void emit_true(const Token& source_map_token);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

@@ -11,6 +11,7 @@
 #include <boost/program_options.hpp>
 #include <gsl/gsl>
 
+#include "compiler.hpp"
 #include "scanner.hpp"
 
 namespace program_options = boost::program_options;
@@ -21,9 +22,8 @@ namespace motts { namespace lox {
     };
 
     void Lox::compile(std::string_view source) {
-        for (Token_iterator token_iter {source}; token_iter != Token_iterator{}; ++token_iter) {
-            std::cout << *token_iter << "\n";
-        }
+        const auto chunk = ::motts::lox::compile(source);
+        std::cout << chunk << "\n";
     }
 
     void run_prompt(Lox& lox) {

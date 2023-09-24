@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
-        "    2 : 01    NIL ; nil @ 2\n";
+        "    2 : 01    NIL          ; nil @ 2\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -60,10 +60,24 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 01    NIL ; nil @ 1\n";
+        "    0 : 01    NIL          ; nil @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw) {
     BOOST_CHECK_THROW(motts::lox::compile("?"), std::exception);
+}
+
+BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
+    const auto chunk = motts::lox::compile("true false");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02    TRUE         ; true @ 1\n"
+        "    1 : 03    FALSE        ; false @ 1\n";
+    BOOST_TEST(os.str() == expected);
 }
