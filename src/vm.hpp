@@ -8,8 +8,10 @@
 #include "memory.hpp"
 #include "value.hpp"
 
-namespace motts { namespace lox {
-    class VM {
+namespace motts { namespace lox
+{
+    class VM
+    {
         const bool debug_;
         std::ostream& os_;
         GC_heap& gc_heap_;
@@ -17,7 +19,8 @@ namespace motts { namespace lox {
         std::vector<Dynamic_type_value> stack_;
         std::unordered_map<std::string, Dynamic_type_value> globals_;
 
-        struct Call_frame {
+        struct Call_frame
+        {
             GC_ptr<Closure> closure;
             const Chunk& chunk;
             Chunk::Bytecode_vector::const_iterator bytecode_iter;

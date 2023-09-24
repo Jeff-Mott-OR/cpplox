@@ -11,11 +11,13 @@
 #include "scanner.hpp"
 
 // Not exported (internal linkage).
-namespace {
+namespace
+{
     // Allow the internal linkage section to access names.
     using namespace motts::lox;
 
-    void ensure_token_is(const Token& token, const Token_type& expected) {
+    void ensure_token_is(const Token& token, Token_type expected)
+    {
         if (token.type != expected) {
             std::ostringstream os;
             os << "[Line " << token.line << "] Error: Expected " << expected << " at \"" << token.lexeme << "\".";
@@ -24,16 +26,19 @@ namespace {
     }
 
     // Functions are members of a struct to avoid lots of manual argument passing.
-    struct Compiler {
+    struct Compiler
+    {
         GC_heap& gc_heap;
         Token_iterator token_iter;
         unsigned int scope_depth {0};
 
-        struct Function_chunk {
+        struct Function_chunk
+        {
             Chunk chunk;
 
-            struct Tracked_local {
-                Token name;
+            struct Tracked_local
+            {
+                std::string_view name;
                 unsigned int depth {0};
                 bool initialized {true};
                 bool is_captured {false};
@@ -48,9 +53,11 @@ namespace {
         Compiler(GC_heap& gc_heap_arg, std::string_view source)
             : gc_heap {gc_heap_arg},
               token_iter {source}
-        {}
+        {
+        }
 
-        Chunk compile() {
+        Chunk compile()
+        {
             Token_iterator token_iter_end;
             while (token_iter != token_iter_end) {
                 compile_statement();
@@ -59,7 +66,8 @@ namespace {
             return std::move(function_chunks.back().chunk);
         }
 
-        bool advance_if_match(const Token_type& type) {
+        bool advance_if_match(Token_type type)
+        {
             if (token_iter->type == type) {
                 ++token_iter;
                 return true;
@@ -68,11 +76,13 @@ namespace {
             return false;
         }
 
-        bool is_global_scope() const {
+        bool is_global_scope() const
+        {
             return scope_depth == 0 && function_chunks.size() == 1;
         }
 
-        void pop_top_scope_depth(const Token& source_map_token) {
+        void pop_top_scope_depth(const Token& source_map_token)
+        {
             while (
                 ! function_chunks.back().tracked_locals.empty() &&
                 function_chunks.back().tracked_locals.back().depth == scope_depth
@@ -87,13 +97,14 @@ namespace {
             --scope_depth;
         }
 
-        void track_local(const Token& identifier_token, bool initialized = true) {
+        void track_local(const Token& identifier_token, bool initialized = true)
+        {
             assert(! is_global_scope() && "We don't track locals in the global scope.");
 
             const auto maybe_redeclared_iter = std::find_if(
                 function_chunks.back().tracked_locals.cbegin(), function_chunks.back().tracked_locals.cend(),
                 [&] (const auto& tracked_local) {
-                    return tracked_local.depth == scope_depth && tracked_local.name.lexeme == identifier_token.lexeme;
+                    return tracked_local.depth == scope_depth && tracked_local.name == identifier_token.lexeme;
                 }
             );
             if (maybe_redeclared_iter != function_chunks.back().tracked_locals.cend()) {
@@ -103,16 +114,16 @@ namespace {
                 throw std::runtime_error{os.str()};
             }
 
-            function_chunks.back().tracked_locals.push_back({identifier_token, scope_depth, initialized});
+            function_chunks.back().tracked_locals.push_back({identifier_token.lexeme, scope_depth, initialized});
         }
 
-        std::vector<Chunk::Tracked_upvalue>::const_iterator track_upvalue(const Token& identifier_token) {
-            // Walk up nested functions looking for a local.
+        std::vector<Chunk::Tracked_upvalue>::const_iterator track_upvalue(const Token& identifier_token)
+        {
             for (auto enclosing_fn_iter = function_chunks.rbegin() + 1; enclosing_fn_iter != function_chunks.rend(); ++enclosing_fn_iter) {
                 const auto maybe_enclosing_local_iter = std::find_if(
                     enclosing_fn_iter->tracked_locals.rbegin(), enclosing_fn_iter->tracked_locals.rend(),
                     [&] (const auto& tracked_local) {
-                        return tracked_local.name.lexeme == identifier_token.lexeme;
+                        return tracked_local.name == identifier_token.lexeme;
                     }
                 );
 
@@ -163,7 +174,8 @@ namespace {
             return function_chunks.back().tracked_upvalues.cend();
         }
 
-        void compile_primary_expression() {
+        void compile_primary_expression()
+        {
             switch (token_iter->type) {
                 default: {
                     std::ostringstream os;
@@ -184,7 +196,7 @@ namespace {
                     const auto maybe_local_iter = std::find_if(
                         function_chunks.back().tracked_locals.crbegin(), function_chunks.back().tracked_locals.crend(),
                         [&] (const auto& tracked_local) {
-                            return tracked_local.name.lexeme == identifier_token.lexeme;
+                            return tracked_local.name == identifier_token.lexeme;
                         }
                     );
                     if (maybe_local_iter != function_chunks.back().tracked_locals.crend()) {
@@ -210,23 +222,16 @@ namespace {
                     }
 
                     while (token_iter->type == Token_type::dot || token_iter->type == Token_type::left_paren) {
-                        // Check for property access following identifier.
-                        if (token_iter->type == Token_type::dot) {
-                            ++token_iter;
+                        if (advance_if_match(Token_type::dot)) {
                             ensure_token_is(*token_iter, Token_type::identifier);
                             const auto property_name_token = *token_iter++;
                             call_source_map_token = property_name_token;
                             function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
                         }
 
-                        // Check for function call following identifier.
-                        if (token_iter->type == Token_type::left_paren) {
-                            ++token_iter;
-
+                        if (advance_if_match(Token_type::left_paren)) {
                             auto arg_count = 0;
-                            if (token_iter->type == Token_type::right_paren) {
-                                ++token_iter;
-                            } else {
+                            if (! advance_if_match(Token_type::right_paren)) {
                                 do {
                                     compile_assignment_precedence_expression();
                                     ++arg_count;
@@ -255,13 +260,13 @@ namespace {
 
                 case Token_type::number: {
                     const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
-                    function_chunks.back().chunk.emit_constant(Dynamic_type_value{number_value}, *token_iter++);
+                    function_chunks.back().chunk.emit_constant(number_value, *token_iter++);
                     break;
                 }
 
                 case Token_type::string: {
                     auto string_value = std::string{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
-                    function_chunks.back().chunk.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter++);
+                    function_chunks.back().chunk.emit_constant(std::move(string_value), *token_iter++);
                     break;
                 }
 
@@ -272,7 +277,8 @@ namespace {
             }
         }
 
-        void compile_unary_precedence_expression() {
+        void compile_unary_precedence_expression()
+        {
             if (token_iter->type == Token_type::minus || token_iter->type == Token_type::bang) {
                 const auto unary_op_token = *token_iter++;
 
@@ -298,7 +304,8 @@ namespace {
             compile_primary_expression();
         }
 
-        void compile_multiplication_precedence_expression() {
+        void compile_multiplication_precedence_expression()
+        {
             // Left expression.
             compile_unary_precedence_expression();
 
@@ -323,7 +330,8 @@ namespace {
             }
         }
 
-        void compile_addition_precedence_expression() {
+        void compile_addition_precedence_expression()
+        {
             // Left expression.
             compile_multiplication_precedence_expression();
 
@@ -348,7 +356,8 @@ namespace {
             }
         }
 
-        void compile_comparison_precedence_expression() {
+        void compile_comparison_precedence_expression()
+        {
             // Left expression.
             compile_addition_precedence_expression();
 
@@ -386,7 +395,8 @@ namespace {
             }
         }
 
-        void compile_equality_precedence_expression() {
+        void compile_equality_precedence_expression()
+        {
             // Left expression.
             compile_comparison_precedence_expression();
 
@@ -412,7 +422,8 @@ namespace {
             }
         }
 
-        void compile_and_precedence_expression() {
+        void compile_and_precedence_expression()
+        {
             // Left expression.
             compile_equality_precedence_expression();
 
@@ -428,7 +439,8 @@ namespace {
             }
         }
 
-        void compile_or_precedence_expression() {
+        void compile_or_precedence_expression()
+        {
             // Left expression.
             compile_and_precedence_expression();
 
@@ -447,7 +459,8 @@ namespace {
             }
         }
 
-        void compile_assignment_precedence_expression() {
+        void compile_assignment_precedence_expression()
+        {
             if (token_iter->type == Token_type::identifier || token_iter->type == Token_type::this_) {
                 const auto variable_name_token = *token_iter;
 
@@ -471,12 +484,10 @@ namespace {
                     const auto maybe_local_iter = std::find_if(
                         function_chunks.back().tracked_locals.crbegin(), function_chunks.back().tracked_locals.crend(),
                         [&] (const auto& tracked_local) {
-                            return tracked_local.name.lexeme == variable_name_token.lexeme;
+                            return tracked_local.name == variable_name_token.lexeme;
                         }
                     );
-
-                    if (maybe_local_iter != function_chunks.back().tracked_locals.crend())
-                    {
+                    if (maybe_local_iter != function_chunks.back().tracked_locals.crend()) {
                         const auto local_iter = maybe_local_iter.base() - 1;
                         const auto tracked_local_stack_index = local_iter - function_chunks.back().tracked_locals.cbegin();
                         if (property_name_tokens.empty()) {
@@ -484,21 +495,16 @@ namespace {
                         } else {
                             function_chunks.back().chunk.emit<Opcode::get_local>(tracked_local_stack_index, variable_name_token);
                         }
-                    }
-                    else
-                    {
+                    } else {
                         const auto maybe_upvalue_iter = track_upvalue(variable_name_token);
-                        if (maybe_upvalue_iter != function_chunks.back().tracked_upvalues.cend())
-                        {
+                        if (maybe_upvalue_iter != function_chunks.back().tracked_upvalues.cend()) {
                             const auto tracked_upvalue_index = maybe_upvalue_iter - function_chunks.back().tracked_upvalues.cbegin();
                             if (property_name_tokens.empty()) {
                                 function_chunks.back().chunk.emit<Opcode::set_upvalue>(tracked_upvalue_index, variable_name_token);
                             } else {
                                 function_chunks.back().chunk.emit<Opcode::get_upvalue>(tracked_upvalue_index, variable_name_token);
                             }
-                        }
-                        else
-                        {
+                        } else {
                             if (property_name_tokens.empty()) {
                                 function_chunks.back().chunk.emit<Opcode::set_global>(variable_name_token, variable_name_token);
                             } else {
@@ -525,24 +531,26 @@ namespace {
             compile_or_precedence_expression();
         }
 
-        void compile_expression_statement() {
+        void compile_expression_statement()
+        {
             compile_assignment_precedence_expression();
             ensure_token_is(*token_iter, Token_type::semicolon);
             function_chunks.back().chunk.emit<Opcode::pop>(*token_iter++);
         }
 
-        int compile_function_rest(const Token& source_map_token) {
+        int compile_function_rest(const Token& source_map_token)
+        {
             auto param_count = 0;
 
             ensure_token_is(*token_iter++, Token_type::left_paren);
-            if (token_iter->type != Token_type::right_paren) {
+            if (! advance_if_match(Token_type::right_paren)) {
                 do {
                     ensure_token_is(*token_iter, Token_type::identifier);
                     track_local(*token_iter++);
                     ++param_count;
                 } while (advance_if_match(Token_type::comma));
+                ensure_token_is(*token_iter++, Token_type::right_paren);
             }
-            ensure_token_is(*token_iter++, Token_type::right_paren);
 
             ensure_token_is(*token_iter, Token_type::left_brace);
             compile_statement();
@@ -558,7 +566,8 @@ namespace {
             return param_count;
         }
 
-        void compile_statement() {
+        void compile_statement()
+        {
             switch (token_iter->type) {
                 default: {
                     compile_expression_statement();
@@ -587,14 +596,15 @@ namespace {
                         track_local(Token{Token_type::this_, "this", method_name_token.line});
                         const auto param_count = compile_function_rest(method_name_token);
 
-                        (function_chunks.end() - 2)->chunk.emit_closure(
+                        auto& enclosing_chunk = (function_chunks.end() - 2)->chunk;
+                        enclosing_chunk.emit_closure(
                             gc_heap.make<Function>({method_name_token.lexeme, param_count, std::move(function_chunks.back().chunk)}),
                             function_chunks.back().tracked_upvalues,
                             method_name_token
                         );
-                        function_chunks.pop_back();
+                        enclosing_chunk.emit<Opcode::method>(method_name_token, method_name_token);
 
-                        function_chunks.back().chunk.emit<Opcode::method>(method_name_token, method_name_token);
+                        function_chunks.pop_back();
                     }
                     ensure_token_is(*token_iter++, Token_type::right_brace);
 
@@ -638,23 +648,20 @@ namespace {
                     ++scope_depth;
 
                     ensure_token_is(*token_iter++, Token_type::left_paren);
-                    if (token_iter->type != Token_type::semicolon) {
+                    if (! advance_if_match(Token_type::semicolon)) {
                         if (token_iter->type == Token_type::var) {
                             compile_statement();
                         } else {
                             compile_expression_statement();
                         }
-                    } else {
-                        ++token_iter;
                     }
 
                     const auto condition_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
-                    if (token_iter->type != Token_type::semicolon) {
+                    if (advance_if_match(Token_type::semicolon)) {
+                        function_chunks.back().chunk.emit<Opcode::true_>(for_token);
+                    } else {
                         compile_assignment_precedence_expression();
                         ensure_token_is(*token_iter++, Token_type::semicolon);
-                    } else {
-                        function_chunks.back().chunk.emit<Opcode::true_>(for_token);
-                        ++token_iter;
                     }
                     auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(for_token);
                     auto to_body_jump_backpatch = function_chunks.back().chunk.emit_jump(for_token);
@@ -694,6 +701,7 @@ namespace {
                         function_chunks.back().tracked_upvalues,
                         fun_token
                     );
+
                     function_chunks.pop_back();
 
                     if (is_global_scope()) {
@@ -732,7 +740,13 @@ namespace {
                 case Token_type::return_: {
                     const auto return_token = *token_iter++;
 
-                    if (token_iter->type != Token_type::semicolon) {
+                    if (advance_if_match(Token_type::semicolon)) {
+                        if (function_chunks.back().is_class_init_method) {
+                            function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});
+                        } else {
+                            function_chunks.back().chunk.emit<Opcode::nil>(return_token);
+                        }
+                    } else {
                         if (function_chunks.back().is_class_init_method) {
                             throw std::runtime_error{
                                 "[Line " + std::to_string(token_iter->line) + "] Error: Can't return a value from an initializer."
@@ -740,14 +754,8 @@ namespace {
                         }
 
                         compile_assignment_precedence_expression();
-                    } else {
-                        if (function_chunks.back().is_class_init_method) {
-                            function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});
-                        } else {
-                            function_chunks.back().chunk.emit<Opcode::nil>(return_token);
-                        }
+                        ensure_token_is(*token_iter++, Token_type::semicolon);
                     }
-                    ensure_token_is(*token_iter++, Token_type::semicolon);
                     function_chunks.back().chunk.emit<Opcode::return_>(return_token);
 
                     break;
@@ -762,8 +770,7 @@ namespace {
                         track_local(variable_name_token, false);
                     }
 
-                    if (token_iter->type == Token_type::equal) {
-                        ++token_iter;
+                    if (advance_if_match(Token_type::equal)) {
                         compile_assignment_precedence_expression();
                     } else {
                         function_chunks.back().chunk.emit<Opcode::nil>(var_token);
@@ -803,8 +810,10 @@ namespace {
     };
 }
 
-namespace motts { namespace lox {
-    Chunk compile(GC_heap& gc_heap, std::string_view source) {
+namespace motts { namespace lox
+{
+    Chunk compile(GC_heap& gc_heap, std::string_view source)
+    {
         return Compiler{gc_heap, source}.compile();
     }
 }}

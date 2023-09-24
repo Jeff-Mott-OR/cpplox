@@ -1,10 +1,11 @@
 #pragma once
 
-namespace motts { namespace lox {
-    struct Function;
-    class Upvalue;
-    struct Closure;
-    struct Class;
-    struct Instance;
+namespace motts { namespace lox
+{
     struct Bound_method;
+    struct Class;
+    struct Closure;
+    struct Function;
+    struct Instance;
+    class Upvalue;
 }}

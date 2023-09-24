@@ -3,73 +3,90 @@
 #include <functional>
 #include <vector>
 
-namespace motts { namespace lox {
+namespace motts { namespace lox
+{
     class GC_heap;
 
-    // Every GC-ed object can be marked and trace references.
-    struct GC_control_block_base {
+    // Every garbage collect-able object can be polymorphically "marked" and trace references.
+    struct GC_control_block_base
+    {
         bool marked {false};
 
         virtual ~GC_control_block_base() = default;
         virtual void trace_refs(GC_heap&) = 0;
     };
 
-    // To avoid requiring user types to inherit from something,
-    // allow them to trace references through a type trait.
-    template<typename T>
-        void trace_refs_trait(GC_heap&, const T&) {
+    // I don't want user code to be required to extend some GC class to implement my virtual methods, so instead
+    // I'll let them specialize a function template, and I'll implement `trace_refs` for them to invoke the correct specialization.
+    template<typename User_value_type>
+        void trace_refs_trait(GC_heap&, const User_value_type&)
+        {
+            // Default is no-op.
         }
 
-    // Generate control block types for each user type to hold the value together with the base marked flag,
-    // and to invoke the correct type trait.
-    template<typename T>
-        struct GC_control_block : GC_control_block_base {
-            T value;
+    // Generate a concrete derived control block type for each user value type.
+    // It will hold the user value together with the base marked flag,
+    // and it will invoke the correct `trace_refs_trait` specialization.
+    template<typename User_value_type>
+        struct GC_control_block : GC_control_block_base
+        {
+            User_value_type value;
 
-            GC_control_block(T&& value_arg)
+            GC_control_block(User_value_type&& value_arg)
                 : value {std::move(value_arg)}
-            {}
+            {
+            }
 
-            // This generated trace refs for the user's value type will invoke the appropriate trait specialization.
-            void trace_refs(GC_heap& gc_heap) override {
+            void trace_refs(GC_heap& gc_heap) override
+            {
                 trace_refs_trait(gc_heap, value);
             }
         };
 
-    // A user-friendly wrapper around control block pointers,
-    // with same size and cost as a regular pointer.
-    template<typename T>
-        struct GC_ptr {
-            GC_control_block<T>* control_block {};
+    // In user code, a concrete derived control block would annoyingly require a lot of `value` accesses,
+    // such as `foo_cb_ptr->value.bar_cb_ptr->value.baz_cb_ptr->value`.
+    // So this is a user-friendly wrapper around control block pointers with the same size and cost as a regular pointer.
+    // With this wrapper, user code can instead write `*foo_gc_ptr->bar_gc_ptr->baz_gc_ptr`.
+    template<typename User_value_type>
+        struct GC_ptr
+        {
+            GC_control_block<User_value_type>* control_block {};
 
-            // Pointer semantics to access the contained value,
-            // so it feels like you have a pointer to the value rather than to the control block.
-            const T& operator*() const {
+            const User_value_type& operator*() const
+            {
                return control_block->value;
             }
-            T& operator*() {
+
+            User_value_type& operator*()
+            {
                return control_block->value;
             }
 
-            const T* operator->() const {
-                return &control_block->value;
-            }
-            T* operator->() {
+            const User_value_type* operator->() const
+            {
                 return &control_block->value;
             }
 
-            operator bool() const {
+            User_value_type* operator->()
+            {
+                return &control_block->value;
+            }
+
+            operator bool() const
+            {
                return control_block != nullptr;
             }
         };
 
-    // The comparison of GC_ptrs is the comparison of the underlying control block pointers
-    template<typename T>
-        auto operator==(const GC_ptr<T>& lhs, const GC_ptr<T>& rhs) {
+    // The comparison of GC_ptrs is the comparison of the underlying control block pointers.
+    template<typename User_value_type>
+        auto operator==(GC_ptr<User_value_type> lhs, GC_ptr<User_value_type> rhs)
+        {
             return lhs.control_block == rhs.control_block;
         }
 
-    class GC_heap {
+    class GC_heap
+    {
         std::vector<GC_control_block_base*> all_ptrs_;
         std::vector<GC_control_block_base*> gray_worklist_;
 
@@ -79,27 +96,31 @@ namespace motts { namespace lox {
             std::vector<std::function<void()>> on_mark_roots;
 
             GC_heap() = default;
+
+            // This is a resource owning class, so disable copying.
             GC_heap(const GC_heap&) = delete;
 
-            // Move your value into a heap-allocated and tracked control block.
-            template<typename T>
-                auto make(T&& value) {
-                    auto* control_block = new GC_control_block<T>{std::move(value)};
+            // Move your value into a heap allocated and tracked control block.
+            template<typename User_value_type>
+                GC_ptr<User_value_type> make(User_value_type&& value)
+                {
+                    auto* control_block = new GC_control_block<User_value_type>{std::move(value)};
                     all_ptrs_.push_back(control_block);
-                    return GC_ptr<T>{control_block};
+                    return {control_block};
                 }
 
             ~GC_heap();
 
-            // Mark as reachable, and queue to trace refs.
+            // Mark as reachable, and queue to trace references.
             void mark(GC_control_block_base*);
 
-            // Mark all roots, trace all references, and delete anything that wasn't reachable.
+            // Mark all roots, trace all references, and delete anything that isn't reachable.
             void collect_garbage();
     };
 
-    template<typename T>
-        void mark(GC_heap& gc_heap, const GC_ptr<T>& gc_ptr) {
+    template<typename User_value_type>
+        void mark(GC_heap& gc_heap, GC_ptr<User_value_type> gc_ptr)
+        {
             gc_heap.mark(gc_ptr.control_block);
         }
 }}

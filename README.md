@@ -18,17 +18,23 @@ The compiler can be one of:`clang` or `gcc`. Defaults to `clang`.
 
 ## Use REPL in container shell
 
-    docker run --interactive --tty --rm cpplox
+    docker run -it cpplox
     > print "Hello, Lox!";
 
 ## Run a script outside the container
 
-    docker run -v /path/to/your-lox-scripts:/project/host-mount --rm cpplox ./cpploxbc /project/host-mount/your-script.lox
+In this example, I mount `$(pwd)/test/lox` into the container as `/project/host`, and I run a Lox script from that mounted folder.
+
+    docker run -it --mount type=bind,source=$(pwd)/test/lox,target=/project/host,readonly cpplox ./cpploxbc /project/host/hello.lox
 
 ## Disassemble the executable
 
-    docker run --interactive --tty --rm cpplox sh -c "objdump --section=.text --disassemble --demangle --source --line-numbers cpploxbc | less"
+    docker run -it cpplox sh -c "objdump -j .text -dC --no-addresses --no-show-raw-insn cpploxbc | less"
 
-## Copy the executable to your host system
+## Development
 
-    docker create --name xcontainer cpplox && docker cp xcontainer:/project/build/cpploxbc . && docker rm xcontainer
+Docker will cache stages such as deps, build, and test, but a change to a single source file will re-run the entire build stage. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from a container.
+
+    docker run -it --mount type=bind,source=$(pwd),target=/project/src,readonly cpplox bash
+    # cmake --build .
+    # ctest

@@ -6,9 +6,11 @@
 #include "memory.hpp"
 #include "vm.hpp"
 
-namespace motts { namespace lox {
-    // Lox serves as an application context and dependency injector.
-    struct Lox {
+namespace motts { namespace lox
+{
+    // `Lox` serves as an application entrypoint and dependency container.
+    struct Lox
+    {
         // Whether to dump debug information such as the stack and bytecode disassembly.
         const bool debug;
 

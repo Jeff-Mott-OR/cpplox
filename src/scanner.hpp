@@ -3,7 +3,9 @@
 #include <ostream>
 #include <string_view>
 
-namespace motts { namespace lox {
+namespace motts { namespace lox
+{
+    // X-macro technique to re-use this list in multiple places.
     #define MOTTS_LOX_TOKEN_TYPE_NAMES \
         X(eof) \
         \
@@ -55,27 +57,32 @@ namespace motts { namespace lox {
         X(var) \
         X(while_)
 
-    enum class Token_type {
+    enum class Token_type
+    {
         #define X(name) name,
         MOTTS_LOX_TOKEN_TYPE_NAMES
         #undef X
     };
 
-    std::ostream& operator<<(std::ostream&, const Token_type&);
+    std::ostream& operator<<(std::ostream&, Token_type);
 
-    struct Token {
+    struct Token
+    {
         Token_type type;
         std::string_view lexeme;
-        int line;
+        unsigned int line;
     };
 
     std::ostream& operator<<(std::ostream&, const Token&);
 
-    class Token_iterator {
+    class Token_iterator
+    {
         std::string_view::const_iterator token_begin_ {};
         std::string_view::const_iterator token_end_ {};
         std::string_view::const_iterator source_end_ {};
-        int line_ {1};
+        unsigned int line_ {1};
+
+        // It's important that `token_` be last because its initialization depends on the string iterators.
         Token token_;
 
         public:
