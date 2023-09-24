@@ -167,6 +167,17 @@ namespace motts { namespace lox {
         return os;
     }
 
+    /* no export */ static void ensure_next_token_is(const Token_iterator& token_iter, const Token_type& expected) {
+        if (token_iter->type != expected) {
+            std::ostringstream os;
+            os << "[Line " << token_iter->line << "] Error: Expected '"
+                << expected << "', at \"" << token_iter->lexeme << "\".";
+            throw std::runtime_error{os.str()};
+        }
+    }
+
+    void compile_addition_precedence_expression(Chunk&, Token_iterator&);
+
     void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
         switch (token_iter->type) {
             default:
@@ -176,6 +187,12 @@ namespace motts { namespace lox {
 
             case Token_type::false_:
                 chunk.emit_false(*token_iter);
+                break;
+
+            case Token_type::left_paren:
+                ++token_iter;
+                compile_addition_precedence_expression(chunk, token_iter);
+                ensure_next_token_is(token_iter, Token_type::right_paren);
                 break;
 
             case Token_type::nil:
@@ -265,12 +282,7 @@ namespace motts { namespace lox {
 
                 compile_addition_precedence_expression(chunk, token_iter);
                 chunk.emit_print(print_token);
-
-                if (token_iter->type != Token_type::semicolon) {
-                    throw std::runtime_error{
-                        "[Line " + std::to_string(token_iter->line) + "] Error: Expected ';', at \"" + std::string{token_iter->lexeme} + "\"."
-                    };
-                }
+                ensure_next_token_is(token_iter, Token_type::semicolon);
                 ++token_iter;
 
                 continue;
