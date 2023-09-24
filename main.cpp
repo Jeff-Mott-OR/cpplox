@@ -1,3 +1,4 @@
+#include <cctype>
 #include <cstdlib>
 #include <iostream>
 #include <ostream>
@@ -6,18 +7,40 @@
 #include <string_view>
 #include <vector>
 
-#include <gsl/gsl>
+#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
+#include <gsl/gsl>
 
 namespace program_options = boost::program_options;
 
 namespace motts { namespace lox {
+    #define MOTTS_LOX_TOKEN_TYPE_NAMES \
+        X(number) \
+        X(eof)
+
     enum class Token_type {
-        eof
+        #define X(name) name,
+        MOTTS_LOX_TOKEN_TYPE_NAMES
+        #undef X
     };
 
-    std::ostream& operator<<(std::ostream& os, const Token_type& type) {
-        os << "EOF";
+    std::ostream& operator<<(std::ostream& os, const Token_type& token_type) {
+        std::string name {([&] () {
+            switch (token_type) {
+                #define X(name) \
+                    case Token_type::name: \
+                        return #name;
+                MOTTS_LOX_TOKEN_TYPE_NAMES
+                #undef X
+
+                default:
+                    throw std::logic_error{"Unexpected token type."};
+            }
+        })()};
+
+        boost::to_upper(name);
+        os << name;
+
         return os;
     }
 
@@ -50,6 +73,7 @@ namespace motts { namespace lox {
 
         private:
             Token scan_token();
+            Token scan_number_token();
     };
 
     Token_iterator::Token_iterator(std::string_view source)
@@ -69,10 +93,22 @@ namespace motts { namespace lox {
             token_begin_ = token_end_;
             const auto char_ = *token_end_++;
 
-            return Token{Token_type::eof, {token_begin_, static_cast<unsigned long>(token_end_ - token_begin_)}, line_};
+            if (std::isdigit(char_)) {
+                return scan_number_token();
+            }
+
+            return Token{Token_type::eof, {token_begin_, token_end_}, line_};
         }
 
         return Token{Token_type::eof, "", 0};
+    }
+
+    Token Token_iterator::scan_number_token() {
+        while (token_end_ != source_end_ && std::isdigit(*token_end_)) {
+            ++token_end_;
+        }
+
+        return Token{Token_type::number, {token_begin_, token_end_}, line_};
     }
 
     struct Lox {

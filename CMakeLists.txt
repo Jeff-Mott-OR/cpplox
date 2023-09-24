@@ -13,7 +13,7 @@ FetchContent_Declare(
     GIT_SHALLOW ON
 )
 
-set(BOOST_INCLUDE_LIBRARIES program_options)
+set(BOOST_INCLUDE_LIBRARIES algorithm program_options)
 FetchContent_Declare(
     Boost
     GIT_REPOSITORY https://github.com/boostorg/boost.git
@@ -27,6 +27,6 @@ if(NOT DEPS_ONLY)
     add_executable(project main.cpp)
     target_compile_features(project PUBLIC cxx_std_20)
     set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-    target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::program_options)
+    target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::algorithm Boost::program_options)
     target_compile_options(project PRIVATE -Wall -Wextra)
 endif()
