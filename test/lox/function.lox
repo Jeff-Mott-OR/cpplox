@@ -1,4 +1,0 @@
-fun f() {
-    print "Hello, World!";
-}
-f();

@@ -15,6 +15,7 @@ namespace motts { namespace lox
         const bool debug_;
         std::ostream& os_;
         GC_heap& gc_heap_;
+        std::size_t gc_heap_last_collect_size_ {};
 
         std::vector<Dynamic_type_value> stack_;
         std::unordered_map<std::string, Dynamic_type_value> globals_;

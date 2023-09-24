@@ -1,4 +1,4 @@
-ARG CC=clang
+ARG CC=gcc
 
 FROM ubuntu:22.04 AS base
 
@@ -6,11 +6,11 @@ FROM ubuntu:22.04 AS base
 
 FROM base AS base-clang
 
-    RUN apt install -y clang
+    RUN apt update && apt install -y clang
 
 FROM base AS base-gcc
 
-    RUN apt install -y build-essential
+    RUN apt update && apt install -y build-essential
 
 FROM base-$CC AS deps
 
@@ -37,9 +37,17 @@ FROM build AS test
     RUN cmake --build .
     RUN ctest --verbose --output-on-failure
 
-FROM test as debug
+FROM test as bench
 
-    RUN apt install -y gdb vim
+    RUN apt update && apt install -y nodejs default-jdk
+    WORKDIR /project/build/_deps/crafting_interpreters-src
+    RUN make jlox clox
+    WORKDIR /project/build
+    RUN ./bench_test
+
+FROM bench as debug
+
+    RUN apt update && apt install -y gdb vim
     RUN cmake ../src -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE -DCMAKE_BUILD_TYPE=Debug
     RUN cmake --build .
     RUN ctest --verbose --output-on-failure

@@ -23,7 +23,8 @@ namespace motts { namespace lox
         GC_ptr<Class>,
         GC_ptr<Closure>,
         GC_ptr<Function>,
-        GC_ptr<Instance>
+        GC_ptr<Instance>,
+        GC_ptr<Native_fn>
     > ;
 
     std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);

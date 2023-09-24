@@ -3,6 +3,7 @@
 #include "object-fwd.hpp"
 
 #include <optional>
+#include <span>
 #include <string_view>
 #include <unordered_map>
 
@@ -60,6 +61,11 @@ namespace motts { namespace lox
     };
 
     template<> void trace_refs_trait(GC_heap&, const Instance&);
+
+    struct Native_fn
+    {
+        Dynamic_type_value (*fn)(std::span<Dynamic_type_value> args);
+    };
 
     class Upvalue
     {

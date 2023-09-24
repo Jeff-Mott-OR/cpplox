@@ -1,6 +1,6 @@
 # [Crafting Interpreters](http://www.craftinginterpreters.com/): An Implementation in C++
 
-This is a bytecode compiler and virtual machine interpreter for the Lox programming language. Lox is dynamically typed, has garbage collection, with first-class function closures, and classes and inheritance.
+This is a bytecode compiler and virtual machine interpreter for the Lox programming language. Lox is dynamically typed, garbage collected, with first-class function closures, and classes and inheritance.
 
 A gentle, friendly introduction to Lox:
 
@@ -75,11 +75,13 @@ The tag can be whatever name you want for your image.
 
     --target=<stage>
 
-The stage can be one of: `deps`, `build`, `test`, or `debug`.
+The stage can be one of: `deps`, `build`, `test`, `bench`, or `debug`.
+
+When targeting `bench`, use Docker's `--progress=plain` option to see the results.
 
     --build-arg CC=<compiler>
 
-The compiler can be one of:`clang` or `gcc`. Defaults to `clang`.
+The compiler can be one of: `gcc` or `clang`. Defaults to `gcc`.
 
 ## Use REPL in container shell
 
@@ -90,12 +92,12 @@ The compiler can be one of:`clang` or `gcc`. Defaults to `clang`.
 
 In this example, I mount `$(pwd)/test/lox` into the container as `/project/host`, and I run a Lox script from that mounted folder.
 
-    docker run -it --mount type=bind,source=$(pwd)/test/lox,target=/project/host,readonly cpplox ./cpploxbc /project/host/hello.lox
+    docker run -it -v $(pwd)/test/lox:/project/host:ro cpplox ./cpploxbc /project/host/hello.lox
 
 ## Development
 
-Docker will cache stages such as deps, build, and test, but a change to a single source file will re-run the entire build stage. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from a container.
+Docker will cache stages such as the build stage, but a change to a single source file will re-run the entire build stage. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from a container.
 
-    docker run -it --mount type=bind,source=$(pwd),target=/project/src,readonly cpplox bash
+    docker run -it -v $(pwd):/project/src:ro cpplox bash
     # cmake --build .
     # ctest

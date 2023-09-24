@@ -38,7 +38,8 @@ namespace motts { namespace lox
             return control_block->marked;
         });
 
-        std::for_each(not_marked_begin, all_ptrs_.end(), [] (const auto* control_block) {
+        std::for_each(not_marked_begin, all_ptrs_.end(), [&] (const auto* control_block) {
+            n_allocated_bytes_ -= control_block->size();
             delete control_block;
         });
         all_ptrs_.erase(not_marked_begin, all_ptrs_.end());
@@ -46,5 +47,10 @@ namespace motts { namespace lox
         for (auto* control_block : all_ptrs_) {
             control_block->marked = false;
         }
+    }
+
+    std::size_t GC_heap::size() const
+    {
+        return n_allocated_bytes_;
     }
 }}

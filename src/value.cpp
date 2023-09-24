@@ -52,6 +52,11 @@ namespace
             os << "<instance " << instance->klass->name << '>';
         }
 
+        auto operator()(GC_ptr<Native_fn>)
+        {
+            os << "<native fn>";
+        }
+
         // All others such as double and string just print as is.
         template<typename T>
             auto operator()(const T& value)

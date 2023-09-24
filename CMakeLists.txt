@@ -34,7 +34,12 @@ FetchContent_Declare(
     GIT_SHALLOW ON
 )
 
-FetchContent_MakeAvailable(Boost Google_Benchmark Microsoft_GSL)
+FetchContent_Declare(
+    Crafting_Interpreters
+    URL https://github.com/munificent/craftinginterpreters/archive/d2800ebca6ab6d56f698ad0eef8202a91821eb04.zip
+)
+
+FetchContent_MakeAvailable(Boost Google_Benchmark Microsoft_GSL Crafting_Interpreters)
 
 # Mark Boost_Process as system include to avoid clang warnings from Boost headers.
 set_target_properties(
@@ -80,7 +85,7 @@ if(NOT DEPS_ONLY)
                 add_test(
                     NAME valgrind_test
                     COMMAND "${VALGRIND_COMMAND}" --error-exitcode=1 --leak-check=yes
-                        "$<TARGET_FILE:cpploxbc>" "${CMAKE_CURRENT_SOURCE_DIR}/test/lox/function.lox"
+                        "$<TARGET_FILE:cpploxbc>" "${CMAKE_CURRENT_SOURCE_DIR}/test/lox/bench/binary_trees.lox"
                 )
             endif()
         endif()

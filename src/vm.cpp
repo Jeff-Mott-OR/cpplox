@@ -1,11 +1,25 @@
 #include "vm.hpp"
 
+#include <chrono>
 #include <iomanip>
 
 #include <boost/endian/conversion.hpp>
-#include <gsl/util>
+#include <gsl/gsl>
 
 #include "object.hpp"
+
+// Not exported (internal linkage)
+namespace
+{
+    using namespace motts::lox;
+
+    Dynamic_type_value clock_native(std::span<Dynamic_type_value>)
+    {
+        const auto now_time_point = std::chrono::system_clock::now().time_since_epoch();
+        const auto now_seconds = std::chrono::duration_cast<std::chrono::seconds>(now_time_point).count();
+        return gsl::narrow<double>(now_seconds);
+    }
+}
 
 namespace motts { namespace lox
 {
@@ -30,6 +44,8 @@ namespace motts { namespace lox
                 std::visit(Mark_objects_visitor{gc_heap_}, root_value);
             }
         });
+
+        globals_["clock"] = gc_heap_.make<Native_fn>({clock_native});
     }
 
     VM::~VM()
@@ -153,6 +169,10 @@ namespace motts { namespace lox
 
                         // Replace function at call frame stack slot 0 with "this" instance at slot 0.
                         maybe_callable = bound_method->instance;
+                    } else if (std::holds_alternative<GC_ptr<Native_fn>>(maybe_callable)) {
+                        auto return_value = std::get<GC_ptr<Native_fn>>(maybe_callable)->fn({stack_.end() - arg_count, stack_.end()});
+                        stack_.erase(stack_.end() - arg_count - 1, stack_.end());
+                        stack_.push_back(std::move(return_value));
                     } else {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
@@ -635,7 +655,20 @@ namespace motts { namespace lox
                 }
             }
 
-            gc_heap_.collect_garbage();
+            // Run the garbage collector only occassionally based on how fast the allocation size grows.
+            // 4K is (semi) arbitrarily chosen. Could be tuned with performance testing.
+            if (gc_heap_.size() - gc_heap_last_collect_size_ > 4096) {
+                if (debug_) {
+                    os_ << "DEBUG: Collect garbage: " << gc_heap_.size() << " bytes -> ";
+                }
+
+                gc_heap_.collect_garbage();
+                gc_heap_last_collect_size_ = gc_heap_.size();
+
+                if (debug_) {
+                    os_ << gc_heap_last_collect_size_ << '\n';
+                }
+            }
 
             if (debug_) {
                 os_ << "Stack:\n";

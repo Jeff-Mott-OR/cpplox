@@ -789,7 +789,7 @@ namespace
                             emit_getter(superclass_name_token);
                             function_chunks.back().chunk.emit<Opcode::inherit>(superclass_name_token);
 
-                            maybe_pop_superclass_scope = [=] {
+                            maybe_pop_superclass_scope = [this, superclass_name_token] {
                                 // The inherit opcode puts the new class back on top of the stack, so pop it off.
                                 function_chunks.back().chunk.emit<Opcode::pop>(superclass_name_token);
 

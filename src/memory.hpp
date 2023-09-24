@@ -14,6 +14,7 @@ namespace motts { namespace lox
 
         virtual ~GC_control_block_base() = default;
         virtual void trace_refs(GC_heap&) = 0;
+        virtual std::size_t size() const = 0;
     };
 
     // I don't want user code to be required to extend some GC class to implement my virtual methods, so instead
@@ -40,6 +41,11 @@ namespace motts { namespace lox
             void trace_refs(GC_heap& gc_heap) override
             {
                 trace_refs_trait(gc_heap, value);
+            }
+
+            std::size_t size() const override
+            {
+                return sizeof(*this);
             }
         };
 
@@ -89,6 +95,7 @@ namespace motts { namespace lox
     {
         std::vector<GC_control_block_base*> all_ptrs_;
         std::vector<GC_control_block_base*> gray_worklist_;
+        std::size_t n_allocated_bytes_ {};
 
         public:
             // When we mark-and-sweep, we need to start marking somewhere.
@@ -106,6 +113,7 @@ namespace motts { namespace lox
                 {
                     auto* control_block = new GC_control_block<User_value_type>{std::move(value)};
                     all_ptrs_.push_back(control_block);
+                    n_allocated_bytes_ += control_block->size();
                     return {control_block};
                 }
 
@@ -116,6 +124,9 @@ namespace motts { namespace lox
 
             // Mark all roots, trace all references, and delete anything that isn't reachable.
             void collect_garbage();
+
+            // Report number of bytes allocated by this heap.
+            std::size_t size() const;
     };
 
     template<typename User_value_type>

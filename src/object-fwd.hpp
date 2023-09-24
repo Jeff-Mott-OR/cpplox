@@ -7,5 +7,6 @@ namespace motts { namespace lox
     struct Closure;
     struct Function;
     struct Instance;
+    struct Native_fn;
     class Upvalue;
 }}

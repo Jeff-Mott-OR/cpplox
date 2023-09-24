@@ -3,6 +3,7 @@
 
 #include <sstream>
 #include <stdexcept>
+#include <thread>
 
 #include "../src/compiler.hpp"
 #include "../src/lox.hpp"
@@ -1322,4 +1323,35 @@ BOOST_AUTO_TEST_CASE(super_calls_will_run)
     vm.run(main_chunk);
 
     BOOST_TEST(os.str() == "Child\nParent\n");
+}
+
+BOOST_AUTO_TEST_CASE(native_clock_fn_will_run)
+{
+    motts::lox::Chunk now_chunk;
+    now_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "clock", 1}, Token{Token_type::identifier, "clock", 1});
+    now_chunk.emit_call(0, Token{Token_type::identifier, "clock", 1});
+    now_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "now", 1}, Token{Token_type::var, "var", 1});
+
+    motts::lox::Chunk later_chunk;
+    later_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "clock", 1}, Token{Token_type::identifier, "clock", 1});
+    later_chunk.emit_call(0, Token{Token_type::identifier, "clock", 1});
+    later_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "later", 1}, Token{Token_type::var, "var", 1});
+
+    later_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "later", 1}, Token{Token_type::identifier, "later", 1});
+    later_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "now", 1}, Token{Token_type::identifier, "now", 1});
+    later_chunk.emit<Opcode::greater>(Token{Token_type::greater, ">", 1});
+    later_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    vm.run(now_chunk);
+    {
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(1s);
+    }
+    vm.run(later_chunk);
+
+    BOOST_TEST(os.str() == "true\n");
 }

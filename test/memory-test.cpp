@@ -143,3 +143,19 @@ BOOST_AUTO_TEST_CASE(gc_heap_collect_will_destroy_unmarked_objects)
 
     BOOST_TEST(os.str() == "Tracer1::trace_refs\n~Tracer2\n");
 }
+
+BOOST_AUTO_TEST_CASE(gc_heap_will_report_current_allocation_size)
+{
+    motts::lox::GC_heap gc_heap;
+    auto gc_ptr_1 = gc_heap.make<int>(42);
+    auto gc_ptr_2 = gc_heap.make<int>(42);
+
+    BOOST_TEST(gc_heap.size() == sizeof(motts::lox::GC_control_block<int>) * 2);
+
+    mark(gc_heap, gc_ptr_1);
+    static_cast<void>(gc_ptr_2); // Suppress unused variable error.
+
+    gc_heap.collect_garbage();
+
+    BOOST_TEST(gc_heap.size() == sizeof(motts::lox::GC_control_block<int>) * 1);
+}
