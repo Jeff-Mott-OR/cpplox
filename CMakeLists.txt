@@ -25,7 +25,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Boost Microsoft_GSL)
 
 if(NOT DEPS_ONLY)
-    add_executable(project src/main.cpp src/scanner.cpp src/compiler.cpp)
+    add_executable(project src/main.cpp src/scanner.cpp src/compiler.cpp src/vm.cpp)
     target_compile_features(project PUBLIC cxx_std_20)
     target_compile_options(project PRIVATE -Wall -Wextra -Werror)
     set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
@@ -56,5 +56,16 @@ if(NOT DEPS_ONLY)
             Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL
         )
         add_test(NAME compiler_test COMMAND compiler_test)
+
+        add_executable(vm_test test/vm-test.cpp src/vm.cpp src/compiler.cpp src/scanner.cpp)
+        target_compile_features(vm_test PUBLIC cxx_std_20)
+        target_compile_options(vm_test PRIVATE -Wall -Wextra -Werror)
+        set_property(TARGET vm_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
+        target_link_libraries(vm_test PRIVATE
+            Boost::unit_test_framework
+            # Project dependencies
+            Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL
+        )
+        add_test(NAME vm_test COMMAND vm_test)
     endif()
 endif()

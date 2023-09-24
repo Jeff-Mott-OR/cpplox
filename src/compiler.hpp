@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <ostream>
 #include <string>
@@ -27,7 +28,7 @@ namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream&, const Opcode&);
 
     struct Dynamic_type_value {
-        std::variant<double, std::string> variant;
+        std::variant<std::nullptr_t, bool, double, std::string> variant;
     };
 
     std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
