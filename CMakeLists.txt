@@ -29,4 +29,7 @@ if(NOT DEPS_ONLY)
     set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
     target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::algorithm Boost::program_options)
     target_compile_options(project PRIVATE -Wall -Wextra -Werror)
+
+    enable_testing()
+    add_test(NAME cppcheck COMMAND cppcheck --error-exitcode=1 main.cpp)
 endif()
