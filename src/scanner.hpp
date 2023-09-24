@@ -5,14 +5,35 @@
 
 namespace motts { namespace lox {
     #define MOTTS_LOX_TOKEN_TYPE_NAMES \
+        X(eof) \
+        \
         /* Single-character tokens */ \
-        X(left_paren) X(right_paren) \
-        X(left_brace) X(right_brace) \
-        X(comma) X(dot) X(minus) X(plus) \
-        X(semicolon) X(slash) X(star) \
+        X(left_paren) \
+        X(right_paren) \
+        X(left_brace) \
+        X(right_brace) \
+        X(comma) \
+        X(dot) \
+        X(minus) \
+        X(plus) \
+        X(semicolon) \
+        X(slash) \
+        X(star) \
+        \
+        /* One or two character tokens */ \
+        X(bang) \
+        X(bang_equal) \
+        X(equal) \
+        X(equal_equal) \
+        X(greater) \
+        X(greater_equal) \
+        X(less) \
+        X(less_equal) \
         \
         /* Literals */ \
-        X(identifier) X(string) X(number) \
+        X(identifier) \
+        X(number) \
+        X(string) \
         \
         /* Keywords */ \
         X(and_) \
@@ -32,9 +53,7 @@ namespace motts { namespace lox {
         X(this_) \
         X(true_) \
         X(var) \
-        X(while_) \
-        \
-        X(eof)
+        X(while_)
 
     enum class Token_type {
         #define X(name) name,

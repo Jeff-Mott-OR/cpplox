@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
     BOOST_CHECK_THROW(os << invalid_token_type, std::exception);
 }
 
-BOOST_AUTO_TEST_CASE(single_punctuation_characters_tokenize) {
+BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize) {
     motts::lox::Token_iterator token_iter {"(){},.-+;/*"};
     motts::lox::Token_iterator token_iter_end;
 
@@ -156,4 +156,26 @@ BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords) {
         "Token { type: BREAK, lexeme: break, line: 1 }\n"
         "Token { type: CONTINUE, lexeme: continue, line: 1 }\n";
     BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize) {
+    motts::lox::Token_iterator token_iter {"! != = == > >= < <="};
+    motts::lox::Token_iterator token_iter_end;
+
+    std::ostringstream os;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: BANG, lexeme: !, line: 1 }\n"
+        "Token { type: BANG_EQUAL, lexeme: !=, line: 1 }\n"
+        "Token { type: EQUAL, lexeme: =, line: 1 }\n"
+        "Token { type: EQUAL_EQUAL, lexeme: ==, line: 1 }\n"
+        "Token { type: GREATER, lexeme: >, line: 1 }\n"
+        "Token { type: GREATER_EQUAL, lexeme: >=, line: 1 }\n"
+        "Token { type: LESS, lexeme: <, line: 1 }\n"
+        "Token { type: LESS_EQUAL, lexeme: <=, line: 1 }\n";
+    BOOST_TEST(os.str() == expected);
+
 }

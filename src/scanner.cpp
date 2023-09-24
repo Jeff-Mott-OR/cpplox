@@ -105,6 +105,11 @@ namespace motts { namespace lox {
                 case '"':
                     return scan_string_token();
 
+                case '!': return {scan_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
+                case '=': return {scan_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
+                case '>': return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
+                case '<': return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
+
                 // Slash or line comment
                 case '/':
                     // Two cosecutive slashes means line comment
@@ -130,6 +135,8 @@ namespace motts { namespace lox {
                 case ';': return Token{Token_type::semicolon, {token_begin_, token_end_}, line_};
                 case '*': return Token{Token_type::star, {token_begin_, token_end_}, line_};
             }
+
+            throw std::logic_error{"Unreachable"};
         }
 
         return Token{Token_type::eof, "", 0};
