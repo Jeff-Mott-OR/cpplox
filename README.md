@@ -4,9 +4,9 @@
 
 1.
 
-    docker build --tag=cpplox --file=Dockerfile.gcc .
+    docker build --tag=cpplox --target=gcc_build .
         - OR -
-    docker build --tag=cpplox --file=Dockerfile.clang .
+    docker build --tag=cpplox --target=clang_build .
 
 2.
 
