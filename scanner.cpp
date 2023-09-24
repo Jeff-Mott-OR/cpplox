@@ -93,6 +93,8 @@ namespace motts { namespace lox {
 
                 // Skip whitespace
                 case ' ':
+                case '\r':
+                case '\t':
                     continue;
 
                 // Count lines then skip whitespace

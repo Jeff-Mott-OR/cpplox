@@ -77,3 +77,17 @@ BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment) {
         "Token { type: IDENTIFIER, lexeme: line, line: 2 }\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(whitespace_is_skipped_and_ignored) {
+    std::ostringstream os;
+    motts::lox::Token_iterator token_iter {"one\r\n\t two"};
+    motts::lox::Token_iterator token_iter_end;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
+        "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n";
+    BOOST_TEST(os.str() == expected);
+}
