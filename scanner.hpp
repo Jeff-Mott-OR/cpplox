@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ostream>
+#include <string_view>
 
 namespace motts { namespace lox {
     #define MOTTS_LOX_TOKEN_TYPE_NAMES \
@@ -21,4 +22,40 @@ namespace motts { namespace lox {
     };
 
     std::ostream& operator<<(std::ostream&, const Token_type&);
+
+    struct Token {
+        Token_type type;
+        std::string_view lexeme;
+        int line;
+    };
+
+    std::ostream& operator<<(std::ostream&, const Token&);
+
+    class Token_iterator {
+        std::string_view::const_iterator token_begin_;
+        std::string_view::const_iterator token_end_;
+        std::string_view::const_iterator source_end_;
+        int line_ {1};
+        Token token_;
+
+        public:
+            Token_iterator(std::string_view source);
+
+            // Default constructor makes end iterator
+            Token_iterator();
+
+            Token_iterator& operator++();
+            bool operator==(const Token_iterator&) const;
+
+            const Token& operator*() const;
+            const Token* operator->() const;
+
+        private:
+            Token scan_token();
+            Token scan_identifier_token();
+            Token scan_number_token();
+    };
+
+    bool operator!=(const Token_iterator&, const Token_iterator&);
+
 }}

@@ -25,3 +25,26 @@ BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
     const auto invalid_token_type = reinterpret_cast<const motts::lox::Token_type&>(invalid_token_type_value);
     BOOST_CHECK_THROW(os << invalid_token_type, std::exception);
 }
+
+BOOST_AUTO_TEST_CASE(single_characters_tokenize) {
+    std::ostringstream os;
+    motts::lox::Token_iterator token_iter {"(){},.-+;/*"};
+    motts::lox::Token_iterator token_iter_end;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: LEFT_PAREN, lexeme: (, line: 1 }\n"
+        "Token { type: RIGHT_PAREN, lexeme: ), line: 1 }\n"
+        "Token { type: LEFT_BRACE, lexeme: {, line: 1 }\n"
+        "Token { type: RIGHT_BRACE, lexeme: }, line: 1 }\n"
+        "Token { type: COMMA, lexeme: ,, line: 1 }\n"
+        "Token { type: DOT, lexeme: ., line: 1 }\n"
+        "Token { type: MINUS, lexeme: -, line: 1 }\n"
+        "Token { type: PLUS, lexeme: +, line: 1 }\n"
+        "Token { type: SEMICOLON, lexeme: ;, line: 1 }\n"
+        "Token { type: SLASH, lexeme: /, line: 1 }\n"
+        "Token { type: STAR, lexeme: *, line: 1 }\n";
+    BOOST_TEST(os.str() == expected);
+}
