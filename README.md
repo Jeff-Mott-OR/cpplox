@@ -1,72 +1,103 @@
-# Nystrom's [Crafting Interpreters](http://www.craftinginterpreters.com/): An Implementation in C++
+# [Crafting Interpreters](http://www.craftinginterpreters.com/): An Implementation in C++
+
+This is a bytecode compiler and virtual machine interpreter for the Lox programming language. Lox is dynamically typed, garbage collected, with first-class function closures, and classes and inheritance.
+
+A gentle, friendly introduction to Lox:
+
+    print "Hello, world!";
+
+    var imAVariable = "here is my value";
+    var iAmNil;
+
+    if (iAmNil) {
+        print "yes";
+    } else {
+        print "no";
+    }
+
+    var a = 1;
+    while (a < 10) {
+        print a;
+        a = a + 1;
+    }
+
+    for (var a = 1; a < 10; a = a + 1) {
+        print a;
+    }
+
+    fun returnSum(a, b) {
+        return a + b;
+    }
+
+    fun returnFunction() {
+        var outside = "outside";
+
+        fun inner() {
+            print outside;
+        }
+
+        return inner;
+    }
+
+    var fn = returnFunction();
+    fn();
+
+    class Breakfast {
+        init(meat, bread) {
+            this.meat = meat;
+            this.bread = bread;
+        }
+
+        serve(who) {
+            print "Enjoy your " + this.meat + " and " +
+                this.bread + ", " + who + ".";
+        }
+    }
+
+    class Brunch < Breakfast {
+        drink() {
+            print "How about a Bloody Mary?";
+        }
+    }
+
+    var benedict = Brunch("ham", "English muffin");
+    benedict.serve("Noble Reader");
 
 ## Build
 
-    mkdir build
-    cd build
+    docker build --tag=cpplox --target=build .
 
-    cmake ..
-    cmake --build .
+### Options:
 
-Or, to optionally build and run tests and benchmarking, use this cmake command instead:
+    --tag=<name>
 
-    cmake .. -DENABLE_TESTING=TRUE
+The tag can be whatever name you want for your image.
 
-## Vagrant
+    --target=<stage>
 
-This project comes with vagrant files to make it easier to build on a variety of platforms with a variety of compilers.
+The stage can be one of: `deps`, `build`, `test`, `bench`, or `debug`.
 
-### Build with g++-7 or clang-5 on Ubuntu
+When targeting `bench`, use Docker's `--progress=plain` option to see the results.
 
-    cd vagrant/ubuntu-xenial64-g++-7
-    vagrant up
+    --build-arg CC=<compiler>
 
-Or.
+The compiler can be one of: `gcc` or `clang`. Defaults to `gcc`.
 
-    cd vagrant/ubuntu-xenial64-clang-5
-    vagrant up
+## Use REPL in container shell
 
-#### Build
+    docker run -it cpplox
+    > print "Hello, Lox!";
 
-In the VM, run:
+## Run a script outside the container
 
-    mkdir build
-    cd build
+In this example, I mount `$(pwd)/test/lox` into the container as `/project/host`, and I run a Lox script from that mounted folder.
 
-    cmake /cpplox
-    cmake --build .
+    docker run -it -v $(pwd)/test/lox:/project/host:ro cpplox ./cpploxbc /project/host/hello.lox
 
-### Build with MSVC 2017
+## Development
 
-    cd vagrant/w16s-vs17c
-    vagrant up
+Docker will cache stages such as the build stage, but a change to a single source file will re-run the entire build stage. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from a container.
 
-#### First time boot manual steps
-
-1. Install CMake. The installer will be on the desktop. Select the option to add cmake to the system PATH.
-2. Install Visual Studio's _Desktop Development with C++_. Navigate to _Control Panel_ > _Programs and Features_. Select Microsoft Visual Studio and press Change. Update the Visual Studio installer, then update Visual Studio itself. Finally, modify the installation and tick the box to install Desktop Development with C++.
-
-#### Build
-
-In the VM, open a command prompt and run:
-
-    pushd \\vboxsvr\cpplox
-    cd /d %userprofile%
-
-    mkdir build
-    cd build
-
-    cmake z: -A x64
-    cmake --build . --config Release
-
-### Proxy
-
-Are you behind a proxy? I feel your pain. Start by running:
-
-    vagrant plugin install vagrant-proxyconf
-
-Then in the `Vagrantfile`s, uncomment the `config.proxy` lines and enter your real proxy values.
-
-## Copyright
-
-Copyright 2018 Jeff Mott. [MIT License](https://opensource.org/licenses/MIT).
+    docker run -it -v $(pwd):/project/src:ro cpplox bash
+    # cmake --build .
+    # ctest
