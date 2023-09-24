@@ -73,13 +73,22 @@ namespace motts { namespace lox {
         public:
             Token_iterator(std::string_view source);
 
+            // Default constructor makes end iterator
+            Token_iterator();
+
+            Token_iterator& operator++();
+            bool operator==(const Token_iterator&) const;
+
             const Token& operator*() const;
+            const Token* operator->() const;
 
         private:
             Token scan_token();
             Token scan_identifier_token();
             Token scan_number_token();
     };
+
+    bool operator!=(const Token_iterator&, const Token_iterator&);
 
     Token_iterator::Token_iterator(std::string_view source)
         : token_begin_ {source.cbegin()},
@@ -89,8 +98,29 @@ namespace motts { namespace lox {
     {
     }
 
+    Token_iterator::Token_iterator()
+        : token_ {Token_type::eof, "", 0}
+    {}
+
+    Token_iterator& Token_iterator::operator++() {
+        token_ = scan_token();
+        return *this;
+    }
+
+    bool Token_iterator::operator==(const Token_iterator& rhs) const {
+        return token_.type == rhs.token_.type;
+    }
+
+    bool operator!=(const Token_iterator& lhs, const Token_iterator& rhs) {
+        return !(lhs == rhs);
+    }
+
     const Token& Token_iterator::operator*() const {
         return token_;
+    }
+
+    const Token* Token_iterator::operator->() const {
+        return &token_;
     }
 
     Token Token_iterator::scan_token() {
@@ -154,8 +184,9 @@ namespace motts { namespace lox {
     };
 
     void Lox::compile(std::string_view source) {
-        Token_iterator token_iter {source};
-        std::cout << *token_iter << "\n";
+        for (Token_iterator token_iter {source}; token_iter != Token_iterator{}; ++token_iter) {
+            std::cout << *token_iter << "\n";
+        }
     }
 
     void run_prompt(Lox& lox) {
