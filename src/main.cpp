@@ -1,49 +1,13 @@
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
 #include <boost/program_options.hpp>
 
-#include "compiler.hpp"
-#include "vm.hpp"
+#include "lox.hpp"
 
 namespace program_options = boost::program_options;
-
-namespace {
-    using namespace motts::lox;
-
-    void run_file(const std::string& input_file, bool debug) {
-        const auto source = ([&] () {
-            std::ifstream in {input_file};
-            in.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-            return std::string{std::istreambuf_iterator<char>{in}, std::istreambuf_iterator<char>{}};
-        })();
-
-        const auto chunk = compile(source);
-        run(chunk, std::cout, debug);
-    }
-
-    void run_prompt(bool debug) {
-        VM vm;
-
-        while (true) {
-            std::cout << "> ";
-
-            std::string source_line;
-            std::getline(std::cin, source_line);
-
-            // If the user makes a mistake, it shouldn't kill their entire session
-            try {
-                const auto chunk = compile(source_line);
-                vm.run(chunk, std::cout, debug);
-            } catch (const std::exception& error) {
-                std::cerr << error.what() << "\n";
-            }
-        }
-    }
-}
 
 int main(int argc, char* argv[]) {
     program_options::options_description options {"Usage"};
@@ -71,9 +35,9 @@ int main(int argc, char* argv[]) {
 
     try {
         if (options_map.count("input-file")) {
-            run_file(options_map["input-file"].as<std::string>(), options_map["debug"].as<bool>());
+            motts::lox::run_file(options_map["input-file"].as<std::string>(), std::cout, options_map["debug"].as<bool>());
         } else {
-            run_prompt(options_map["debug"].as<bool>());
+            motts::lox::run_prompt(options_map["debug"].as<bool>());
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << "\n";

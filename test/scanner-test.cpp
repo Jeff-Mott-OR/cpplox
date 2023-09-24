@@ -20,11 +20,15 @@ BOOST_AUTO_TEST_CASE(token_types_can_be_printed) {
 }
 
 BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
-    const auto invalid_token_type_value = 276'709; // don't panic
-    const auto invalid_token_type = reinterpret_cast<const motts::lox::Token_type&>(invalid_token_type_value);
+    union Invalid_token_type {
+        motts::lox::Token_type as_token_type;
+        int as_int;
+    };
+    Invalid_token_type invalid_token_type;
+    invalid_token_type.as_int = 276'709; // don't panic
 
     std::ostringstream os;
-    BOOST_CHECK_THROW(os << invalid_token_type, std::exception);
+    BOOST_CHECK_THROW(os << invalid_token_type.as_token_type, std::exception);
 }
 
 BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize) {

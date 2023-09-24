@@ -18,11 +18,15 @@ BOOST_AUTO_TEST_CASE(opcodes_can_be_printed) {
 }
 
 BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw) {
-    const auto invalid_opcode_value = 276'709; // don't panic
-    const auto invalid_opcode = reinterpret_cast<const Opcode&>(invalid_opcode_value);
+    union Invalid_opcode {
+        Opcode as_opcode;
+        int as_int;
+    };
+    Invalid_opcode invalid_opcode;
+    invalid_opcode.as_int = 276'709; // don't panic
 
     std::ostringstream os;
-    BOOST_CHECK_THROW(os << invalid_opcode, std::exception);
+    BOOST_CHECK_THROW(os << invalid_opcode.as_opcode, std::exception);
 }
 
 BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
