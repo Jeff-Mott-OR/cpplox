@@ -35,7 +35,9 @@ namespace motts { namespace lox {
         X(loop) \
         X(define_global) \
         X(get_local) \
-        X(set_local)
+        X(set_local) \
+        X(call) \
+        X(return_)
 
     enum class Opcode {
         #define X(name) name,
@@ -45,8 +47,10 @@ namespace motts { namespace lox {
 
     std::ostream& operator<<(std::ostream&, const Opcode&);
 
+    struct Function;
+
     struct Dynamic_type_value {
-        std::variant<std::nullptr_t, bool, double, std::string> variant;
+        std::variant<std::nullptr_t, bool, double, std::string, Function*> variant;
     };
 
     bool operator==(const Dynamic_type_value& lhs, const Dynamic_type_value& rhs);
@@ -91,6 +95,7 @@ namespace motts { namespace lox {
             // This template is for the *_local opcodes
             template<Opcode> void emit(int local_stack_index, const Token& source_map_token);
 
+            void emit_call(int arg_count, const Token& source_map_token);
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
             Jump_backpatch emit_jump(const Token& source_map_token);
@@ -101,6 +106,11 @@ namespace motts { namespace lox {
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);
+
+    struct Function {
+        std::string_view name;
+        Chunk chunk;
+    };
 
     Chunk compile(std::string_view source);
 }}

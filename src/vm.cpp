@@ -28,15 +28,17 @@ namespace motts { namespace lox {
     }
 
     void VM::run(const Chunk& chunk, std::ostream& os, bool debug) {
+        call_frames_.push_back({chunk, chunk.bytecode().cbegin(), 0});
+
         if (debug) {
-            os << "# Running chunk:\n" << chunk << "\n";
+            os << "\n# Running chunk:\n\n" << call_frames_.back().chunk << "\n";
         }
 
-        for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
-            const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
-            const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
+        while (call_frames_.back().bytecode_iter != call_frames_.back().chunk.bytecode().cend()) {
+            const auto bytecode_index = call_frames_.back().bytecode_iter - call_frames_.back().chunk.bytecode().cbegin();
+            const auto& source_map_token = call_frames_.back().chunk.source_map_tokens().at(bytecode_index);
 
-            const auto& opcode = static_cast<Opcode>(*bytecode_iter);
+            const auto& opcode = static_cast<Opcode>(*call_frames_.back().bytecode_iter);
             switch (opcode) {
                 default: {
                     std::ostringstream os;
@@ -68,16 +70,26 @@ namespace motts { namespace lox {
                         };
                     }
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
+
+                    break;
+                }
+
+                case Opcode::call: {
+                    const auto arg_count = *(call_frames_.back().bytecode_iter + 1);
+                    call_frames_.back().bytecode_iter += 2;
+
+                    const auto callable = std::get<Function*>((stack_.cend() - arg_count - 1)->variant);
+                    call_frames_.push_back({callable->chunk, callable->chunk.bytecode().cbegin(), stack_.size() - arg_count - 1});
 
                     break;
                 }
 
                 case Opcode::constant: {
-                    const auto constant_index = *(bytecode_iter + 1);
-                    stack_.push_back(chunk.constants().at(constant_index));
+                    const auto constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    stack_.push_back(call_frames_.back().chunk.constants().at(constant_index));
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
@@ -96,7 +108,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -109,7 +121,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -117,26 +129,26 @@ namespace motts { namespace lox {
                 case Opcode::false_: {
                     stack_.push_back(Dynamic_type_value{false});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
 
                 case Opcode::define_global: {
-                    const auto variable_name_constant_index = *(bytecode_iter + 1);
-                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+                    const auto variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(call_frames_.back().chunk.constants().at(variable_name_constant_index).variant);
 
                     globals_[variable_name] = stack_.back();
                     stack_.pop_back();
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
 
                 case Opcode::get_global: {
-                    const auto variable_name_constant_index = *(bytecode_iter + 1);
-                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+                    const auto variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(call_frames_.back().chunk.constants().at(variable_name_constant_index).variant);
 
                     const auto global_iter = globals_.find(variable_name);
                     if (global_iter == globals_.end()) {
@@ -146,16 +158,16 @@ namespace motts { namespace lox {
                     }
                     stack_.push_back(global_iter->second);
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
 
                 case Opcode::get_local: {
-                    const auto local_stack_index = *(bytecode_iter + 1);
+                    const auto local_stack_index = *(call_frames_.back().bytecode_iter + 1);
                     stack_.push_back(stack_.at(local_stack_index));
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
@@ -174,7 +186,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -182,27 +194,27 @@ namespace motts { namespace lox {
                 case Opcode::jump:
                 case Opcode::jump_if_false:
                 case Opcode::loop: {
-                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
+                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(call_frames_.back().bytecode_iter + 1));
                     const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
 
-                    bytecode_iter += 3;
+                    call_frames_.back().bytecode_iter += 3;
 
                     switch (opcode) {
                         default:
                             throw std::logic_error{"Unreachable"};
 
                         case Opcode::jump:
-                            bytecode_iter += jump_distance;
+                            call_frames_.back().bytecode_iter += jump_distance;
                             break;
 
                         case Opcode::jump_if_false:
                             if (! std::visit(Truthy_visitor{}, stack_.back().variant)) {
-                                bytecode_iter += jump_distance;
+                                call_frames_.back().bytecode_iter += jump_distance;
                             }
                             break;
 
                         case Opcode::loop:
-                            bytecode_iter -= jump_distance;
+                            call_frames_.back().bytecode_iter -= jump_distance;
                             break;
                     }
 
@@ -223,7 +235,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -242,7 +254,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -259,7 +271,7 @@ namespace motts { namespace lox {
                     stack_.pop_back();
                     stack_.push_back(Dynamic_type_value{negated_value});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -267,7 +279,7 @@ namespace motts { namespace lox {
                 case Opcode::nil: {
                     stack_.push_back(Dynamic_type_value{nullptr});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -278,7 +290,7 @@ namespace motts { namespace lox {
                     stack_.pop_back();
                     stack_.push_back(Dynamic_type_value{negated_value});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -286,7 +298,7 @@ namespace motts { namespace lox {
                 case Opcode::pop: {
                     stack_.pop_back();
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -295,14 +307,21 @@ namespace motts { namespace lox {
                     os << stack_.back() << "\n";
                     stack_.pop_back();
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
+
+                    break;
+                }
+
+                case Opcode::return_: {
+                    stack_.erase(stack_.cbegin() + call_frames_.back().stack_begin_index, stack_.cend() - 1);
+                    call_frames_.pop_back();
 
                     break;
                 }
 
                 case Opcode::set_global: {
-                    const auto variable_name_constant_index = *(bytecode_iter + 1);
-                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+                    const auto variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(call_frames_.back().chunk.constants().at(variable_name_constant_index).variant);
 
                     const auto global_iter = globals_.find(variable_name);
                     if (global_iter == globals_.end()) {
@@ -312,16 +331,16 @@ namespace motts { namespace lox {
                     }
                     global_iter->second = stack_.back();
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
 
                 case Opcode::set_local: {
-                    const auto local_stack_index = *(bytecode_iter + 1);
+                    const auto local_stack_index = *(call_frames_.back().bytecode_iter + 1);
                     stack_.at(local_stack_index) = stack_.back();
 
-                    bytecode_iter += 2;
+                    call_frames_.back().bytecode_iter += 2;
 
                     break;
                 }
@@ -340,7 +359,7 @@ namespace motts { namespace lox {
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(Dynamic_type_value{result});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }
@@ -348,7 +367,7 @@ namespace motts { namespace lox {
                 case Opcode::true_: {
                     stack_.push_back(Dynamic_type_value{true});
 
-                    ++bytecode_iter;
+                    ++call_frames_.back().bytecode_iter;
 
                     break;
                 }

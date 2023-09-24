@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 28\n"
         "    1 : 14\n"
@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 28\n"
         "    1 : 14\n"
@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
@@ -541,7 +541,7 @@ BOOST_AUTO_TEST_CASE(global_var_will_initialize_from_stack) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 42\n"
         "    1 : x\n"
@@ -574,7 +574,7 @@ BOOST_AUTO_TEST_CASE(local_var_will_get_from_stack) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
@@ -601,7 +601,7 @@ BOOST_AUTO_TEST_CASE(local_var_will_set_to_stack) {
     motts::lox::run(chunk, os, /* debug = */ true);
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : 28\n"
         "    1 : 14\n"
@@ -621,4 +621,127 @@ BOOST_AUTO_TEST_CASE(local_var_will_set_to_stack) {
         "    1 : 14\n"
         "    0 : 14\n"
         "\n";
-    BOOST_TEST(os.str() == expected);}
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
+    motts::lox::Chunk fn_f_chunk;
+    fn_f_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "f", 1});
+    fn_f_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "x", 1});
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit_constant(Dynamic_type_value{new motts::lox::Function{"f", std::move(fn_f_chunk)}}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
+
+    std::ostringstream os;
+    motts::lox::run(main_chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "\n# Running chunk:\n"
+        "\n"
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
+        "    4 : 17 01    CALL [1]                ; f @ 1\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 15 00    GET_LOCAL [0]           ; f @ 1\n"
+        "    2 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    2 : <fn f>\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    3 : 42\n"
+        "    2 : <fn f>\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
+    motts::lox::Chunk fn_f_chunk;
+    fn_f_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "f", 1});
+    fn_f_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "x", 1});
+    fn_f_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit_constant(Dynamic_type_value{new motts::lox::Function{"f", std::move(fn_f_chunk)}}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(main_chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "\n# Running chunk:\n"
+        "\n"
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
+        "    4 : 17 01    CALL [1]                ; f @ 1\n"
+        "    6 : 05       PRINT                   ; print @ 1\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 15 00    GET_LOCAL [0]           ; f @ 1\n"
+        "    2 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "    4 : 18       RETURN                  ; return @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    2 : <fn f>\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    3 : 42\n"
+        "    2 : <fn f>\n"
+        "    1 : 42\n"
+        "    0 : <fn f>\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 42\n"
+        "\n"
+        "42\n"
+        "Stack:\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+// TODO Test source ownership between multiple runs
+// TODO Garbage collect function objects
+// TODO Test calling a non-callable

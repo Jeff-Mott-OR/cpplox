@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(debug_option_will_print_bytecode_and_stack) {
     std::string actual_err {std::istreambuf_iterator<char>{cpplox_err}, std::istreambuf_iterator<char>{}};
 
     const auto expected =
-        "# Running chunk:\n"
+        "\n# Running chunk:\n\n"
         "Constants:\n"
         "    0 : Hello, World!\n"
         "Bytecode:\n"

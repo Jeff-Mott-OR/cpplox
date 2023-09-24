@@ -651,3 +651,162 @@ BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw) {
         BOOST_TEST(error.what() == "[Line 1] Error: Unexpected token \"print\".");
     }
 }
+
+BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile) {
+    const auto chunk = motts::lox::compile(
+        "fun f() {}\n"
+        "f();\n"
+        "{ fun g() {} }\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : f\n"
+        "    2 : <fn g>\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
+        "    4 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
+        "    6 : 17 00    CALL [0]                ; f @ 2\n"
+        "    8 : 0b       POP                     ; ; @ 2\n"
+        "    9 : 00 02    CONSTANT [2]            ; fun @ 3\n"
+        "   11 : 0b       POP                     ; } @ 3\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; fun @ 1\n"
+        "    1 : 18       RETURN                  ; fun @ 1\n"
+        "## <fn g> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; fun @ 3\n"
+        "    1 : 18       RETURN                  ; fun @ 3\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile) {
+    const auto chunk = motts::lox::compile(
+        "fun f(x) { x; }\n"
+        "f(42);\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : f\n"
+        "    2 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
+        "    4 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
+        "    6 : 00 02    CONSTANT [2]            ; 42 @ 2\n"
+        "    8 : 17 01    CALL [1]                ; f @ 2\n"
+        "   10 : 0b       POP                     ; ; @ 2\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n"
+        "    3 : 01       NIL                     ; fun @ 1\n"
+        "    4 : 18       RETURN                  ; fun @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(function_return_will_compile) {
+    const auto chunk = motts::lox::compile(
+        "fun f(x) { return x; }\n"
+        "f(42);\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : f\n"
+        "    2 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
+        "    4 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
+        "    6 : 00 02    CONSTANT [2]            ; 42 @ 2\n"
+        "    8 : 17 01    CALL [1]                ; f @ 2\n"
+        "   10 : 0b       POP                     ; ; @ 2\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "    2 : 18       RETURN                  ; return @ 1\n"
+        "    3 : 01       NIL                     ; fun @ 1\n"
+        "    4 : 18       RETURN                  ; fun @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(empty_return_will_return_nil) {
+    const auto chunk = motts::lox::compile(
+        "fun f() { return; }\n"
+        "f();\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : f\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
+        "    4 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
+        "    6 : 17 00    CALL [0]                ; f @ 2\n"
+        "    8 : 0b       POP                     ; ; @ 2\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; return @ 1\n"
+        "    1 : 18       RETURN                  ; return @ 1\n"
+        "    2 : 01       NIL                     ; fun @ 1\n"
+        "    3 : 18       RETURN                  ; fun @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_name) {
+    const auto chunk = motts::lox::compile(
+        "fun f() { f; }\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "## main chunk\n"
+        "Constants:\n"
+        "    0 : <fn f>\n"
+        "    1 : f\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 15 00    GET_LOCAL [0]           ; f @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n"
+        "    3 : 01       NIL                     ; fun @ 1\n"
+        "    4 : 18       RETURN                  ; fun @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+// TODO Enforce arity
