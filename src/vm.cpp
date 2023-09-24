@@ -42,17 +42,20 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::add: {
-                    const auto b = (stack.cend() - 1)->variant;
-                    const auto a = (stack.cend() - 2)->variant;
-                    stack.erase(stack.cend() - 2, stack.cend());
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
 
-                    if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b))
+                    if (std::holds_alternative<double>(a.variant) && std::holds_alternative<double>(b.variant))
                     {
-                        stack.push_back(Dynamic_type_value{std::get<double>(a) + std::get<double>(b)});
+                        const auto result = std::get<double>(a.variant) + std::get<double>(b.variant);
+                        stack.erase(stack.cend() - 2, stack.cend());
+                        stack.push_back(Dynamic_type_value{result});
                     }
-                    else if (std::holds_alternative<std::string>(a) && std::holds_alternative<std::string>(b))
+                    else if (std::holds_alternative<std::string>(a.variant) && std::holds_alternative<std::string>(b.variant))
                     {
-                        stack.push_back(Dynamic_type_value{std::get<std::string>(a) + std::get<std::string>(b)});
+                        auto result = std::get<std::string>(a.variant) + std::get<std::string>(b.variant);
+                        stack.erase(stack.cend() - 2, stack.cend());
+                        stack.push_back(Dynamic_type_value{std::move(result)});
                     }
                     else
                     {
@@ -73,11 +76,36 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::divide: {
-                    const auto b = (stack.cend() - 1)->variant;
-                    const auto a = (stack.cend() - 2)->variant;
-                    stack.erase(stack.cend() - 2, stack.cend());
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
 
-                    stack.push_back(Dynamic_type_value{std::get<double>(a) / std::get<double>(b)});
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) / std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::equal: {
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
+
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) == std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
                     break;
@@ -89,12 +117,55 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::multiply: {
-                    const auto b = (stack.cend() - 1)->variant;
-                    const auto a = (stack.cend() - 2)->variant;
-                    stack.erase(stack.cend() - 2, stack.cend());
+                case Opcode::greater: {
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
 
-                    stack.push_back(Dynamic_type_value{std::get<double>(a) * std::get<double>(b)});
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) > std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::less: {
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
+
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) < std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
+
+                    ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::multiply: {
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
+
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) * std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
                     break;
@@ -146,11 +217,18 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::subtract: {
-                    const auto b = (stack.cend() - 1)->variant;
-                    const auto a = (stack.cend() - 2)->variant;
-                    stack.erase(stack.cend() - 2, stack.cend());
+                    const auto& b = *(stack.cend() - 1);
+                    const auto& a = *(stack.cend() - 2);
 
-                    stack.push_back(Dynamic_type_value{std::get<double>(a) - std::get<double>(b)});
+                    if (! std::holds_alternative<double>(a.variant) || ! std::holds_alternative<double>(b.variant)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
+                        };
+                    }
+
+                    const auto result = std::get<double>(a.variant) - std::get<double>(b.variant);
+                    stack.erase(stack.cend() - 2, stack.cend());
+                    stack.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
                     break;

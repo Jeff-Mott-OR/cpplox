@@ -21,9 +21,9 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
         "    0 : 28\n"
         "    1 : 14\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0] ; 28 @ 1\n"
-        "    2 : 00 01 CONSTANT [1] ; 14 @ 1\n"
-        "    4 : 04    ADD          ; + @ 1\n"
+        "    0 : 00 00 CONSTANT [0]  ; 28 @ 1\n"
+        "    2 : 00 01 CONSTANT [1]  ; 14 @ 1\n"
+        "    4 : 04    ADD           ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -70,12 +70,12 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
         "    2 : hello\n"
         "    3 : world\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0] ; 28 @ 1\n"
-        "    2 : 00 01 CONSTANT [1] ; 14 @ 1\n"
-        "    4 : 04    ADD          ; + @ 1\n"
-        "    5 : 00 02 CONSTANT [2] ; \"hello\" @ 1\n"
-        "    7 : 00 03 CONSTANT [3] ; \"world\" @ 1\n"
-        "    9 : 04    ADD          ; + @ 1\n"
+        "    0 : 00 00 CONSTANT [0]  ; 28 @ 1\n"
+        "    2 : 00 01 CONSTANT [1]  ; 14 @ 1\n"
+        "    4 : 04    ADD           ; + @ 1\n"
+        "    5 : 00 02 CONSTANT [2]  ; \"hello\" @ 1\n"
+        "    7 : 00 03 CONSTANT [3]  ; \"world\" @ 1\n"
+        "    9 : 04    ADD           ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -110,6 +110,11 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw) {
     chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
 
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+    try {
+        motts::lox::run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(print_whats_on_top_of_stack) {
@@ -166,6 +171,57 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_run) {
     BOOST_TEST(os.str() == "6\n");
 }
 
+BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw) {
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_add(motts::lox::Token{motts::lox::Token_type::plus, "+", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
+        }
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_subtract(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_multiply(motts::lox::Token{motts::lox::Token_type::star, "*", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_divide(motts::lox::Token{motts::lox::Token_type::slash, "/", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
+}
+
 BOOST_AUTO_TEST_CASE(numeric_negation_will_run) {
     motts::lox::Chunk chunk;
 
@@ -190,6 +246,11 @@ BOOST_AUTO_TEST_CASE(invalid_negation_will_throw) {
     chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\'", 1});
     chunk.emit_negate(motts::lox::Token{motts::lox::Token_type::minus, "-", 1});
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+    try {
+        motts::lox::run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Operand must be a number.");
+    }
 }
 
 BOOST_AUTO_TEST_CASE(false_and_nil_are_falsey_all_else_is_truthy) {
@@ -238,8 +299,8 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0] ; 42 @ 1\n"
-        "    2 : 0b    POP          ; ; @ 1\n"
+        "    0 : 00 00 CONSTANT [0]  ; 42 @ 1\n"
+        "    2 : 0b    POP           ; ; @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 42\n"
@@ -247,4 +308,85 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
         "Stack:\n"
         "\n";
     BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(comparisons_will_run) {
+    motts::lox::Chunk chunk;
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{2.0}, motts::lox::Token{motts::lox::Token_type::number, "2", 1});
+    chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::greater, ">", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{3.0}, motts::lox::Token{motts::lox::Token_type::number, "3", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{5.0}, motts::lox::Token{motts::lox::Token_type::number, "5", 1});
+    chunk.emit_less(motts::lox::Token{motts::lox::Token_type::greater_equal, ">=", 1});
+    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::greater_equal, ">=", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{7.0}, motts::lox::Token{motts::lox::Token_type::number, "7", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{11.0}, motts::lox::Token{motts::lox::Token_type::number, "11", 1});
+    chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::equal_equal, "==", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{13.0}, motts::lox::Token{motts::lox::Token_type::number, "13", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{17.0}, motts::lox::Token{motts::lox::Token_type::number, "17", 1});
+    chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::bang_equal, "!=", 1});
+    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::bang_equal, "!=", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{19.0}, motts::lox::Token{motts::lox::Token_type::number, "19", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{23.0}, motts::lox::Token{motts::lox::Token_type::number, "23", 1});
+    chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::less_equal, "<=", 1});
+    chunk.emit_not(motts::lox::Token{motts::lox::Token_type::less_equal, "<=", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    chunk.emit_constant(motts::lox::Dynamic_type_value{29.0}, motts::lox::Token{motts::lox::Token_type::number, "29", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{31.0}, motts::lox::Token{motts::lox::Token_type::number, "31", 1});
+    chunk.emit_less(motts::lox::Token{motts::lox::Token_type::less, "<", 1});
+    chunk.emit_print(motts::lox::Token{motts::lox::Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "false\nfalse\nfalse\ntrue\ntrue\ntrue\n");
+}
+
+BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_greater(motts::lox::Token{motts::lox::Token_type::greater, ">", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\"", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{1.0}, motts::lox::Token{motts::lox::Token_type::number, "1", 1});
+        chunk.emit_less(motts::lox::Token{motts::lox::Token_type::less, "<", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
+    {
+        motts::lox::Chunk chunk;
+        chunk.emit_constant(motts::lox::Dynamic_type_value{true}, motts::lox::Token{motts::lox::Token_type::true_, "true", 1});
+        chunk.emit_constant(motts::lox::Dynamic_type_value{"hello"}, motts::lox::Token{motts::lox::Token_type::string, "\"hello\"", 1});
+        chunk.emit_equal(motts::lox::Token{motts::lox::Token_type::equal_equal, "==", 1});
+        BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+        try {
+            motts::lox::run(chunk);
+        } catch (const std::exception& error) {
+            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+        }
+    }
 }
