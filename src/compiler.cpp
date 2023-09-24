@@ -40,6 +40,8 @@ namespace {
             };
             std::vector<Tracked_local> tracked_locals;
             std::vector<Chunk::Tracked_upvalue> tracked_upvalues;
+
+            bool is_class_init_method {false};
         };
         std::vector<Function_chunk> function_chunks {{}};
 
@@ -446,7 +448,7 @@ namespace {
         }
 
         void compile_assignment_precedence_expression() {
-            if (token_iter->type == Token_type::identifier) {
+            if (token_iter->type == Token_type::identifier || token_iter->type == Token_type::this_) {
                 const auto variable_name_token = *token_iter;
 
                 auto peek_ahead_iter = token_iter;
@@ -546,7 +548,11 @@ namespace {
             compile_statement();
 
             // A default return value.
-            function_chunks.back().chunk.emit<Opcode::nil>(source_map_token);
+            if (function_chunks.back().is_class_init_method) {
+                function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", source_map_token.line});
+            } else {
+                function_chunks.back().chunk.emit<Opcode::nil>(source_map_token);
+            }
             function_chunks.back().chunk.emit<Opcode::return_>(source_map_token);
 
             return param_count;
@@ -575,6 +581,9 @@ namespace {
                         const auto method_name_token = *token_iter++;
 
                         function_chunks.push_back({});
+                        if (method_name_token.lexeme == "init") {
+                            function_chunks.back().is_class_init_method = true;
+                        }
                         track_local(Token{Token_type::this_, "this", method_name_token.line});
                         const auto param_count = compile_function_rest(method_name_token);
 
@@ -724,9 +733,19 @@ namespace {
                     const auto return_token = *token_iter++;
 
                     if (token_iter->type != Token_type::semicolon) {
+                        if (function_chunks.back().is_class_init_method) {
+                            throw std::runtime_error{
+                                "[Line " + std::to_string(token_iter->line) + "] Error: Can't return a value from an initializer."
+                            };
+                        }
+
                         compile_assignment_precedence_expression();
                     } else {
-                        function_chunks.back().chunk.emit<Opcode::nil>(return_token);
+                        if (function_chunks.back().is_class_init_method) {
+                            function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});
+                        } else {
+                            function_chunks.back().chunk.emit<Opcode::nil>(return_token);
+                        }
                     }
                     ensure_token_is(*token_iter++, Token_type::semicolon);
                     function_chunks.back().chunk.emit<Opcode::return_>(return_token);

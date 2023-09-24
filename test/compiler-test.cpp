@@ -1287,3 +1287,69 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this) {
         "    4 : 18       RETURN                  ; fun @ 3\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(class_init_method_will_implicitly_return_instance) {
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Klass {\n"
+        "    init() {\n"
+        "        this.property = 42;\n"
+        "        return;\n"
+        "    }\n"
+        "}\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Klass\n"
+        "    1 : <fn init>\n"
+        "    2 : init\n"
+        "Bytecode:\n"
+        // class Klass {
+        //     init()
+        // }
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 19 01 00 CLOSURE [1] (0)         ; init @ 2\n"
+        "    5 : 1e 02    METHOD [2]              ; init @ 2\n"
+        "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // init() {
+        "## <fn init> chunk\n"
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : property\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 3\n"
+        "    2 : 15 00    GET_LOCAL [0]           ; this @ 3\n"
+        "    4 : 20 01    SET_PROPERTY [1]        ; property @ 3\n"
+        "    6 : 0b       POP                     ; ; @ 3\n"
+        "    7 : 15 00    GET_LOCAL [0]           ; this @ 4\n"
+        "    9 : 18       RETURN                  ; return @ 4\n"
+        "   10 : 15 00    GET_LOCAL [0]           ; this @ 2\n"
+        "   12 : 18       RETURN                  ; init @ 2\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw) {
+    const auto expect_to_throw = [] {
+        motts::lox::GC_heap gc_heap;
+        compile(
+            gc_heap,
+            "class Klass {\n"
+            "    init() {\n"
+            "        return 42;\n"
+            "    }\n"
+            "}\n"
+        );
+    };
+    BOOST_CHECK_THROW(expect_to_throw(), std::exception);
+
+    try {
+        expect_to_throw();
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 3] Error: Can't return a value from an initializer.");
+    }
+}

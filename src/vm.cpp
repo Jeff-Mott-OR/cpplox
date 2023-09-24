@@ -111,10 +111,32 @@ namespace motts { namespace lox {
                     }
                     else if (std::holds_alternative<GC_ptr<Class>>(maybe_callable.variant))
                     {
-                        const auto& class_ = std::get<GC_ptr<Class>>(maybe_callable.variant);
-                        const auto new_instance = gc_heap_.make<Instance>({class_});
-                        stack_.pop_back();
-                        stack_.push_back({new_instance});
+                        const auto class_ = std::get<GC_ptr<Class>>(maybe_callable.variant);
+                        const auto maybe_init_iter = class_->methods.find("init");
+                        const auto expected_arity = maybe_init_iter != class_->methods.cend() ? maybe_init_iter->second->function->arity : 0;
+
+                        if (arg_count != expected_arity) {
+                            std::ostringstream os;
+                            os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
+                                << "Expected " << expected_arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                            throw std::runtime_error{os.str()};
+                        }
+
+                        // If there's no init method, then we'd pop the class and push the instance,
+                        // so assigning over the class slot has the same effect.
+                        // But if there's an init method, then we need to prepare the stack like a bound method,
+                        // which means putting the "this" instance in the class slot before the arguments.
+                        // Either way, the instance ends up in the same slot where the class was.
+                        maybe_callable.variant = gc_heap_.make<Instance>({class_});
+
+                        if (maybe_init_iter != class_->methods.cend()) {
+                            call_frames_.push_back({
+                                maybe_init_iter->second,
+                                maybe_init_iter->second->function->chunk,
+                                maybe_init_iter->second->function->chunk.bytecode().cbegin(),
+                                stack_.size() - arg_count - 1
+                            });
+                        }
                     }
                     else if (std::holds_alternative<GC_ptr<Bound_method>>(maybe_callable.variant))
                     {

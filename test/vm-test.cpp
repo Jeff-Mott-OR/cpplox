@@ -1106,3 +1106,29 @@ BOOST_AUTO_TEST_CASE(this_can_be_captured_in_closure) {
 
     BOOST_TEST(os.str() == "<instance Klass>\n");
 }
+
+BOOST_AUTO_TEST_CASE(init_method_will_run_when_instance_created) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_init_chunk;
+    fn_init_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    fn_init_chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", 1});
+    fn_init_chunk.emit<Opcode::set_property>(Token{Token_type::identifier, "property", 1}, Token{Token_type::identifier, "property", 1});
+    fn_init_chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", 1});
+    fn_init_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_init = gc_heap.make<motts::lox::Function>({"init", 0, std::move(fn_init_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(fn_init, {}, Token{Token_type::identifier, "init", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "init", 1}, Token{Token_type::identifier, "init", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "property", 1}, Token{Token_type::identifier, "property", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "42\n");
+}
