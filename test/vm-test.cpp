@@ -564,3 +564,61 @@ BOOST_AUTO_TEST_CASE(global_var_will_initialize_from_stack) {
         "\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(local_var_will_get_from_stack) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "x", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "# Running chunk:\n"
+        "Constants:\n"
+        "    0 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 15 00    GET_LOCAL [0]           ; x @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 42\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 42\n"
+        "    0 : 42\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(local_var_will_set_to_stack) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(Dynamic_type_value{28.0}, Token{Token_type::number, "28", 1});
+    chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "14", 1});
+    chunk.emit<Opcode::set_local>(0, Token{Token_type::identifier, "x", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "# Running chunk:\n"
+        "Constants:\n"
+        "    0 : 28\n"
+        "    1 : 14\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
+        "    4 : 16 00    SET_LOCAL [0]           ; x @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 28\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 14\n"
+        "    0 : 28\n"
+        "\n"
+        "Stack:\n"
+        "    1 : 14\n"
+        "    0 : 14\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);}

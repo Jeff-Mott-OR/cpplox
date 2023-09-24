@@ -465,3 +465,47 @@ BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized) {
         "    2 : 14 01    DEFINE_GLOBAL [1]       ; var @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces) {
+    const auto chunk = motts::lox::compile("var x; { var x; x; x = 42; } x;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : x\n"
+        "    1 : 42\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; var @ 1\n"
+        "    1 : 14 00    DEFINE_GLOBAL [0]       ; var @ 1\n"
+        "    3 : 01       NIL                     ; var @ 1\n"
+        "    4 : 15 00    GET_LOCAL [0]           ; x @ 1\n"
+        "    6 : 0b       POP                     ; ; @ 1\n"
+        "    7 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
+        "    9 : 16 00    SET_LOCAL [0]           ; x @ 1\n"
+        "   11 : 0b       POP                     ; ; @ 1\n"
+        "   12 : 12 00    GET_GLOBAL [0]          ; x @ 1\n"
+        "   14 : 0b       POP                     ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw) {
+    BOOST_CHECK_THROW(motts::lox::compile("{ var x; var x; }"), std::exception);
+
+    try {
+        motts::lox::compile("{ var x; var x; }");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Variable with this name already declared in this scope.");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw) {
+    BOOST_CHECK_THROW(motts::lox::compile("{ var x = x; }"), std::exception);
+
+    try {
+        motts::lox::compile("{ var x = x; }");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Cannot read local variable in its own initializer.");
+    }
+}

@@ -11,10 +11,14 @@
 
 #include "scanner.hpp"
 
+// Not exported (internal linkage)
 namespace {
-    struct Print_visitor {
+    // Allow the internal linkage section to access names
+    using namespace motts::lox;
+
+    struct Dynamic_type_print_visitor {
         std::ostream& os;
-        Print_visitor(std::ostream& os_arg)
+        Dynamic_type_print_visitor(std::ostream& os_arg)
             : os {os_arg}
         {
         }
@@ -30,6 +34,435 @@ namespace {
         template<typename T>
             auto operator()(const T& value) {
                 os << value;
+            }
+    };
+
+    void ensure_token_is(const Token& token, const Token_type& expected) {
+        if (token.type != expected) {
+            std::ostringstream os;
+            os << "[Line " << token.line << "] Error: Expected " << expected << " at \"" << token.lexeme << "\".";
+            throw std::runtime_error{os.str()};
+        }
+    }
+
+    struct Tracked_local {
+        Token name;
+        int depth {0};
+        bool initialized {false};
+    };
+
+    // There's no invariant being maintained here.
+    // This exists primarily to avoid lots of manual argument passing.
+    class Compiler {
+        Chunk chunk_;
+        Token_iterator token_iter_;
+        std::vector<Tracked_local> tracked_locals_;
+        int scope_depth_ {0};
+
+        public:
+            Compiler(std::string_view source)
+                : token_iter_ {source}
+            {
+            }
+
+            Chunk compile() {
+                Token_iterator token_iter_end;
+                while (token_iter_ != token_iter_end) {
+                    compile_statement();
+                }
+
+                return std::move(chunk_);
+            }
+
+        private:
+            void compile_primary_expression() {
+                switch (token_iter_->type) {
+                    default: {
+                        std::ostringstream os;
+                        os << "[Line " << token_iter_->line << "] Error: Unexpected token \"" << token_iter_->lexeme << "\".";
+                        throw std::runtime_error{os.str()};
+                    }
+
+                    case Token_type::false_: {
+                        chunk_.emit<Opcode::false_>(*token_iter_);
+                        break;
+                    }
+
+                    case Token_type::identifier: {
+                        const auto maybe_local_iter = std::find_if(
+                            tracked_locals_.crbegin(), tracked_locals_.crend(),
+                            [&] (const auto& tracked_local) {
+                                return tracked_local.name.lexeme == token_iter_->lexeme;
+                            }
+                        );
+
+                        if (maybe_local_iter != tracked_locals_.crend()) {
+                            const auto local_iter = maybe_local_iter.base() - 1;
+
+                            if (! local_iter->initialized) {
+                                std::ostringstream os;
+                                os << "[Line " << token_iter_->line << "] Error at \"" << token_iter_->lexeme
+                                    << "\": Cannot read local variable in its own initializer.";
+                                throw std::runtime_error{os.str()};
+                            }
+
+                            const auto tracked_local_stack_index = local_iter - tracked_locals_.cbegin();
+                            chunk_.emit<Opcode::get_local>(tracked_local_stack_index, *token_iter_);
+                        } else {
+                            chunk_.emit<Opcode::get_global>(*token_iter_, *token_iter_);
+                        }
+
+                        break;
+                    }
+
+                    case Token_type::left_paren: {
+                        ++token_iter_;
+                        compile_assignment_precedence_expression();
+                        ensure_token_is(*token_iter_, Token_type::right_paren);
+
+                        break;
+                    }
+
+                    case Token_type::nil: {
+                        chunk_.emit<Opcode::nil>(*token_iter_);
+                        break;
+                    }
+
+                    case Token_type::number: {
+                        const auto number_value = boost::lexical_cast<double>(token_iter_->lexeme);
+                        chunk_.emit_constant(Dynamic_type_value{number_value}, *token_iter_);
+
+                        break;
+                    }
+
+                    case Token_type::string: {
+                        auto string_value = std::string{token_iter_->lexeme.cbegin() + 1, token_iter_->lexeme.cend() - 1};
+                        chunk_.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter_);
+
+                        break;
+                    }
+
+                    case Token_type::true_: {
+                        chunk_.emit<Opcode::true_>(*token_iter_);
+                        break;
+                    }
+                }
+
+                ++token_iter_;
+            }
+
+            void compile_unary_precedence_expression() {
+                if (token_iter_->type == Token_type::minus || token_iter_->type == Token_type::bang) {
+                    const auto unary_op_token = *token_iter_++;
+
+                    // Right expression
+                    compile_unary_precedence_expression();
+
+                    switch (unary_op_token.type) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Token_type::minus:
+                            chunk_.emit<Opcode::negate>(unary_op_token);
+                            break;
+
+                        case Token_type::bang:
+                            chunk_.emit<Opcode::not_>(unary_op_token);
+                            break;
+                    }
+
+                    return;
+                }
+
+                compile_primary_expression();
+            }
+
+            void compile_multiplication_precedence_expression() {
+                // Left expression
+                compile_unary_precedence_expression();
+
+                while (token_iter_->type == Token_type::star || token_iter_->type == Token_type::slash) {
+                    const auto binary_op_token = *token_iter_++;
+
+                    // Right expression
+                    compile_unary_precedence_expression();
+
+                    switch (binary_op_token.type) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Token_type::star:
+                            chunk_.emit<Opcode::multiply>(binary_op_token);
+                            break;
+
+                        case Token_type::slash:
+                            chunk_.emit<Opcode::divide>(binary_op_token);
+                            break;
+                    }
+                }
+            }
+
+            void compile_addition_precedence_expression() {
+                // Left expression
+                compile_multiplication_precedence_expression();
+
+                while (token_iter_->type == Token_type::plus || token_iter_->type == Token_type::minus) {
+                    const auto binary_op_token = *token_iter_++;
+
+                    // Right expression
+                    compile_multiplication_precedence_expression();
+
+                    switch (binary_op_token.type) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Token_type::plus:
+                            chunk_.emit<Opcode::add>(binary_op_token);
+                            break;
+
+                        case Token_type::minus:
+                            chunk_.emit<Opcode::subtract>(binary_op_token);
+                            break;
+                    }
+                }
+            }
+
+            void compile_comparison_precedence_expression() {
+                // Left expression
+                compile_addition_precedence_expression();
+
+                while (
+                    token_iter_->type == Token_type::less || token_iter_->type == Token_type::less_equal ||
+                    token_iter_->type == Token_type::greater || token_iter_->type == Token_type::greater_equal
+                ) {
+                    const auto comparison_token = *token_iter_++;
+
+                    // Right expression
+                    compile_addition_precedence_expression();
+
+                    switch (comparison_token.type) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Token_type::less:
+                            chunk_.emit<Opcode::less>(comparison_token);
+                            break;
+
+                        case Token_type::less_equal:
+                            chunk_.emit<Opcode::greater>(comparison_token);
+                            chunk_.emit<Opcode::not_>(comparison_token);
+                            break;
+
+                        case Token_type::greater:
+                            chunk_.emit<Opcode::greater>(comparison_token);
+                            break;
+
+                        case Token_type::greater_equal:
+                            chunk_.emit<Opcode::less>(comparison_token);
+                            chunk_.emit<Opcode::not_>(comparison_token);
+                            break;
+                    }
+                }
+            }
+
+            void compile_equality_precedence_expression() {
+                // Left expression
+                compile_comparison_precedence_expression();
+
+                while (token_iter_->type == Token_type::equal_equal || token_iter_->type == Token_type::bang_equal) {
+                    const auto equality_token = *token_iter_++;
+
+                    // Right expression
+                    compile_comparison_precedence_expression();
+
+                    switch (equality_token.type) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Token_type::equal_equal:
+                            chunk_.emit<Opcode::equal>(equality_token);
+                            break;
+
+                        case Token_type::bang_equal:
+                            chunk_.emit<Opcode::equal>(equality_token);
+                            chunk_.emit<Opcode::not_>(equality_token);
+                            break;
+                    }
+                }
+            }
+
+            void compile_and_precedence_expression() {
+                // Left expression
+                compile_equality_precedence_expression();
+
+                while (token_iter_->type == Token_type::and_) {
+                    auto short_circuit_jump_backpatch = chunk_.emit_jump_if_false(*token_iter_);
+                    // If the LHS was true, then the expression now depends solely on the RHS, and we can discard the LHS
+                    chunk_.emit<Opcode::pop>(*token_iter_++);
+
+                    // Right expression
+                    compile_equality_precedence_expression();
+
+                    short_circuit_jump_backpatch.to_next_opcode();
+                }
+            }
+
+            void compile_or_precedence_expression() {
+                // Left expression
+                compile_and_precedence_expression();
+
+                while (token_iter_->type == Token_type::or_) {
+                    auto to_rhs_jump_backpatch = chunk_.emit_jump_if_false(*token_iter_);
+                    auto to_end_jump_backpatch = chunk_.emit_jump(*token_iter_);
+
+                    to_rhs_jump_backpatch.to_next_opcode();
+                    // If the LHS was false, then the expression now depends solely on the RHS, and we can discard the LHS
+                    chunk_.emit<Opcode::pop>(*token_iter_++);
+
+                    // Right expression
+                    compile_and_precedence_expression();
+
+                    to_end_jump_backpatch.to_next_opcode();
+                }
+            }
+
+            void compile_assignment_precedence_expression() {
+                if (token_iter_->type == Token_type::identifier) {
+                    const auto variable_name_token = *token_iter_;
+
+                    auto peek_ahead_iter = token_iter_;
+                    ++peek_ahead_iter;
+
+                    if (peek_ahead_iter->type == Token_type::equal) {
+                        token_iter_ = peek_ahead_iter;
+                        const auto assign_token = *token_iter_++;
+
+                        // Right expression
+                        compile_assignment_precedence_expression();
+
+                        const auto maybe_local_iter = std::find_if(
+                            tracked_locals_.crbegin(), tracked_locals_.crend(),
+                            [&] (const auto& tracked_local) {
+                                return tracked_local.name.lexeme == variable_name_token.lexeme;
+                            }
+                        );
+                        if (maybe_local_iter != tracked_locals_.crend()) {
+                            const auto local_iter = maybe_local_iter.base() - 1;
+                            const auto tracked_local_stack_index = local_iter - tracked_locals_.cbegin();
+                            chunk_.emit<Opcode::set_local>(tracked_local_stack_index, variable_name_token);
+                        } else {
+                            chunk_.emit<Opcode::set_global>(variable_name_token, assign_token);
+                        }
+
+                        return;
+                    }
+                }
+
+                // Else
+                compile_or_precedence_expression();
+            }
+
+            void compile_expression_statement() {
+                compile_assignment_precedence_expression();
+                ensure_token_is(*token_iter_, Token_type::semicolon);
+                chunk_.emit<Opcode::pop>(*token_iter_++);
+            }
+
+            void compile_statement() {
+                if (token_iter_->type == Token_type::left_brace) {
+                    ++token_iter_;
+
+                    ++scope_depth_;
+                    const auto _ = gsl::finally([&] () {
+                        while (! tracked_locals_.empty() && tracked_locals_.back().depth == scope_depth_) {
+                            tracked_locals_.pop_back();
+                        }
+                        --scope_depth_;
+                    });
+
+                    Token_iterator token_iter_end;
+                    for ( ; token_iter_ != token_iter_end && token_iter_->type != Token_type::right_brace; ) {
+                        compile_statement();
+                    }
+                    ensure_token_is(*token_iter_++, Token_type::right_brace);
+
+                    return;
+                }
+
+                if (token_iter_->type == Token_type::print) {
+                    const auto print_token = *token_iter_++;
+
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter_++, Token_type::semicolon);
+                    chunk_.emit<Opcode::print>(print_token);
+
+                    return;
+                }
+
+                if (token_iter_->type == Token_type::while_) {
+                    const auto while_token = *token_iter_++;
+                    const auto loop_begin_bytecode_index = chunk_.bytecode().size();
+
+                    ensure_token_is(*token_iter_++, Token_type::left_paren);
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter_++, Token_type::right_paren);
+
+                    auto to_end_jump_backpatch = chunk_.emit_jump_if_false(while_token);
+                    chunk_.emit<Opcode::pop>(while_token);
+
+                    compile_statement();
+
+                    chunk_.emit_loop(loop_begin_bytecode_index, while_token);
+                    to_end_jump_backpatch.to_next_opcode();
+                    chunk_.emit<Opcode::pop>(while_token);
+
+                    return;
+                }
+
+                if (token_iter_->type == Token_type::var) {
+                    const auto var_token = *token_iter_++;
+
+                    ensure_token_is(*token_iter_, Token_type::identifier);
+                    const auto variable_name_token = *token_iter_++;
+
+                    if (scope_depth_ > 0) {
+                        const auto maybe_redeclared_iter = std::find_if(
+                            tracked_locals_.crbegin(), tracked_locals_.crend(),
+                            [&] (const auto& tracked_local) {
+                                return tracked_local.depth == scope_depth_ && tracked_local.name.lexeme == variable_name_token.lexeme;
+                            }
+                        );
+                        if (maybe_redeclared_iter != tracked_locals_.crend()) {
+                            std::ostringstream os;
+                            os << "[Line " << variable_name_token.line << "] Error at \"" << variable_name_token.lexeme
+                                << "\": Variable with this name already declared in this scope.";
+                            throw std::runtime_error{os.str()};
+                        }
+
+                        tracked_locals_.push_back({variable_name_token, scope_depth_});
+                    }
+
+                    if (token_iter_->type == Token_type::equal) {
+                        ++token_iter_;
+                        compile_assignment_precedence_expression();
+                    } else {
+                        chunk_.emit<Opcode::nil>(var_token);
+                    }
+                    ensure_token_is(*token_iter_++, Token_type::semicolon);
+
+                    if (scope_depth_ == 0) {
+                        chunk_.emit<Opcode::define_global>(variable_name_token, var_token);
+                    } else {
+                        // No bytecode to emit. The value is already on the stack,
+                        // and the tracked local index will correspond to the stack position.
+                        tracked_locals_.back().initialized = true;
+                    }
+
+                    return;
+                }
+
+                // Else
+                compile_expression_statement();
             }
     };
 }
@@ -63,7 +496,7 @@ namespace motts { namespace lox {
     }
 
     std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value) {
-        std::visit(Print_visitor{os}, value.variant);
+        std::visit(Dynamic_type_print_visitor{os}, value.variant);
         return os;
     }
 
@@ -116,6 +549,18 @@ namespace motts { namespace lox {
     template void Chunk::emit<Opcode::define_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::get_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::set_global>(const Token&, const Token&);
+
+    template<Opcode opcode>
+        void Chunk::emit(int local_stack_index, const Token& source_map_token) {
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(local_stack_index));
+
+            source_map_tokens_.push_back(source_map_token);
+            source_map_tokens_.push_back(source_map_token);
+        }
+
+    template void Chunk::emit<Opcode::get_local>(int, const Token&);
+    template void Chunk::emit<Opcode::set_local>(int, const Token&);
 
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = insert_constant(constant_value);
@@ -206,7 +651,9 @@ namespace motts { namespace lox {
                 case Opcode::constant:
                 case Opcode::define_global:
                 case Opcode::get_global:
-                case Opcode::set_global: {
+                case Opcode::get_local:
+                case Opcode::set_global:
+                case Opcode::set_local: {
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << "]";
 
@@ -262,341 +709,7 @@ namespace motts { namespace lox {
         return os;
     }
 
-    /* no export */ static void ensure_token_is(const Token& token, const Token_type& expected) {
-        if (token.type != expected) {
-            std::ostringstream os;
-            os << "[Line " << token.line << "] Error: Expected " << expected << " at \"" << token.lexeme << "\".";
-            throw std::runtime_error{os.str()};
-        }
-    }
-
-    void compile_assignment_precedence_expression(Chunk&, Token_iterator&);
-
-    void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
-        switch (token_iter->type) {
-            default:
-                throw std::runtime_error{
-                    "[Line " + std::to_string(token_iter->line) + "] Error: Unexpected token \"" + std::string{token_iter->lexeme} + "\"."
-                };
-
-            case Token_type::false_:
-                chunk.emit<Opcode::false_>(*token_iter);
-                break;
-
-            case Token_type::identifier:
-                chunk.emit<Opcode::get_global>(*token_iter, *token_iter);
-                break;
-
-            case Token_type::left_paren:
-                ++token_iter;
-                compile_assignment_precedence_expression(chunk, token_iter);
-                ensure_token_is(*token_iter, Token_type::right_paren);
-                break;
-
-            case Token_type::nil:
-                chunk.emit<Opcode::nil>(*token_iter);
-                break;
-
-            case Token_type::number: {
-                const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
-                chunk.emit_constant(Dynamic_type_value{number_value}, *token_iter);
-                break;
-            }
-
-            case Token_type::string: {
-                auto string_value = std::string{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
-                chunk.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter);
-                break;
-            }
-
-            case Token_type::true_:
-                chunk.emit<Opcode::true_>(*token_iter);
-                break;
-        }
-
-        ++token_iter;
-    }
-
-    void compile_unary_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        if (token_iter->type == Token_type::minus || token_iter->type == Token_type::bang) {
-            const auto unary_op_token = *token_iter++;
-
-            // Right expression
-            compile_unary_precedence_expression(chunk, token_iter);
-
-            switch (unary_op_token.type) {
-                default:
-                    throw std::logic_error{"Unreachable"};
-
-                case Token_type::minus:
-                    chunk.emit<Opcode::negate>(unary_op_token);
-                    break;
-
-                case Token_type::bang:
-                    chunk.emit<Opcode::not_>(unary_op_token);
-                    break;
-            }
-
-            return;
-        }
-
-        compile_primary_expression(chunk, token_iter);
-    }
-
-    void compile_multiplication_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_unary_precedence_expression(chunk, token_iter);
-
-        while (token_iter->type == Token_type::star || token_iter->type == Token_type::slash) {
-            const auto binary_op_token = *token_iter++;
-
-            // Right expression
-            compile_unary_precedence_expression(chunk, token_iter);
-
-            switch (binary_op_token.type) {
-                default:
-                    throw std::logic_error{"Unreachable"};
-
-                case Token_type::star:
-                    chunk.emit<Opcode::multiply>(binary_op_token);
-                    break;
-
-                case Token_type::slash:
-                    chunk.emit<Opcode::divide>(binary_op_token);
-                    break;
-            }
-        }
-    }
-
-    void compile_addition_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_multiplication_precedence_expression(chunk, token_iter);
-
-        while (token_iter->type == Token_type::plus || token_iter->type == Token_type::minus) {
-            const auto binary_op_token = *token_iter++;
-
-            // Right expression
-            compile_multiplication_precedence_expression(chunk, token_iter);
-
-            switch (binary_op_token.type) {
-                default:
-                    throw std::logic_error{"Unreachable"};
-
-                case Token_type::plus:
-                    chunk.emit<Opcode::add>(binary_op_token);
-                    break;
-
-                case Token_type::minus:
-                    chunk.emit<Opcode::subtract>(binary_op_token);
-                    break;
-            }
-        }
-    }
-
-    void compile_comparison_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_addition_precedence_expression(chunk, token_iter);
-
-        while (
-            token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal ||
-            token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal
-        ) {
-            const auto comparison_token = *token_iter++;
-
-            // Right expression
-            compile_addition_precedence_expression(chunk, token_iter);
-
-            switch (comparison_token.type) {
-                default:
-                    throw std::logic_error{"Unreachable"};
-
-                case Token_type::less:
-                    chunk.emit<Opcode::less>(comparison_token);
-                    break;
-
-                case Token_type::less_equal:
-                    chunk.emit<Opcode::greater>(comparison_token);
-                    chunk.emit<Opcode::not_>(comparison_token);
-                    break;
-
-                case Token_type::greater:
-                    chunk.emit<Opcode::greater>(comparison_token);
-                    break;
-
-                case Token_type::greater_equal:
-                    chunk.emit<Opcode::less>(comparison_token);
-                    chunk.emit<Opcode::not_>(comparison_token);
-                    break;
-            }
-        }
-    }
-
-    void compile_equality_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_comparison_precedence_expression(chunk, token_iter);
-
-        while (token_iter->type == Token_type::equal_equal || token_iter->type == Token_type::bang_equal) {
-            const auto equality_token = *token_iter++;
-
-            // Right expression
-            compile_comparison_precedence_expression(chunk, token_iter);
-
-            switch (equality_token.type) {
-                default:
-                    throw std::logic_error{"Unreachable"};
-
-                case Token_type::equal_equal:
-                    chunk.emit<Opcode::equal>(equality_token);
-                    break;
-
-                case Token_type::bang_equal:
-                    chunk.emit<Opcode::equal>(equality_token);
-                    chunk.emit<Opcode::not_>(equality_token);
-                    break;
-            }
-        }
-    }
-
-    void compile_and_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_equality_precedence_expression(chunk, token_iter);
-
-        while (token_iter->type == Token_type::and_) {
-            auto short_circuit_jump_backpatch = chunk.emit_jump_if_false(*token_iter);
-            // If the LHS was true, then the expression now depends solely on the RHS, and we can discard the LHS
-            chunk.emit<Opcode::pop>(*token_iter++);
-
-            // Right expression
-            compile_equality_precedence_expression(chunk, token_iter);
-
-            short_circuit_jump_backpatch.to_next_opcode();
-        }
-    }
-
-    void compile_or_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        // Left expression
-        compile_and_precedence_expression(chunk, token_iter);
-
-        while (token_iter->type == Token_type::or_) {
-            auto to_rhs_jump_backpatch = chunk.emit_jump_if_false(*token_iter);
-            auto to_end_jump_backpatch = chunk.emit_jump(*token_iter);
-
-            to_rhs_jump_backpatch.to_next_opcode();
-            // If the LHS was false, then the expression now depends solely on the RHS, and we can discard the LHS
-            chunk.emit<Opcode::pop>(*token_iter++);
-
-            // Right expression
-            compile_and_precedence_expression(chunk, token_iter);
-
-            to_end_jump_backpatch.to_next_opcode();
-        }
-    }
-
-    void compile_assignment_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
-        if (token_iter->type == Token_type::identifier) {
-            const auto variable_name_token = *token_iter;
-
-            auto peek_ahead_iter = token_iter;
-            ++peek_ahead_iter;
-
-            if (peek_ahead_iter->type == Token_type::equal) {
-                token_iter = peek_ahead_iter;
-                const auto assign_token = *token_iter++;
-
-                // Right expression
-                compile_assignment_precedence_expression(chunk, token_iter);
-
-                chunk.emit<Opcode::set_global>(variable_name_token, assign_token);
-
-                return;
-            }
-        }
-
-        // Else
-        compile_or_precedence_expression(chunk, token_iter);
-    }
-
-    void compile_expression_statement(Chunk& chunk, Token_iterator& token_iter) {
-        compile_assignment_precedence_expression(chunk, token_iter);
-        ensure_token_is(*token_iter, Token_type::semicolon);
-        chunk.emit<Opcode::pop>(*token_iter++);
-    }
-
-    void compile_statement(Chunk& chunk, Token_iterator& token_iter) {
-        if (token_iter->type == Token_type::left_brace) {
-            ++token_iter;
-
-            Token_iterator token_iter_end;
-            for ( ; token_iter != token_iter_end && token_iter->type != Token_type::right_brace; ) {
-                compile_statement(chunk, token_iter);
-            }
-
-            ensure_token_is(*token_iter++, Token_type::right_brace);
-
-            return;
-        }
-
-        if (token_iter->type == Token_type::print) {
-            const auto print_token = *token_iter++;
-
-            compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter++, Token_type::semicolon);
-            chunk.emit<Opcode::print>(print_token);
-
-            return;
-        }
-
-        if (token_iter->type == Token_type::while_) {
-            const auto while_token = *token_iter++;
-            const auto loop_begin_bytecode_index = chunk.bytecode().size();
-
-            ensure_token_is(*token_iter++, Token_type::left_paren);
-            compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter++, Token_type::right_paren);
-
-            auto to_end_jump_backpatch = chunk.emit_jump_if_false(while_token);
-            chunk.emit<Opcode::pop>(while_token);
-
-            compile_statement(chunk, token_iter);
-
-            chunk.emit_loop(loop_begin_bytecode_index, while_token);
-            to_end_jump_backpatch.to_next_opcode();
-            chunk.emit<Opcode::pop>(while_token);
-
-            return;
-        }
-
-        if (token_iter->type == Token_type::var) {
-            const auto var_token = *token_iter++;
-
-            ensure_token_is(*token_iter, Token_type::identifier);
-            const auto variable_name_token = *token_iter++;
-
-            if (token_iter->type == Token_type::equal) {
-                ++token_iter;
-                compile_assignment_precedence_expression(chunk, token_iter);
-            } else {
-                chunk.emit<Opcode::nil>(var_token);
-            }
-
-            ensure_token_is(*token_iter++, Token_type::semicolon);
-            chunk.emit<Opcode::define_global>(variable_name_token, var_token);
-
-            return;
-        }
-
-        // Else
-        compile_expression_statement(chunk, token_iter);
-    }
-
     Chunk compile(std::string_view source) {
-        Chunk chunk;
-
-        Token_iterator token_iter_end;
-        for (Token_iterator token_iter {source}; token_iter != token_iter_end; ) {
-            compile_statement(chunk, token_iter);
-        }
-
-        return chunk;
+        return Compiler{source}.compile();
     }
 }}

@@ -151,6 +151,15 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Opcode::get_local: {
+                    const auto local_stack_index = *(bytecode_iter + 1);
+                    stack_.push_back(stack_.at(local_stack_index));
+
+                    bytecode_iter += 2;
+
+                    break;
+                }
+
                 case Opcode::greater: {
                     const auto& b = *(stack_.cend() - 1);
                     const auto& a = *(stack_.cend() - 2);
@@ -302,6 +311,15 @@ namespace motts { namespace lox {
                         };
                     }
                     global_iter->second = stack_.back();
+
+                    bytecode_iter += 2;
+
+                    break;
+                }
+
+                case Opcode::set_local: {
+                    const auto local_stack_index = *(bytecode_iter + 1);
+                    stack_.at(local_stack_index) = stack_.back();
 
                     bytecode_iter += 2;
 

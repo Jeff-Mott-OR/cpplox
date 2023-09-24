@@ -33,7 +33,9 @@ namespace motts { namespace lox {
         X(set_global) \
         X(get_global) \
         X(loop) \
-        X(define_global)
+        X(define_global) \
+        X(get_local) \
+        X(set_local)
 
     enum class Opcode {
         #define X(name) name,
@@ -85,6 +87,9 @@ namespace motts { namespace lox {
 
             // This template is for the *_global opcodes
             template<Opcode> void emit(const Token& variable_name, const Token& source_map_token);
+
+            // This template is for the *_local opcodes
+            template<Opcode> void emit(int local_stack_index, const Token& source_map_token);
 
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
