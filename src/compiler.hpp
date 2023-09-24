@@ -37,9 +37,17 @@ namespace motts { namespace lox {
         std::vector<Token> source_map_tokens_;
 
         public:
-            const decltype(constants_)& constants() const;
-            const decltype(bytecode_)& bytecode() const;
-            const decltype(source_map_tokens_)& source_map_tokens() const;
+            const auto& constants() const {
+                return constants_;
+            }
+
+            const auto& bytecode() const {
+                return bytecode_;
+            }
+
+            const auto& source_map_tokens() const {
+                return source_map_tokens_;
+            }
 
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             void emit_false(const Token& source_map_token);

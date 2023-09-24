@@ -51,18 +51,6 @@ namespace motts { namespace lox {
         return os;
     }
 
-    const decltype(Chunk::constants_)& Chunk::constants() const {
-        return constants_;
-    }
-
-    const decltype(Chunk::bytecode_)& Chunk::bytecode() const {
-        return bytecode_;
-    }
-
-    const decltype(Chunk::source_map_tokens_)& Chunk::source_map_tokens() const {
-        return source_map_tokens_;
-    }
-
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = constants_.size();
         constants_.push_back(constant_value);
