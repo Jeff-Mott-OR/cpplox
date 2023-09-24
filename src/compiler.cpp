@@ -389,6 +389,34 @@ namespace {
                     return;
                 }
 
+                if (token_iter_->type == Token_type::if_) {
+                    const auto if_token = *token_iter_++;
+
+                    ensure_token_is(*token_iter_++, Token_type::left_paren);
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter_++, Token_type::right_paren);
+
+                    auto to_else_or_end_jump_backpatch = chunk_.emit_jump_if_false(if_token);
+                    chunk_.emit<Opcode::pop>(if_token);
+                    compile_statement();
+
+                    if (token_iter_->type == Token_type::else_) {
+                        const auto else_token = *token_iter_++;
+                        auto to_end_jump_backpatch = chunk_.emit_jump(else_token);
+
+                        to_else_or_end_jump_backpatch.to_next_opcode();
+                        chunk_.emit<Opcode::pop>(if_token);
+                        compile_statement();
+
+                        to_end_jump_backpatch.to_next_opcode();
+                    } else {
+                        to_else_or_end_jump_backpatch.to_next_opcode();
+                        chunk_.emit<Opcode::pop>(if_token);
+                    }
+
+                    return;
+                }
+
                 if (token_iter_->type == Token_type::print) {
                     const auto print_token = *token_iter_++;
 

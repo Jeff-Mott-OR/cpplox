@@ -509,3 +509,42 @@ BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Cannot read local variable in its own initializer.");
     }
 }
+
+BOOST_AUTO_TEST_CASE(if_will_compile) {
+    const auto chunk = motts::lox::compile("if (true) nil;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0f 00 03 JUMP_IF_FALSE +3 -> 7   ; if @ 1\n"
+        "    4 : 0b       POP                     ; if @ 1\n"
+        "    5 : 01       NIL                     ; nil @ 1\n"
+        "    6 : 0b       POP                     ; ; @ 1\n"
+        "    7 : 0b       POP                     ; if @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(if_else_will_compile) {
+    const auto chunk = motts::lox::compile("if (true) nil; else nil;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0f 00 06 JUMP_IF_FALSE +6 -> 10  ; if @ 1\n"
+        "    4 : 0b       POP                     ; if @ 1\n"
+        "    5 : 01       NIL                     ; nil @ 1\n"
+        "    6 : 0b       POP                     ; ; @ 1\n"
+        "    7 : 10 00 03 JUMP +3 -> 13           ; else @ 1\n"
+        "   10 : 0b       POP                     ; if @ 1\n"
+        "   11 : 01       NIL                     ; nil @ 1\n"
+        "   12 : 0b       POP                     ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
     );
 
     if (options_map.count("help")) {
-        std::cout << options << "\n";
+        std::cout << options << '\n';
         return EXIT_SUCCESS;
     }
 
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
             motts::lox::run_prompt(options_map.count("debug"));
         }
     } catch (const std::exception& error) {
-        std::cerr << error.what() << "\n";
+        std::cerr << error.what() << '\n';
         return EXIT_FAILURE;
     }
 }
