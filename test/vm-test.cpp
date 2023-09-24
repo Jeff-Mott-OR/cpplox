@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"+\": Operands must be two numbers or two strings.");
     }
 }
 
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be two numbers or two strings.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \"+\": Operands must be two numbers or two strings.");
         }
     }
     {
@@ -227,7 +227,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \"-\": Operands must be numbers.");
         }
     }
     {
@@ -240,7 +240,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \"*\": Operands must be numbers.");
         }
     }
     {
@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \"/\": Operands must be numbers.");
         }
     }
 }
@@ -294,7 +294,7 @@ BOOST_AUTO_TEST_CASE(invalid_negation_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Operand must be a number.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"-\": Operand must be a number.");
     }
 }
 
@@ -432,7 +432,7 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \">\": Operands must be numbers.");
         }
     }
     {
@@ -445,7 +445,7 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw)
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
-            BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
+            BOOST_TEST(error.what() == "[Line 1] Error at \"<\": Operands must be numbers.");
         }
     }
 }
@@ -579,7 +579,7 @@ BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
+        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable \"x\".");
     }
 }
 
@@ -597,7 +597,7 @@ BOOST_AUTO_TEST_CASE(set_global_of_undeclared_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
+        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable \"x\".");
     }
 }
 
@@ -953,7 +953,7 @@ BOOST_AUTO_TEST_CASE(calling_a_noncallable_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Can only call functions.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Can only call functions and classes.");
     }
 }
 
@@ -1275,7 +1275,7 @@ BOOST_AUTO_TEST_CASE(inheriting_from_a_non_class_will_throw)
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Superclass must be a class.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Superclass must be a class.");
     }
 }
 

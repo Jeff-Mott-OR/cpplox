@@ -75,9 +75,9 @@ namespace motts { namespace lox
                         stack_.erase(stack_.cend() - 2, stack_.cend());
                         stack_.push_back(std::move(result));
                     } else {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be two numbers or two strings."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be two numbers or two strings.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     ++call_frames_.back().bytecode_iter;
@@ -156,7 +156,7 @@ namespace motts { namespace lox
                     } else {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
-                            << "Can only call functions.";
+                            << "Can only call functions and classes.";
                         throw std::runtime_error{os.str()};
                     }
 
@@ -174,8 +174,13 @@ namespace motts { namespace lox
                 }
 
                 case Opcode::close_upvalue: {
-                    call_frames_.back().closure->open_upvalues.back()->close();
-                    call_frames_.back().closure->open_upvalues.pop_back();
+                    if (
+                        ! call_frames_.back().closure->open_upvalues.empty()
+                        && call_frames_.back().closure->open_upvalues.back()->stack_index == stack_.size() - 1
+                    ) {
+                        call_frames_.back().closure->open_upvalues.back()->close();
+                        call_frames_.back().closure->open_upvalues.pop_back();
+                    }
                     stack_.pop_back();
 
                     ++call_frames_.back().bytecode_iter;
@@ -243,9 +248,9 @@ namespace motts { namespace lox
                     const auto& lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be numbers.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto result = std::get<double>(lhs) / std::get<double>(rhs);
@@ -294,7 +299,7 @@ namespace motts { namespace lox
                     const auto global_iter = globals_.find(variable_name);
                     if (global_iter == globals_.cend()) {
                         throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable \"" + variable_name + "\"."
                         };
                     }
                     stack_.push_back(global_iter->second);
@@ -314,6 +319,11 @@ namespace motts { namespace lox
                 case Opcode::get_property: {
                     const auto field_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& field_name = std::get<std::string>(call_frames_.back().chunk.constants().at(field_name_constant_index));
+                    if (! std::holds_alternative<GC_ptr<Instance>>(stack_.back())) {
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Only instances have fields.";
+                        throw std::runtime_error{os.str()};
+                    }
                     const auto instance = std::get<GC_ptr<Instance>>(stack_.back());
 
                     call_frames_.back().bytecode_iter += 2;
@@ -336,25 +346,25 @@ namespace motts { namespace lox
                     }
 
                     throw std::runtime_error{
-                        "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + field_name + "'."
+                        "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property \"" + field_name + "\"."
                     };
                 }
 
                 case Opcode::get_super: {
                     const auto method_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& method_name = std::get<std::string>(call_frames_.back().chunk.constants().at(method_name_constant_index));
-                    const auto superclass = std::get<GC_ptr<Class>>(stack_.back());
-                    const auto instance = std::get<GC_ptr<Instance>>(stack_.at(call_frames_.back().stack_begin_index));
+                    const auto superclass = std::get<GC_ptr<Class>>(*(stack_.cend() - 1));
+                    const auto instance = std::get<GC_ptr<Instance>>(*(stack_.cend() - 2));
 
                     const auto maybe_method_iter = superclass->methods.find(method_name);
                     if (maybe_method_iter == superclass->methods.cend()) {
                         throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + method_name + "'."
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property \"" + method_name + "\"."
                         };
                     }
 
                     const auto new_bound_method = gc_heap_.make<Bound_method>({instance, maybe_method_iter->second});
-                    stack_.pop_back();
+                    stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(new_bound_method);
 
                     call_frames_.back().bytecode_iter += 2;
@@ -377,9 +387,9 @@ namespace motts { namespace lox
                     const auto& lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be numbers.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto result = std::get<double>(lhs) > std::get<double>(rhs);
@@ -394,9 +404,9 @@ namespace motts { namespace lox
                 case Opcode::inherit: {
                     const auto& maybe_parent_class = *(stack_.end() - 1);
                     if (! std::holds_alternative<GC_ptr<Class>>(maybe_parent_class)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Superclass must be a class."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Superclass must be a class.";
+                        throw std::runtime_error{os.str()};
                     }
                     const auto parent = std::get<GC_ptr<Class>>(maybe_parent_class);
                     auto child = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
@@ -444,9 +454,9 @@ namespace motts { namespace lox
                     const auto& lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be numbers.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto result = std::get<double>(lhs) < std::get<double>(rhs);
@@ -477,9 +487,9 @@ namespace motts { namespace lox
                     const auto& lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be numbers.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto result = std::get<double>(lhs) * std::get<double>(rhs);
@@ -493,9 +503,9 @@ namespace motts { namespace lox
 
                 case Opcode::negate: {
                     if (! std::holds_alternative<double>(stack_.back())) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operand must be a number."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operand must be a number.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto negated_value = - std::get<double>(stack_.back());
@@ -554,7 +564,7 @@ namespace motts { namespace lox
                     const auto global_iter = globals_.find(variable_name);
                     if (global_iter == globals_.end()) {
                         throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable \"" + variable_name + "\"."
                         };
                     }
                     global_iter->second = stack_.back();
@@ -574,6 +584,11 @@ namespace motts { namespace lox
                 case Opcode::set_property: {
                     const auto field_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& field_name = std::get<std::string>(call_frames_.back().chunk.constants().at(field_name_constant_index));
+                    if (! std::holds_alternative<GC_ptr<Instance>>(stack_.back())) {
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Only instances have fields.";
+                        throw std::runtime_error{os.str()};
+                    }
                     auto instance = std::get<GC_ptr<Instance>>(stack_.back());
 
                     instance->fields[field_name] = *(stack_.cend() - 2);
@@ -599,9 +614,9 @@ namespace motts { namespace lox
                     const auto& lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be numbers."
-                        };
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": Operands must be numbers.";
+                        throw std::runtime_error{os.str()};
                     }
 
                     const auto result = std::get<double>(lhs) - std::get<double>(rhs);

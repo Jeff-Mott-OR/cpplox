@@ -1,6 +1,7 @@
 #include "compiler.hpp"
 
 #include <cassert>
+#include <deque>
 #include <sstream>
 #include <vector>
 
@@ -20,7 +21,7 @@ namespace
     {
         if (token.type != expected) {
             std::ostringstream os;
-            os << "[Line " << token.line << "] Error: Expected " << expected << " at \"" << token.lexeme << "\".";
+            os << "[Line " << token.line << "] Error at \"" << token.lexeme << "\": Expected " << expected << ".";
             throw std::runtime_error{os.str()};
         }
     }
@@ -48,7 +49,8 @@ namespace
 
             bool is_class_init_method {false};
         };
-        std::vector<Function_chunk> function_chunks {{}};
+        // Deque instead of vector so memory addresses and referencees will be stable.
+        std::deque<Function_chunk> function_chunks {{}};
 
         Compiler(GC_heap& gc_heap_arg, std::string_view source)
             : gc_heap {gc_heap_arg},
@@ -60,7 +62,7 @@ namespace
         {
             Token_iterator token_iter_end;
             while (token_iter != token_iter_end) {
-                compile_statement();
+                compile_declaration();
             }
 
             return std::move(function_chunks.back().chunk);
@@ -216,37 +218,6 @@ namespace
             emit_getter_setter<Opcode::set_local, Opcode::set_upvalue, Opcode::set_global>(identifier_token);
         }
 
-        void compile_property_get()
-        {
-            if (advance_if_match(Token_type::dot)) {
-                ensure_token_is(*token_iter, Token_type::identifier);
-                const auto property_name_token = *token_iter++;
-                function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
-
-                compile_function_call(property_name_token);
-                compile_property_get();
-            }
-        }
-
-        void compile_function_call(const Token& source_map_token)
-        {
-            if (advance_if_match(Token_type::left_paren)) {
-                auto arg_count = 0;
-                if (! advance_if_match(Token_type::right_paren)) {
-                    do {
-                        compile_assignment_precedence_expression();
-                        ++arg_count;
-                    } while (advance_if_match(Token_type::comma));
-                    ensure_token_is(*token_iter++, Token_type::right_paren);
-                }
-
-                function_chunks.back().chunk.emit_call(arg_count, source_map_token);
-
-                compile_function_call(source_map_token);
-                compile_property_get();
-            }
-        }
-
         void compile_primary_expression()
         {
             switch (token_iter->type) {
@@ -263,12 +234,7 @@ namespace
 
                 case Token_type::identifier:
                 case Token_type::this_: {
-                    const auto identifier_token = *token_iter++;
-                    emit_getter(identifier_token);
-
-                    compile_function_call(identifier_token);
-                    compile_property_get();
-
+                    emit_getter(*token_iter++);
                     break;
                 }
 
@@ -298,6 +264,8 @@ namespace
 
                 case Token_type::super: {
                     const auto super_token = *token_iter++;
+
+                    emit_getter(Token{Token_type::this_, "this", super_token.line});
                     emit_getter(super_token);
 
                     ensure_token_is(*token_iter++, Token_type::dot);
@@ -305,14 +273,40 @@ namespace
                     const auto method_name_token = *token_iter++;
                     function_chunks.back().chunk.emit<Opcode::get_super>(method_name_token, method_name_token);
 
-                    compile_function_call(method_name_token);
-
                     break;
                 }
 
                 case Token_type::true_: {
                     function_chunks.back().chunk.emit<Opcode::true_>(*token_iter++);
                     break;
+                }
+            }
+        }
+
+        void compile_call_precedence_expression()
+        {
+            auto maybe_callee_token = *token_iter;
+
+            compile_primary_expression();
+
+            while (token_iter->type == Token_type::left_paren || token_iter->type == Token_type::dot) {
+                if (advance_if_match(Token_type::left_paren)) {
+                    auto arg_count = 0;
+                    if (! advance_if_match(Token_type::right_paren)) {
+                        do {
+                            compile_assignment_precedence_expression();
+                            ++arg_count;
+                        } while (advance_if_match(Token_type::comma));
+                        ensure_token_is(*token_iter++, Token_type::right_paren);
+                    }
+                    function_chunks.back().chunk.emit_call(arg_count, maybe_callee_token);
+                }
+
+                if (advance_if_match(Token_type::dot)) {
+                    ensure_token_is(*token_iter, Token_type::identifier);
+                    const auto property_name_token = *token_iter++;
+                    function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
+                    maybe_callee_token = property_name_token;
                 }
             }
         }
@@ -341,7 +335,7 @@ namespace
                 return;
             }
 
-            compile_primary_expression();
+            compile_call_precedence_expression();
         }
 
         void compile_multiplication_precedence_expression()
@@ -516,12 +510,19 @@ namespace
                 }
 
                 if (peek_ahead_iter->type == Token_type::equal) {
-                    token_iter = ++peek_ahead_iter;
+                    token_iter = peek_ahead_iter;
+                    const auto equal_token = *token_iter++;
 
                     // Right expression.
                     compile_assignment_precedence_expression();
 
                     if (property_name_tokens.empty()) {
+                        if (variable_name_token.lexeme == "this") {
+                            throw std::runtime_error{
+                                "[Line " + std::to_string(equal_token.line) + "] Error at \"=\": Invalid assignment target."
+                            };
+                        }
+
                         emit_setter(variable_name_token);
                     } else {
                         emit_getter(variable_name_token);
@@ -545,7 +546,15 @@ namespace
         void compile_expression_statement()
         {
             compile_assignment_precedence_expression();
+
+            // Improve the error message a user sees for an invalid assignment.
+            if (token_iter->type == Token_type::equal) {
+                throw std::runtime_error{
+                    "[Line " + std::to_string(token_iter->line) + "] Error at \"=\": Invalid assignment target."
+                };
+            }
             ensure_token_is(*token_iter, Token_type::semicolon);
+
             function_chunks.back().chunk.emit<Opcode::pop>(*token_iter++);
         }
 
@@ -563,8 +572,12 @@ namespace
                 ensure_token_is(*token_iter++, Token_type::right_paren);
             }
 
-            ensure_token_is(*token_iter, Token_type::left_brace);
-            compile_statement();
+            ensure_token_is(*token_iter++, Token_type::left_brace);
+            Token_iterator token_iter_end;
+            while (token_iter != token_iter_end && token_iter->type != Token_type::right_brace) {
+                compile_declaration();
+            }
+            ensure_token_is(*token_iter++, Token_type::right_brace);
 
             // A default return value.
             if (function_chunks.back().is_class_init_method) {
@@ -582,6 +595,156 @@ namespace
             switch (token_iter->type) {
                 default: {
                     compile_expression_statement();
+                    break;
+                }
+
+                case Token_type::if_: {
+                    const auto if_token = *token_iter++;
+
+                    ensure_token_is(*token_iter++, Token_type::left_paren);
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter++, Token_type::right_paren);
+
+                    auto to_else_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(if_token);
+                    function_chunks.back().chunk.emit<Opcode::pop>(if_token);
+                    compile_statement();
+                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump(if_token);
+
+                    to_else_jump_backpatch.to_next_opcode();
+                    function_chunks.back().chunk.emit<Opcode::pop>(if_token);
+                    if (advance_if_match(Token_type::else_)) {
+                        compile_statement();
+                    }
+
+                    to_end_jump_backpatch.to_next_opcode();
+
+                    break;
+                }
+
+                case Token_type::for_: {
+                    const auto for_token = *token_iter++;
+                    ++scope_depth;
+
+                    ensure_token_is(*token_iter++, Token_type::left_paren);
+                    if (! advance_if_match(Token_type::semicolon)) {
+                        if (token_iter->type == Token_type::var) {
+                            compile_declaration();
+                        } else {
+                            compile_expression_statement();
+                        }
+                    }
+
+                    const auto condition_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
+                    if (advance_if_match(Token_type::semicolon)) {
+                        function_chunks.back().chunk.emit<Opcode::true_>(for_token);
+                    } else {
+                        compile_assignment_precedence_expression();
+                        ensure_token_is(*token_iter++, Token_type::semicolon);
+                    }
+                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(for_token);
+                    auto to_body_jump_backpatch = function_chunks.back().chunk.emit_jump(for_token);
+
+                    const auto increment_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
+                    if (token_iter->type != Token_type::right_paren) {
+                        compile_assignment_precedence_expression();
+                        function_chunks.back().chunk.emit<Opcode::pop>(for_token);
+                    }
+                    ensure_token_is(*token_iter++, Token_type::right_paren);
+                    function_chunks.back().chunk.emit_loop(condition_begin_bytecode_index, for_token);
+
+                    to_body_jump_backpatch.to_next_opcode();
+                    function_chunks.back().chunk.emit<Opcode::pop>(for_token);
+                    compile_statement();
+                    function_chunks.back().chunk.emit_loop(increment_begin_bytecode_index, for_token);
+
+                    to_end_jump_backpatch.to_next_opcode();
+                    function_chunks.back().chunk.emit<Opcode::pop>(for_token);
+
+                    pop_top_scope_depth(for_token);
+
+                    break;
+                }
+
+                case Token_type::left_brace: {
+                    ++token_iter;
+                    ++scope_depth;
+
+                    Token_iterator token_iter_end;
+                    while (token_iter != token_iter_end && token_iter->type != Token_type::right_brace) {
+                        compile_declaration();
+                    }
+                    ensure_token_is(*token_iter, Token_type::right_brace);
+                    pop_top_scope_depth(*token_iter++);
+
+                    break;
+                }
+
+                case Token_type::print: {
+                    const auto print_token = *token_iter++;
+
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter++, Token_type::semicolon);
+                    function_chunks.back().chunk.emit<Opcode::print>(print_token);
+
+                    break;
+                }
+
+                case Token_type::return_: {
+                    if (function_chunks.size() == 1) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return from top-level code."
+                        };
+                    }
+
+                    const auto return_token = *token_iter++;
+                    if (advance_if_match(Token_type::semicolon)) {
+                        if (function_chunks.back().is_class_init_method) {
+                            function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});
+                        } else {
+                            function_chunks.back().chunk.emit<Opcode::nil>(return_token);
+                        }
+                    } else {
+                        if (function_chunks.back().is_class_init_method) {
+                            throw std::runtime_error{
+                                "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return a value from an initializer."
+                            };
+                        }
+
+                        compile_assignment_precedence_expression();
+                        ensure_token_is(*token_iter++, Token_type::semicolon);
+                    }
+                    function_chunks.back().chunk.emit<Opcode::return_>(return_token);
+
+                    break;
+                }
+
+                case Token_type::while_: {
+                    const auto while_token = *token_iter++;
+                    const auto loop_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
+
+                    ensure_token_is(*token_iter++, Token_type::left_paren);
+                    compile_assignment_precedence_expression();
+                    ensure_token_is(*token_iter++, Token_type::right_paren);
+
+                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(while_token);
+                    function_chunks.back().chunk.emit<Opcode::pop>(while_token);
+
+                    compile_statement();
+
+                    function_chunks.back().chunk.emit_loop(loop_begin_bytecode_index, while_token);
+                    to_end_jump_backpatch.to_next_opcode();
+                    function_chunks.back().chunk.emit<Opcode::pop>(while_token);
+
+                    break;
+                }
+            }
+        }
+
+        void compile_declaration()
+        {
+            switch (token_iter->type) {
+                default: {
+                    compile_statement();
                     break;
                 }
 
@@ -671,73 +834,6 @@ namespace
                     break;
                 }
 
-                case Token_type::if_: {
-                    const auto if_token = *token_iter++;
-
-                    ensure_token_is(*token_iter++, Token_type::left_paren);
-                    compile_assignment_precedence_expression();
-                    ensure_token_is(*token_iter++, Token_type::right_paren);
-
-                    auto to_else_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(if_token);
-                    function_chunks.back().chunk.emit<Opcode::pop>(if_token);
-                    compile_statement();
-                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump(if_token);
-
-                    to_else_jump_backpatch.to_next_opcode();
-                    function_chunks.back().chunk.emit<Opcode::pop>(if_token);
-                    if (advance_if_match(Token_type::else_)) {
-                        compile_statement();
-                    }
-
-                    to_end_jump_backpatch.to_next_opcode();
-
-                    break;
-                }
-
-                case Token_type::for_: {
-                    const auto for_token = *token_iter++;
-                    ++scope_depth;
-
-                    ensure_token_is(*token_iter++, Token_type::left_paren);
-                    if (! advance_if_match(Token_type::semicolon)) {
-                        if (token_iter->type == Token_type::var) {
-                            compile_statement();
-                        } else {
-                            compile_expression_statement();
-                        }
-                    }
-
-                    const auto condition_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
-                    if (advance_if_match(Token_type::semicolon)) {
-                        function_chunks.back().chunk.emit<Opcode::true_>(for_token);
-                    } else {
-                        compile_assignment_precedence_expression();
-                        ensure_token_is(*token_iter++, Token_type::semicolon);
-                    }
-                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(for_token);
-                    auto to_body_jump_backpatch = function_chunks.back().chunk.emit_jump(for_token);
-
-                    const auto increment_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
-                    if (token_iter->type != Token_type::right_paren) {
-                        compile_assignment_precedence_expression();
-                        function_chunks.back().chunk.emit<Opcode::pop>(for_token);
-                    }
-                    ensure_token_is(*token_iter++, Token_type::right_paren);
-                    function_chunks.back().chunk.emit_loop(condition_begin_bytecode_index, for_token);
-
-                    to_body_jump_backpatch.to_next_opcode();
-                    function_chunks.back().chunk.emit<Opcode::pop>(for_token);
-                    compile_statement();
-                    function_chunks.back().chunk.emit_loop(increment_begin_bytecode_index, for_token);
-
-                    to_end_jump_backpatch.to_next_opcode();
-                    function_chunks.back().chunk.emit<Opcode::pop>(for_token);
-
-                    pop_top_scope_depth(for_token);
-
-                    break;
-                }
-
                 case Token_type::fun: {
                     const auto fun_token = *token_iter++;
                     ensure_token_is(*token_iter, Token_type::identifier);
@@ -764,59 +860,6 @@ namespace
                     break;
                 }
 
-                case Token_type::left_brace: {
-                    ++token_iter;
-                    ++scope_depth;
-
-                    Token_iterator token_iter_end;
-                    while (token_iter != token_iter_end && token_iter->type != Token_type::right_brace) {
-                        compile_statement();
-                    }
-                    ensure_token_is(*token_iter, Token_type::right_brace);
-                    pop_top_scope_depth(*token_iter++);
-
-                    break;
-                }
-
-                case Token_type::print: {
-                    const auto print_token = *token_iter++;
-
-                    compile_assignment_precedence_expression();
-                    ensure_token_is(*token_iter++, Token_type::semicolon);
-                    function_chunks.back().chunk.emit<Opcode::print>(print_token);
-
-                    break;
-                }
-
-                case Token_type::return_: {
-                    if (function_chunks.size() == 1) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(token_iter->line) + "] Error: Can't return from top-level code."
-                        };
-                    }
-
-                    const auto return_token = *token_iter++;
-                    if (advance_if_match(Token_type::semicolon)) {
-                        if (function_chunks.back().is_class_init_method) {
-                            function_chunks.back().chunk.emit<Opcode::get_local>(0, Token{Token_type::this_, "this", return_token.line});
-                        } else {
-                            function_chunks.back().chunk.emit<Opcode::nil>(return_token);
-                        }
-                    } else {
-                        if (function_chunks.back().is_class_init_method) {
-                            throw std::runtime_error{
-                                "[Line " + std::to_string(token_iter->line) + "] Error: Can't return a value from an initializer."
-                            };
-                        }
-
-                        compile_assignment_precedence_expression();
-                        ensure_token_is(*token_iter++, Token_type::semicolon);
-                    }
-                    function_chunks.back().chunk.emit<Opcode::return_>(return_token);
-
-                    break;
-                }
-
                 case Token_type::var: {
                     const auto var_token = *token_iter++;
 
@@ -838,26 +881,6 @@ namespace
                     } else {
                         function_chunks.back().tracked_locals.back().initialized = true;
                     }
-
-                    break;
-                }
-
-                case Token_type::while_: {
-                    const auto while_token = *token_iter++;
-                    const auto loop_begin_bytecode_index = function_chunks.back().chunk.bytecode().size();
-
-                    ensure_token_is(*token_iter++, Token_type::left_paren);
-                    compile_assignment_precedence_expression();
-                    ensure_token_is(*token_iter++, Token_type::right_paren);
-
-                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(while_token);
-                    function_chunks.back().chunk.emit<Opcode::pop>(while_token);
-
-                    compile_statement();
-
-                    function_chunks.back().chunk.emit_loop(loop_begin_bytecode_index, while_token);
-                    to_end_jump_backpatch.to_next_opcode();
-                    function_chunks.back().chunk.emit<Opcode::pop>(while_token);
 
                     break;
                 }

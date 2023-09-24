@@ -904,7 +904,7 @@ BOOST_AUTO_TEST_CASE(return_outside_function_will_throw)
     try {
         compile(gc_heap, "return;");
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error: Can't return from top-level code.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"return\": Can't return from top-level code.");
     }
 }
 
@@ -976,10 +976,8 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
         "    7 : 15 02    GET_LOCAL [2]           ; middle @ 10\n"
         "    9 : 17 00    CALL (0)                ; middle @ 10\n"
         "   11 : 0b       POP                     ; ; @ 10\n"
-        "   12 : 0b       POP                     ; } @ 11\n"
-        "   13 : 1c       CLOSE_UPVALUE           ; } @ 11\n"
-        "   14 : 01       NIL                     ; fun @ 1\n"
-        "   15 : 18       RETURN                  ; fun @ 1\n"
+        "   12 : 01       NIL                     ; fun @ 1\n"
+        "   13 : 18       RETURN                  ; fun @ 1\n"
         // fun middle() {
         "## <fn middle> chunk\n"
         "Constants:\n"
@@ -990,9 +988,8 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
         "    5 : 15 01    GET_LOCAL [1]           ; inner @ 8\n"
         "    7 : 17 00    CALL (0)                ; inner @ 8\n"
         "    9 : 0b       POP                     ; ; @ 8\n"
-        "   10 : 0b       POP                     ; } @ 9\n"
-        "   11 : 01       NIL                     ; fun @ 3\n"
-        "   12 : 18       RETURN                  ; fun @ 3\n"
+        "   10 : 01       NIL                     ; fun @ 3\n"
+        "   11 : 18       RETURN                  ; fun @ 3\n"
         // fun inner() {
         "## <fn inner> chunk\n"
         "Constants:\n"
@@ -1056,10 +1053,8 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "           01 01 | ^ [1]                 ; fun @ 3\n"
         "    7 : 15 02    GET_LOCAL [2]           ; middle @ 10\n"
         "    9 : 18       RETURN                  ; return @ 10\n"
-        "   10 : 0b       POP                     ; } @ 11\n"
-        "   11 : 1c       CLOSE_UPVALUE           ; } @ 11\n"
-        "   12 : 01       NIL                     ; fun @ 1\n"
-        "   13 : 18       RETURN                  ; fun @ 1\n"
+        "   10 : 01       NIL                     ; fun @ 1\n"
+        "   11 : 18       RETURN                  ; fun @ 1\n"
         // fun middle() {
         "## <fn middle> chunk\n"
         "Constants:\n"
@@ -1070,9 +1065,8 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "    5 : 15 01    GET_LOCAL [1]           ; inner @ 8\n"
         "    7 : 17 00    CALL (0)                ; inner @ 8\n"
         "    9 : 0b       POP                     ; ; @ 8\n"
-        "   10 : 0b       POP                     ; } @ 9\n"
-        "   11 : 01       NIL                     ; fun @ 3\n"
-        "   12 : 18       RETURN                  ; fun @ 3\n"
+        "   10 : 01       NIL                     ; fun @ 3\n"
+        "   11 : 18       RETURN                  ; fun @ 3\n"
         // fun inner() {
         "## <fn inner> chunk\n"
         "Constants:\n"
@@ -1367,10 +1361,9 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
         // return inner;
         "    5 : 15 01    GET_LOCAL [1]           ; inner @ 6\n"
         "    7 : 18       RETURN                  ; return @ 6\n"
-        "    8 : 0b       POP                     ; } @ 7\n"
         // }
-        "    9 : 01       NIL                     ; method @ 2\n"
-        "   10 : 18       RETURN                  ; method @ 2\n"
+        "    8 : 01       NIL                     ; method @ 2\n"
+        "    9 : 18       RETURN                  ; method @ 2\n"
         // fun inner() {
         "## <fn inner> chunk\n"
         "Constants:\n"
@@ -1448,7 +1441,7 @@ BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw)
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 3] Error: Can't return a value from an initializer.");
+        BOOST_TEST(error.what() == "[Line 3] Error at \"return\": Can't return a value from an initializer.");
     }
 }
 
@@ -1556,11 +1549,12 @@ BOOST_AUTO_TEST_CASE(subclass_can_access_super)
         "Constants:\n"
         "    0 : method\n"
         "Bytecode:\n"
-        "    0 : 1a 00    GET_UPVALUE [0]         ; super @ 6\n"
-        "    2 : 22 00    GET_SUPER [0]           ; method @ 6\n"
-        "    4 : 17 00    CALL (0)                ; method @ 6\n"
-        "    6 : 0b       POP                     ; ; @ 6\n"
-        "    7 : 01       NIL                     ; method @ 5\n"
-        "    8 : 18       RETURN                  ; method @ 5\n";
+        "    0 : 15 00    GET_LOCAL [0]           ; this @ 6\n"
+        "    2 : 1a 00    GET_UPVALUE [0]         ; super @ 6\n"
+        "    4 : 22 00    GET_SUPER [0]           ; method @ 6\n"
+        "    6 : 17 00    CALL (0)                ; super @ 6\n"
+        "    8 : 0b       POP                     ; ; @ 6\n"
+        "    9 : 01       NIL                     ; method @ 5\n"
+        "   10 : 18       RETURN                  ; method @ 5\n";
     BOOST_TEST(os.str() == expected);
 }
