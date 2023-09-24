@@ -6,8 +6,11 @@ WORKDIR /project/build
 COPY CMakeLists.txt /project
 RUN cmake .. -G Ninja -DDEPS_ONLY=TRUE && cmake --build .
 
-COPY . /project
-RUN cmake .. -G Ninja -DDEPS_ONLY=FALSE && cmake --build .
+COPY src /project/src
+RUN cmake .. -G Ninja -DDEPS_ONLY=FALSE -DENABLE_TESTING=FALSE && cmake --build .
+
+COPY test /project/test
+RUN cmake .. -G Ninja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE && cmake --build .
 RUN ctest --verbose --output-on-failure
 
 CMD ./project

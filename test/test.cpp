@@ -4,7 +4,7 @@
 #include <sstream>
 #include <stdexcept>
 
-#include "scanner.hpp"
+#include "../src/scanner.hpp"
 
 BOOST_AUTO_TEST_CASE(token_types_can_be_printed) {
     {
