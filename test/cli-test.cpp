@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(debug_option_will_print_bytecode_and_stack)
         "    0 : Hello, World!\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; \"Hello, World!\" @ 1\n"
-        "    2 : 05       PRINT                   ; print @ 1\n"
+        "    2 : 18       PRINT                   ; print @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : Hello, World!\n"

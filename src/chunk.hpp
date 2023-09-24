@@ -15,37 +15,39 @@ namespace motts { namespace lox
         X(nil) \
         X(true_) \
         X(false_) \
+        X(pop) \
+        X(get_local) \
+        X(set_local) \
+        X(get_global) \
+        X(define_global) \
+        X(set_global) \
+        X(get_upvalue) \
+        X(set_upvalue) \
+        X(get_property) \
+        X(set_property) \
+        X(get_super) \
+        X(equal) \
+        X(greater) \
+        X(less) \
         X(add) \
-        X(print) \
         X(subtract) \
         X(multiply) \
         X(divide) \
-        X(negate) \
         X(not_) \
-        X(pop) \
-        X(less) \
-        X(greater) \
-        X(equal) \
-        X(jump_if_false) \
+        X(negate) \
+        X(print) \
         X(jump) \
-        X(set_global) \
-        X(get_global) \
+        X(jump_if_false) \
         X(loop) \
-        X(define_global) \
-        X(get_local) \
-        X(set_local) \
         X(call) \
-        X(return_) \
+        X(invoke) \
+        X(super_invoke) \
         X(closure) \
-        X(get_upvalue) \
-        X(set_upvalue) \
         X(close_upvalue) \
+        X(return_) \
         X(class_) \
-        X(method) \
-        X(get_property) \
-        X(set_property) \
         X(inherit) \
-        X(get_super)
+        X(method)
 
     enum class Opcode
     {
