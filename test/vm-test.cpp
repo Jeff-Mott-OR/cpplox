@@ -508,6 +508,45 @@ BOOST_AUTO_TEST_CASE(jump_will_run)
     BOOST_TEST(os.str() == "end\n");
 }
 
+BOOST_AUTO_TEST_CASE(if_else_will_leave_clean_stack)
+{
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os, /* debug = */ true};
+
+    const auto chunk = compile(gc_heap, "if (true) nil;");
+    vm.run(chunk);
+
+    const auto expected =
+        "\n# Running chunk:\n\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0f 00 06 JUMP_IF_FALSE +6 -> 10  ; if @ 1\n"
+        "    4 : 0b       POP                     ; if @ 1\n"
+        "    5 : 01       NIL                     ; nil @ 1\n"
+        "    6 : 0b       POP                     ; ; @ 1\n"
+        "    7 : 10 00 01 JUMP +1 -> 11           ; if @ 1\n"
+        "   10 : 0b       POP                     ; if @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : true\n"
+        "\n"
+        "Stack:\n"
+        "    0 : true\n"
+        "\n"
+        "Stack:\n"
+        "\n"
+        "Stack:\n"
+        "    0 : nil\n"
+        "\n"
+        "Stack:\n"
+        "\n"
+        "Stack:\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
+}
+
 BOOST_AUTO_TEST_CASE(set_get_global_will_run)
 {
     motts::lox::Chunk chunk;

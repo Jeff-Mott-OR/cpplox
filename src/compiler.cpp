@@ -678,23 +678,18 @@ namespace
                     compile_assignment_precedence_expression();
                     ensure_token_is(*token_iter++, Token_type::right_paren);
 
-                    auto to_else_or_end_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(if_token);
+                    auto to_else_jump_backpatch = function_chunks.back().chunk.emit_jump_if_false(if_token);
                     function_chunks.back().chunk.emit<Opcode::pop>(if_token);
                     compile_statement();
+                    auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump(if_token);
 
-                    if (token_iter->type == Token_type::else_) {
-                        const auto else_token = *token_iter++;
-                        auto to_end_jump_backpatch = function_chunks.back().chunk.emit_jump(else_token);
-
-                        to_else_or_end_jump_backpatch.to_next_opcode();
-                        function_chunks.back().chunk.emit<Opcode::pop>(if_token);
+                    to_else_jump_backpatch.to_next_opcode();
+                    function_chunks.back().chunk.emit<Opcode::pop>(if_token);
+                    if (advance_if_match(Token_type::else_)) {
                         compile_statement();
-
-                        to_end_jump_backpatch.to_next_opcode();
-                    } else {
-                        to_else_or_end_jump_backpatch.to_next_opcode();
-                        function_chunks.back().chunk.emit<Opcode::pop>(if_token);
                     }
+
+                    to_end_jump_backpatch.to_next_opcode();
 
                     break;
                 }

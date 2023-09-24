@@ -584,11 +584,12 @@ BOOST_AUTO_TEST_CASE(if_will_compile)
         "Constants:\n"
         "Bytecode:\n"
         "    0 : 02       TRUE                    ; true @ 1\n"
-        "    1 : 0f 00 03 JUMP_IF_FALSE +3 -> 7   ; if @ 1\n"
+        "    1 : 0f 00 06 JUMP_IF_FALSE +6 -> 10  ; if @ 1\n"
         "    4 : 0b       POP                     ; if @ 1\n"
         "    5 : 01       NIL                     ; nil @ 1\n"
         "    6 : 0b       POP                     ; ; @ 1\n"
-        "    7 : 0b       POP                     ; if @ 1\n";
+        "    7 : 10 00 01 JUMP +1 -> 11           ; if @ 1\n"
+        "   10 : 0b       POP                     ; if @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -608,10 +609,37 @@ BOOST_AUTO_TEST_CASE(if_else_will_compile)
         "    4 : 0b       POP                     ; if @ 1\n"
         "    5 : 01       NIL                     ; nil @ 1\n"
         "    6 : 0b       POP                     ; ; @ 1\n"
-        "    7 : 10 00 03 JUMP +3 -> 13           ; else @ 1\n"
+        "    7 : 10 00 03 JUMP +3 -> 13           ; if @ 1\n"
         "   10 : 0b       POP                     ; if @ 1\n"
         "   11 : 01       NIL                     ; nil @ 1\n"
         "   12 : 0b       POP                     ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(if_block_will_create_a_scope)
+{
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(gc_heap, "{ var x = 42; if (true) { var x = 14; } x; }");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : 14\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 02       TRUE                    ; true @ 1\n"
+        "    3 : 0f 00 07 JUMP_IF_FALSE +7 -> 13  ; if @ 1\n"
+        "    6 : 0b       POP                     ; if @ 1\n"
+        "    7 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
+        "    9 : 0b       POP                     ; } @ 1\n"
+        "   10 : 10 00 01 JUMP +1 -> 14           ; if @ 1\n"
+        "   13 : 0b       POP                     ; if @ 1\n"
+        "   14 : 15 00    GET_LOCAL [0]           ; x @ 1\n"
+        "   16 : 0b       POP                     ; ; @ 1\n"
+        "   17 : 0b       POP                     ; } @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
