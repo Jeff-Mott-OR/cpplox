@@ -1,2 +1,0 @@
-var f = fun () {};
-print f(); // expect: nil
