@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include <benchmark/benchmark.h>
 #include <boost/process.hpp>
 

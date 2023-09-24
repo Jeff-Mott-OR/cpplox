@@ -61,7 +61,7 @@ if(NOT DEPS_ONLY)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
     add_executable(cpploxbc src/main.cpp)
-    target_link_libraries(cpploxbc PRIVATE cpploxbc_lib Boost::program_options)
+    target_link_libraries(cpploxbc PUBLIC cpploxbc_lib Boost::program_options)
     set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
 
     if(ENABLE_TESTING)
@@ -86,26 +86,26 @@ if(NOT DEPS_ONLY)
         endif()
 
         add_executable(scanner_test test/scanner-test.cpp)
-        target_link_libraries(scanner_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
+        target_link_libraries(scanner_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME scanner_test COMMAND scanner_test)
 
         add_executable(compiler_test test/compiler-test.cpp)
-        target_link_libraries(compiler_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
+        target_link_libraries(compiler_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME compiler_test COMMAND compiler_test)
 
         add_executable(vm_test test/vm-test.cpp)
-        target_link_libraries(vm_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
+        target_link_libraries(vm_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME vm_test COMMAND vm_test)
 
         add_executable(memory_test test/memory-test.cpp)
-        target_link_libraries(memory_test PRIVATE cpploxbc_lib Boost::unit_test_framework)
+        target_link_libraries(memory_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME memory_test COMMAND memory_test)
 
         add_executable(cli_test test/cli-test.cpp)
-        target_link_libraries(cli_test PRIVATE Boost::process Boost::unit_test_framework)
+        target_link_libraries(cli_test PUBLIC Boost::process Boost::unit_test_framework)
         add_test(NAME cli_test COMMAND cli_test)
 
         add_executable(bench_test test/bench-test.cpp)
-        target_link_libraries(bench_test PRIVATE cpploxbc_lib benchmark::benchmark Boost::process)
+        target_link_libraries(bench_test PUBLIC cpploxbc_lib benchmark::benchmark Boost::process)
     endif()
 endif()

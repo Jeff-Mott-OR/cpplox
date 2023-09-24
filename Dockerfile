@@ -1,65 +1,43 @@
+ARG CC=clang
+
 FROM ubuntu:22.04 AS base
 
-    RUN apt update && apt install -y git ninja-build cmake cppcheck valgrind
+    RUN apt update && apt install -y cmake git ninja-build
 
-FROM base AS gcc
-
-    RUN apt install -y build-essential
-
-FROM base AS clang
+FROM base AS base-clang
 
     RUN apt install -y clang
 
-FROM gcc AS gcc_build
+FROM base AS base-gcc
 
-    # Fetch deps and cache
+    RUN apt install -y build-essential
+
+FROM base-$CC AS deps
+
     WORKDIR /project/build
     COPY CMakeLists.txt /project
     RUN cmake .. -GNinja -DDEPS_ONLY=TRUE
     RUN cmake --build .
 
-    # Build project
+FROM deps AS build
+
     COPY src /project/src
-    RUN cmake .. -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=FALSE
+    RUN cmake .. -GNinja -DDEPS_ONLY=FALSE
     RUN cmake --build .
 
-    # Build and run tests
+    CMD ./cpploxbc
+
+FROM build AS test
+
+    RUN apt install -y cppcheck valgrind
     COPY test /project/test
     RUN cmake .. -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE
     RUN cmake --build .
     RUN ctest --verbose --output-on-failure
 
-FROM clang AS clang_build
-
-    # Fetch deps and cache
-    WORKDIR /project/build
-    COPY CMakeLists.txt /project
-    RUN cmake .. -GNinja -DDEPS_ONLY=TRUE
-    RUN cmake --build .
-
-    # Build project
-    COPY src /project/src
-    RUN cmake .. -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=FALSE
-    RUN cmake --build .
-
-    # Build and run tests
-    COPY test /project/test
-    RUN cmake .. -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE
-    RUN cmake --build .
-    RUN ctest --verbose --output-on-failure
-
-FROM gcc_build AS gcc_debug
+FROM test as debug
 
     RUN apt install -y gdb vim
-    RUN cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE
+    RUN cmake .. -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE -DCMAKE_BUILD_TYPE=Debug
     RUN cmake --build .
     RUN ctest --verbose --output-on-failure
-
-FROM clang_build AS clang_debug
-
-    RUN apt install -y gdb vim
-    RUN cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE
-    RUN cmake --build .
-    RUN ctest --verbose --output-on-failure
-
-CMD ./project
