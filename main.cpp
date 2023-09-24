@@ -136,6 +136,17 @@ namespace motts { namespace lox {
                 return scan_number_token();
             }
 
+            switch (next_char) {
+                default:
+                    throw std::runtime_error{
+                        "[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."
+                    };
+
+                // Skip whitespace
+                case ' ':
+                    continue;
+            }
+
             return Token{Token_type::eof, {token_begin_, token_end_}, line_};
         }
 
