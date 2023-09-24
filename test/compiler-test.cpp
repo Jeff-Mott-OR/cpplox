@@ -485,8 +485,9 @@ BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces) {
         "    7 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
         "    9 : 16 00    SET_LOCAL [0]           ; x @ 1\n"
         "   11 : 0b       POP                     ; ; @ 1\n"
-        "   12 : 12 00    GET_GLOBAL [0]          ; x @ 1\n"
-        "   14 : 0b       POP                     ; ; @ 1\n";
+        "   12 : 0b       POP                     ; } @ 1\n"
+        "   13 : 12 00    GET_GLOBAL [0]          ; x @ 1\n"
+        "   15 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -547,4 +548,106 @@ BOOST_AUTO_TEST_CASE(if_else_will_compile) {
         "   11 : 01       NIL                     ; nil @ 1\n"
         "   12 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(for_loops_will_compile) {
+    const auto chunk = motts::lox::compile("for (var x = 0; x != 3; x = x + 1) nil;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 0\n"
+        "    1 : 3\n"
+        "    2 : 1\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 0 @ 1\n"
+        "    2 : 15 00    GET_LOCAL [0]           ; x @ 1\n"
+        "    4 : 00 01    CONSTANT [1]            ; 3 @ 1\n"
+        "    6 : 0e       EQUAL                   ; != @ 1\n"
+        "    7 : 0a       NOT                     ; != @ 1\n"
+        "    8 : 0f 00 14 JUMP_IF_FALSE +20 -> 31 ; for @ 1\n"
+        "   11 : 10 00 0b JUMP +11 -> 25          ; for @ 1\n"
+        "   14 : 15 00    GET_LOCAL [0]           ; x @ 1\n"
+        "   16 : 00 02    CONSTANT [2]            ; 1 @ 1\n"
+        "   18 : 04       ADD                     ; + @ 1\n"
+        "   19 : 16 00    SET_LOCAL [0]           ; x @ 1\n"
+        "   21 : 0b       POP                     ; for @ 1\n"
+        "   22 : 13 00 17 LOOP -23 -> 2           ; for @ 1\n"
+        "   25 : 0b       POP                     ; for @ 1\n"
+        "   26 : 01       NIL                     ; nil @ 1\n"
+        "   27 : 0b       POP                     ; ; @ 1\n"
+        "   28 : 13 00 11 LOOP -17 -> 14          ; for @ 1\n"
+        "   31 : 0b       POP                     ; for @ 1\n"
+        "   32 : 0b       POP                     ; for @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank) {
+    const auto chunk = motts::lox::compile("for (;;) nil;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 02       TRUE                    ; for @ 1\n"
+        "    1 : 0f 00 0c JUMP_IF_FALSE +12 -> 16 ; for @ 1\n"
+        "    4 : 10 00 03 JUMP +3 -> 10           ; for @ 1\n"
+        "    7 : 13 00 0a LOOP -10 -> 0           ; for @ 1\n"
+        "   10 : 0b       POP                     ; for @ 1\n"
+        "   11 : 01       NIL                     ; nil @ 1\n"
+        "   12 : 0b       POP                     ; ; @ 1\n"
+        "   13 : 13 00 09 LOOP -9 -> 7            ; for @ 1\n"
+        "   16 : 0b       POP                     ; for @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local) {
+    const auto chunk = motts::lox::compile("{ var x = 42; for (var x = 0; x != 3; x = x + 1) nil; }");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : 0\n"
+        "    2 : 3\n"
+        "    3 : 1\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 0 @ 1\n"
+        "    4 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "    6 : 00 02    CONSTANT [2]            ; 3 @ 1\n"
+        "    8 : 0e       EQUAL                   ; != @ 1\n"
+        "    9 : 0a       NOT                     ; != @ 1\n"
+        "   10 : 0f 00 14 JUMP_IF_FALSE +20 -> 33 ; for @ 1\n"
+        "   13 : 10 00 0b JUMP +11 -> 27          ; for @ 1\n"
+        "   16 : 15 01    GET_LOCAL [1]           ; x @ 1\n"
+        "   18 : 00 03    CONSTANT [3]            ; 1 @ 1\n"
+        "   20 : 04       ADD                     ; + @ 1\n"
+        "   21 : 16 01    SET_LOCAL [1]           ; x @ 1\n"
+        "   23 : 0b       POP                     ; for @ 1\n"
+        "   24 : 13 00 17 LOOP -23 -> 4           ; for @ 1\n"
+        "   27 : 0b       POP                     ; for @ 1\n"
+        "   28 : 01       NIL                     ; nil @ 1\n"
+        "   29 : 0b       POP                     ; ; @ 1\n"
+        "   30 : 13 00 11 LOOP -17 -> 16          ; for @ 1\n"
+        "   33 : 0b       POP                     ; for @ 1\n"
+        "   34 : 0b       POP                     ; for @ 1\n"
+        "   35 : 0b       POP                     ; } @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw) {
+    BOOST_CHECK_THROW(motts::lox::compile("for (print x;;) nil;"), std::exception);
+
+    try {
+        motts::lox::compile("for (print x;;)");
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Unexpected token \"print\".");
+    }
 }

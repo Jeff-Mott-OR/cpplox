@@ -75,6 +75,18 @@ namespace {
             }
 
         private:
+            auto push_local_scope() {
+                ++scope_depth_;
+            }
+
+            auto pop_local_scope(const Token& source_map_token) {
+                while (! tracked_locals_.empty() && tracked_locals_.back().depth == scope_depth_) {
+                    tracked_locals_.pop_back();
+                    chunk_.emit<Opcode::pop>(source_map_token);
+                }
+                --scope_depth_;
+            }
+
             void compile_primary_expression() {
                 switch (token_iter_->type) {
                     default: {
@@ -371,20 +383,16 @@ namespace {
             void compile_statement() {
                 if (token_iter_->type == Token_type::left_brace) {
                     ++token_iter_;
-
-                    ++scope_depth_;
-                    const auto _ = gsl::finally([&] () {
-                        while (! tracked_locals_.empty() && tracked_locals_.back().depth == scope_depth_) {
-                            tracked_locals_.pop_back();
-                        }
-                        --scope_depth_;
-                    });
+                    push_local_scope();
 
                     Token_iterator token_iter_end;
                     for ( ; token_iter_ != token_iter_end && token_iter_->type != Token_type::right_brace; ) {
                         compile_statement();
                     }
-                    ensure_token_is(*token_iter_++, Token_type::right_brace);
+                    ensure_token_is(*token_iter_, Token_type::right_brace);
+                    const auto right_brace_token = *token_iter_++;
+
+                    pop_local_scope(right_brace_token);
 
                     return;
                 }
@@ -413,6 +421,53 @@ namespace {
                         to_else_or_end_jump_backpatch.to_next_opcode();
                         chunk_.emit<Opcode::pop>(if_token);
                     }
+
+                    return;
+                }
+
+                if (token_iter_->type == Token_type::for_) {
+                    const auto for_token = *token_iter_++;
+                    push_local_scope();
+
+                    ensure_token_is(*token_iter_++, Token_type::left_paren);
+                    if (token_iter_->type != Token_type::semicolon) {
+                        if (token_iter_->type == Token_type::var) {
+                            compile_statement();
+                        } else {
+                            compile_expression_statement();
+                        }
+                    } else {
+                        ++token_iter_;
+                    }
+
+                    const auto condition_begin_bytecode_index = chunk_.bytecode().size();
+                    if (token_iter_->type != Token_type::semicolon) {
+                        compile_assignment_precedence_expression();
+                        ensure_token_is(*token_iter_++, Token_type::semicolon);
+                    } else {
+                        chunk_.emit<Opcode::true_>(for_token);
+                        ++token_iter_;
+                    }
+                    auto to_end_jump_backpatch = chunk_.emit_jump_if_false(for_token);
+                    auto to_body_jump_backpatch = chunk_.emit_jump(for_token);
+
+                    const auto increment_begin_bytecode_index = chunk_.bytecode().size();
+                    if (token_iter_->type != Token_type::right_paren) {
+                        compile_assignment_precedence_expression();
+                        chunk_.emit<Opcode::pop>(for_token);
+                    }
+                    ensure_token_is(*token_iter_++, Token_type::right_paren);
+                    chunk_.emit_loop(condition_begin_bytecode_index, for_token);
+
+                    to_body_jump_backpatch.to_next_opcode();
+                    chunk_.emit<Opcode::pop>(for_token);
+                    compile_statement();
+                    chunk_.emit_loop(increment_begin_bytecode_index, for_token);
+
+                    to_end_jump_backpatch.to_next_opcode();
+                    chunk_.emit<Opcode::pop>(for_token);
+
+                    pop_local_scope(for_token);
 
                     return;
                 }

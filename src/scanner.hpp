@@ -87,7 +87,6 @@ namespace motts { namespace lox {
             Token_iterator& operator++();
             Token_iterator operator++(int);
             bool operator==(const Token_iterator&) const;
-
             const Token& operator*() const;
             const Token* operator->() const;
 
