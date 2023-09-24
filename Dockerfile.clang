@@ -8,5 +8,6 @@ RUN cmake .. -G Ninja -DDEPS_ONLY=TRUE && cmake --build .
 
 COPY . /project
 RUN cmake .. -G Ninja -DDEPS_ONLY=FALSE && cmake --build .
+RUN ctest --verbose --output-on-failure
 
 CMD ./project

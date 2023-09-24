@@ -31,5 +31,5 @@ if(NOT DEPS_ONLY)
     target_compile_options(project PRIVATE -Wall -Wextra -Werror)
 
     enable_testing()
-    add_test(NAME cppcheck COMMAND cppcheck --error-exitcode=1 main.cpp)
+    add_test(NAME cppcheck COMMAND cppcheck --error-exitcode=1 "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
 endif()
