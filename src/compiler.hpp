@@ -32,7 +32,8 @@ namespace motts { namespace lox {
         X(jump) \
         X(set_global) \
         X(get_global) \
-        X(loop)
+        X(loop) \
+        X(define_global)
 
     enum class Opcode {
         #define X(name) name,
@@ -82,12 +83,13 @@ namespace motts { namespace lox {
             // This template is useful for simple, single-byte opcodes
             template<Opcode> void emit(const Token& source_map_token);
 
+            // This template is for the *_global opcodes
+            template<Opcode> void emit(const Token& variable_name, const Token& source_map_token);
+
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
             Jump_backpatch emit_jump(const Token& source_map_token);
             void emit_loop(Bytecode_vector::size_type loop_begin_bytecode_index, const Token& source_map_token);
-            void emit_get_global(const Token& variable_name, const Token& source_map_token);
-            void emit_set_global(const Token& variable_name, const Token& source_map_token);
 
         private:
             decltype(Chunk::constants_)::size_type insert_constant(const Dynamic_type_value& constant_value);

@@ -102,6 +102,21 @@ namespace motts { namespace lox {
     template void Chunk::emit<Opcode::subtract>(const Token&);
     template void Chunk::emit<Opcode::true_>(const Token&);
 
+    template<Opcode opcode>
+        void Chunk::emit(const Token& variable_name, const Token& source_map_token) {
+            const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
+
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
+            bytecode_.push_back(constant_index);
+
+            source_map_tokens_.push_back(source_map_token);
+            source_map_tokens_.push_back(source_map_token);
+        }
+
+    template void Chunk::emit<Opcode::define_global>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::get_global>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::set_global>(const Token&, const Token&);
+
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = insert_constant(constant_value);
 
@@ -150,26 +165,6 @@ namespace motts { namespace lox {
         source_map_tokens_.push_back(source_map_token);
     }
 
-    void Chunk::emit_get_global(const Token& variable_name, const Token& source_map_token) {
-        const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
-
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::get_global));
-        bytecode_.push_back(constant_index);
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-    }
-
-    void Chunk::emit_set_global(const Token& variable_name, const Token& source_map_token) {
-        const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
-
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::set_global));
-        bytecode_.push_back(constant_index);
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-    }
-
     decltype(Chunk::constants_)::size_type Chunk::insert_constant(const Dynamic_type_value& constant_value) {
         const auto maybe_constant_iter = std::find(constants_.cbegin(), constants_.cend(), constant_value);
         if (maybe_constant_iter != constants_.cend()) {
@@ -209,6 +204,7 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unexpected opcode."};
 
                 case Opcode::constant:
+                case Opcode::define_global:
                 case Opcode::get_global:
                 case Opcode::set_global: {
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
@@ -269,7 +265,7 @@ namespace motts { namespace lox {
     /* no export */ static void ensure_token_is(const Token& token, const Token_type& expected) {
         if (token.type != expected) {
             std::ostringstream os;
-            os << "[Line " << token.line << "] Error: Expected " << expected << ", at \"" << token.lexeme << "\".";
+            os << "[Line " << token.line << "] Error: Expected " << expected << " at \"" << token.lexeme << "\".";
             throw std::runtime_error{os.str()};
         }
     }
@@ -288,7 +284,7 @@ namespace motts { namespace lox {
                 break;
 
             case Token_type::identifier:
-                chunk.emit_get_global(*token_iter, *token_iter);
+                chunk.emit<Opcode::get_global>(*token_iter, *token_iter);
                 break;
 
             case Token_type::left_paren:
@@ -468,8 +464,7 @@ namespace motts { namespace lox {
         while (token_iter->type == Token_type::and_) {
             auto short_circuit_jump_backpatch = chunk.emit_jump_if_false(*token_iter);
             // If the LHS was true, then the expression now depends solely on the RHS, and we can discard the LHS
-            chunk.emit<Opcode::pop>(*token_iter);
-            ++token_iter;
+            chunk.emit<Opcode::pop>(*token_iter++);
 
             // Right expression
             compile_equality_precedence_expression(chunk, token_iter);
@@ -488,8 +483,7 @@ namespace motts { namespace lox {
 
             to_rhs_jump_backpatch.to_next_opcode();
             // If the LHS was false, then the expression now depends solely on the RHS, and we can discard the LHS
-            chunk.emit<Opcode::pop>(*token_iter);
-            ++token_iter;
+            chunk.emit<Opcode::pop>(*token_iter++);
 
             // Right expression
             compile_and_precedence_expression(chunk, token_iter);
@@ -512,7 +506,7 @@ namespace motts { namespace lox {
                 // Right expression
                 compile_assignment_precedence_expression(chunk, token_iter);
 
-                chunk.emit_set_global(variable_name_token, assign_token);
+                chunk.emit<Opcode::set_global>(variable_name_token, assign_token);
 
                 return;
             }
@@ -529,12 +523,24 @@ namespace motts { namespace lox {
     }
 
     void compile_statement(Chunk& chunk, Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::left_brace) {
+            ++token_iter;
+
+            Token_iterator token_iter_end;
+            for ( ; token_iter != token_iter_end && token_iter->type != Token_type::right_brace; ) {
+                compile_statement(chunk, token_iter);
+            }
+
+            ensure_token_is(*token_iter++, Token_type::right_brace);
+
+            return;
+        }
+
         if (token_iter->type == Token_type::print) {
             const auto print_token = *token_iter++;
 
             compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter, Token_type::semicolon);
-            ++token_iter;
+            ensure_token_is(*token_iter++, Token_type::semicolon);
             chunk.emit<Opcode::print>(print_token);
 
             return;
@@ -544,13 +550,9 @@ namespace motts { namespace lox {
             const auto while_token = *token_iter++;
             const auto loop_begin_bytecode_index = chunk.bytecode().size();
 
-            ensure_token_is(*token_iter, Token_type::left_paren);
-            ++token_iter;
-
+            ensure_token_is(*token_iter++, Token_type::left_paren);
             compile_assignment_precedence_expression(chunk, token_iter);
-
-            ensure_token_is(*token_iter, Token_type::right_paren);
-            ++token_iter;
+            ensure_token_is(*token_iter++, Token_type::right_paren);
 
             auto to_end_jump_backpatch = chunk.emit_jump_if_false(while_token);
             chunk.emit<Opcode::pop>(while_token);
@@ -564,16 +566,21 @@ namespace motts { namespace lox {
             return;
         }
 
-        if (token_iter->type == Token_type::left_brace) {
-            ++token_iter;
+        if (token_iter->type == Token_type::var) {
+            const auto var_token = *token_iter++;
 
-            Token_iterator token_iter_end;
-            for ( ; token_iter != token_iter_end && token_iter->type != Token_type::right_brace; ) {
-                compile_statement(chunk, token_iter);
+            ensure_token_is(*token_iter, Token_type::identifier);
+            const auto variable_name_token = *token_iter++;
+
+            if (token_iter->type == Token_type::equal) {
+                ++token_iter;
+                compile_assignment_precedence_expression(chunk, token_iter);
+            } else {
+                chunk.emit<Opcode::nil>(var_token);
             }
 
-            ensure_token_is(*token_iter, Token_type::right_brace);
-            ++token_iter;
+            ensure_token_is(*token_iter++, Token_type::semicolon);
+            chunk.emit<Opcode::define_global>(variable_name_token, var_token);
 
             return;
         }

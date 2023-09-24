@@ -434,3 +434,34 @@ BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile) {
         "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(var_declaration_will_compile) {
+    const auto chunk = motts::lox::compile("var x;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : x\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; var @ 1\n"
+        "    1 : 14 00    DEFINE_GLOBAL [0]       ; var @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized) {
+    const auto chunk = motts::lox::compile("var x = 42;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : x\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; var @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}

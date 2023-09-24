@@ -72,9 +72,9 @@ namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream&, const Token&);
 
     class Token_iterator {
-        std::string_view::const_iterator token_begin_;
-        std::string_view::const_iterator token_end_;
-        std::string_view::const_iterator source_end_;
+        std::string_view::const_iterator token_begin_ {};
+        std::string_view::const_iterator token_end_ {};
+        std::string_view::const_iterator source_end_ {};
         int line_ {1};
         Token token_;
 

@@ -94,7 +94,7 @@ BOOST_AUTO_TEST_CASE(no_script_file_will_start_interactive_repl) {
     cpplox_out >> cpplox_out_line;
     BOOST_TEST(cpplox_out_line == ">");
 
-    cpplox_in << "x = 42;" << std::endl;
+    cpplox_in << "var x = 42;" << std::endl;
     cpplox_out >> cpplox_out_line;
     BOOST_TEST(cpplox_out_line == ">");
 

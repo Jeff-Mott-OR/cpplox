@@ -448,11 +448,12 @@ BOOST_AUTO_TEST_CASE(jump_will_run) {
 
 BOOST_AUTO_TEST_CASE(set_get_global_will_run) {
     motts::lox::Chunk chunk;
-
+    chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+    chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
     chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
-    chunk.emit_set_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
     chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
-    chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
     chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
 
     std::ostringstream os;
@@ -463,7 +464,20 @@ BOOST_AUTO_TEST_CASE(set_get_global_will_run) {
 
 BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw) {
     motts::lox::Chunk chunk;
-    chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+
+    BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+    try {
+        motts::lox::run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(set_global_of_undeclared_will_throw) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
 
     BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
     try {
@@ -479,14 +493,16 @@ BOOST_AUTO_TEST_CASE(vm_state_can_persist_across_multiple_runs) {
 
     {
         motts::lox::Chunk chunk;
+        chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+        chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
         chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
-        chunk.emit_set_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+        chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
         chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
         vm.run(chunk, os);
     }
     {
         motts::lox::Chunk chunk;
-        chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+        chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
         chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
         vm.run(chunk, os);
     }
@@ -495,10 +511,56 @@ BOOST_AUTO_TEST_CASE(vm_state_can_persist_across_multiple_runs) {
 }
 
 BOOST_AUTO_TEST_CASE(while_will_run) {
-    const auto chunk = motts::lox::compile("x = 3; while (x > 0) print x = x - 1;");
+    const auto chunk = motts::lox::compile("var x = 3; while (x > 0) print x = x - 1;");
 
     std::ostringstream os;
     motts::lox::run(chunk, os);
 
     BOOST_TEST(os.str() == "2\n1\n0\n");
+}
+
+BOOST_AUTO_TEST_CASE(global_var_declaration_will_run) {
+    motts::lox::Chunk chunk;
+    chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+    chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "");
+}
+
+BOOST_AUTO_TEST_CASE(global_var_will_initialize_from_stack) {
+    motts::lox::Chunk chunk;
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::var, "var", 1});
+    chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os, /* debug = */ true);
+
+    const auto expected =
+        "# Running chunk:\n"
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : x\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 14 01    DEFINE_GLOBAL [1]       ; var @ 1\n"
+        "    4 : 12 01    GET_GLOBAL [1]          ; x @ 1\n"
+        "    6 : 05       PRINT                   ; print @ 1\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 42\n"
+        "\n"
+        "Stack:\n"
+        "\n"
+        "Stack:\n"
+        "    0 : 42\n"
+        "\n"
+        "42\n"
+        "Stack:\n"
+        "\n";
+    BOOST_TEST(os.str() == expected);
 }

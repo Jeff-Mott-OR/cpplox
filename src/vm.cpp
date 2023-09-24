@@ -33,8 +33,8 @@ namespace motts { namespace lox {
         }
 
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
-            const auto index = bytecode_iter - chunk.bytecode().cbegin();
-            const auto& source_map_token = chunk.source_map_tokens().at(index);
+            const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
+            const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
 
             const auto& opcode = static_cast<Opcode>(*bytecode_iter);
             switch (opcode) {
@@ -118,6 +118,18 @@ namespace motts { namespace lox {
                     stack_.push_back(Dynamic_type_value{false});
 
                     ++bytecode_iter;
+
+                    break;
+                }
+
+                case Opcode::define_global: {
+                    const auto variable_name_constant_index = *(bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+
+                    globals_[variable_name] = stack_.back();
+                    stack_.pop_back();
+
+                    bytecode_iter += 2;
 
                     break;
                 }
@@ -282,7 +294,14 @@ namespace motts { namespace lox {
                 case Opcode::set_global: {
                     const auto variable_name_constant_index = *(bytecode_iter + 1);
                     const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
-                    globals_[variable_name] = stack_.back();
+
+                    const auto global_iter = globals_.find(variable_name);
+                    if (global_iter == globals_.end()) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
+                        };
+                    }
+                    global_iter->second = stack_.back();
 
                     bytecode_iter += 2;
 
@@ -320,8 +339,8 @@ namespace motts { namespace lox {
             if (debug) {
                 os << "Stack:\n";
                 for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
-                    const auto index = stack_iter.base() - 1 - stack_.cbegin();
-                    os << std::setw(5) << std::setfill(' ') << std::right << index << " : " << *stack_iter << "\n";
+                    const auto stack_index = stack_iter.base() - 1 - stack_.cbegin();
+                    os << std::setw(5) << std::setfill(' ') << std::right << stack_index << " : " << *stack_iter << "\n";
                 }
                 os << "\n";
             }

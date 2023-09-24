@@ -183,3 +183,13 @@ BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize) {
     BOOST_TEST(os.str() == expected);
 
 }
+
+BOOST_AUTO_TEST_CASE(accessing_and_dereferencing_end_iterator_is_allowed) {
+    motts::lox::Token_iterator token_iter_end;
+
+    BOOST_TEST((*token_iter_end).type == motts::lox::Token_type::eof);
+
+    ++token_iter_end;
+
+    BOOST_TEST((*token_iter_end).type == motts::lox::Token_type::eof);
+}
