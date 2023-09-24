@@ -38,6 +38,10 @@ namespace {
             os << "<instance " << instance->class_->name << '>';
         }
 
+        auto operator()(const GC_ptr<Bound_method>& bound_method) {
+            (*this)(bound_method->closure->function);
+        }
+
         template<typename T>
             auto operator()(const T& value) {
                 os << value;

@@ -240,7 +240,13 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::call:
+                case Opcode::call: {
+                    lines.back() << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
+                        << "    " << opcode << " (" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << ')';
+                    bytecode_iter += 2;
+                    break;
+                }
+
                 case Opcode::class_:
                 case Opcode::constant:
                 case Opcode::define_global:

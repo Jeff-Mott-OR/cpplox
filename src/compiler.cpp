@@ -174,8 +174,10 @@ namespace {
                     break;
                 }
 
-                case Token_type::identifier: {
+                case Token_type::identifier:
+                case Token_type::this_: {
                     const auto identifier_token = *token_iter++;
+                    auto call_source_map_token = identifier_token;
 
                     const auto maybe_local_iter = std::find_if(
                         function_chunks.back().tracked_locals.crbegin(), function_chunks.back().tracked_locals.crend(),
@@ -205,30 +207,33 @@ namespace {
                         }
                     }
 
-                    // Check for property access following identifier.
-                    while (token_iter->type == Token_type::dot) {
-                        ++token_iter;
-                        ensure_token_is(*token_iter, Token_type::identifier);
-                        const auto property_name_token = *token_iter++;
-                        function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
-                    }
-
-                    // Check for function call following identifier.
-                    if (token_iter->type == Token_type::left_paren) {
-                        ++token_iter;
-
-                        auto arg_count = 0;
-                        if (token_iter->type == Token_type::right_paren) {
+                    while (token_iter->type == Token_type::dot || token_iter->type == Token_type::left_paren) {
+                        // Check for property access following identifier.
+                        if (token_iter->type == Token_type::dot) {
                             ++token_iter;
-                        } else {
-                            do {
-                                compile_assignment_precedence_expression();
-                                ++arg_count;
-                            } while (advance_if_match(Token_type::comma));
-                            ensure_token_is(*token_iter++, Token_type::right_paren);
+                            ensure_token_is(*token_iter, Token_type::identifier);
+                            const auto property_name_token = *token_iter++;
+                            call_source_map_token = property_name_token;
+                            function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
                         }
 
-                        function_chunks.back().chunk.emit_call(arg_count, identifier_token);
+                        // Check for function call following identifier.
+                        if (token_iter->type == Token_type::left_paren) {
+                            ++token_iter;
+
+                            auto arg_count = 0;
+                            if (token_iter->type == Token_type::right_paren) {
+                                ++token_iter;
+                            } else {
+                                do {
+                                    compile_assignment_precedence_expression();
+                                    ++arg_count;
+                                } while (advance_if_match(Token_type::comma));
+                                ensure_token_is(*token_iter++, Token_type::right_paren);
+                            }
+
+                            function_chunks.back().chunk.emit_call(arg_count, call_source_map_token);
+                        }
                     }
 
                     break;
@@ -570,6 +575,7 @@ namespace {
                         const auto method_name_token = *token_iter++;
 
                         function_chunks.push_back({});
+                        track_local(Token{Token_type::this_, "this", method_name_token.line});
                         const auto param_count = compile_function_rest(method_name_token);
 
                         (function_chunks.end() - 2)->chunk.emit_closure(

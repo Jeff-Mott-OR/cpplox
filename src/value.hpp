@@ -8,7 +8,17 @@
 
 namespace motts { namespace lox {
     struct Dynamic_type_value {
-        std::variant<std::nullptr_t, bool, double, std::string, GC_ptr<Function>, GC_ptr<Closure>, GC_ptr<Class>, GC_ptr<Instance>> variant;
+        std::variant<
+            std::nullptr_t,
+            bool,
+            double,
+            std::string,
+            GC_ptr<Function>,
+            GC_ptr<Closure>,
+            GC_ptr<Class>,
+            GC_ptr<Instance>,
+            GC_ptr<Bound_method>
+        > variant;
 
         struct Mark_objects_visitor {
             GC_heap& gc_heap;

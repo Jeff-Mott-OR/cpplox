@@ -90,7 +90,7 @@ namespace motts { namespace lox {
                     const auto& arg_count = *(call_frames_.back().bytecode_iter + 1);
                     call_frames_.back().bytecode_iter += 2;
 
-                    const auto& maybe_callable = *(stack_.cend() - arg_count - 1);
+                    auto& maybe_callable = *(stack_.end() - arg_count - 1);
 
                     if (std::holds_alternative<GC_ptr<Closure>>(maybe_callable.variant))
                     {
@@ -115,6 +115,27 @@ namespace motts { namespace lox {
                         const auto new_instance = gc_heap_.make<Instance>({class_});
                         stack_.pop_back();
                         stack_.push_back({new_instance});
+                    }
+                    else if (std::holds_alternative<GC_ptr<Bound_method>>(maybe_callable.variant))
+                    {
+                        const auto& bound_method = std::get<GC_ptr<Bound_method>>(maybe_callable.variant);
+
+                        if (bound_method->closure->function->arity != arg_count) {
+                            std::ostringstream os;
+                            os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
+                                << "Expected " << bound_method->closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                            throw std::runtime_error{os.str()};
+                        }
+
+                        call_frames_.push_back({
+                            bound_method->closure,
+                            bound_method->closure->function->chunk,
+                            bound_method->closure->function->chunk.bytecode().cbegin(),
+                            stack_.size() - arg_count - 1
+                        });
+
+                        // Replace function at call frame stack slot 0 with "this" instance at slot 0.
+                        maybe_callable.variant = bound_method->instance;
                     }
                     else
                     {
@@ -274,19 +295,28 @@ namespace motts { namespace lox {
                     const auto& field_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& field_name = std::get<std::string>(call_frames_.back().chunk.constants().at(field_name_constant_index).variant);
                     const auto& instance = std::get<GC_ptr<Instance>>(stack_.back().variant);
-
-                    const auto field_iter = instance->fields.find(field_name);
-                    if (field_iter == instance->fields.cend()) {
-                        throw std::runtime_error{
-                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + field_name + "'."
-                        };
-                    }
-                    stack_.pop_back();
-                    stack_.push_back(field_iter->second);
-
                     call_frames_.back().bytecode_iter += 2;
 
-                    break;
+                    const auto maybe_field_iter = instance->fields.find(field_name);
+                    if (maybe_field_iter != instance->fields.cend()) {
+                        stack_.pop_back();
+                        stack_.push_back(maybe_field_iter->second);
+
+                        break;
+                    }
+
+                    const auto maybe_method_iter = instance->class_->methods.find(field_name);
+                    if (maybe_method_iter != instance->class_->methods.cend()) {
+                        const auto new_bound_method = gc_heap_.make<Bound_method>({instance, maybe_method_iter->second});
+                        stack_.pop_back();
+                        stack_.push_back(Dynamic_type_value{new_bound_method});
+
+                        break;
+                    }
+
+                    throw std::runtime_error{
+                        "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + field_name + "'."
+                    };
                 }
 
                 case Opcode::get_upvalue: {
@@ -369,7 +399,7 @@ namespace motts { namespace lox {
                     const auto& method_name = std::get<std::string>(call_frames_.back().chunk.constants().at(method_name_constant_index).variant);
                     auto& class_ = std::get<GC_ptr<Class>>((stack_.end() - 2)->variant);
 
-                    class_->methods[method_name] = std::move(stack_.back());
+                    class_->methods[method_name] = std::get<GC_ptr<Closure>>(stack_.back().variant);
                     stack_.pop_back();
 
                     call_frames_.back().bytecode_iter += 2;

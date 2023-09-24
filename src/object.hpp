@@ -47,7 +47,7 @@ namespace motts { namespace lox {
 
     struct Class {
         std::string_view name;
-        std::unordered_map<std::string, Dynamic_type_value> methods;
+        std::unordered_map<std::string, GC_ptr<Closure>> methods;
 
         Class(const std::string_view& name);
     };
@@ -62,4 +62,11 @@ namespace motts { namespace lox {
     };
 
     template<> void trace_refs_trait(GC_heap&, const Instance&);
+
+    struct Bound_method {
+        GC_ptr<Instance> instance;
+        GC_ptr<Closure> closure;
+    };
+
+    template<> void trace_refs_trait(GC_heap&, const Bound_method&);
 }}

@@ -705,7 +705,7 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile) {
         "    0 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
         "    3 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
-        "    7 : 17 00    CALL [0]                ; f @ 2\n"
+        "    7 : 17 00    CALL (0)                ; f @ 2\n"
         "    9 : 0b       POP                     ; ; @ 2\n"
         "   10 : 19 02 00 CLOSURE [2] (0)         ; fun @ 3\n"
         "   13 : 0b       POP                     ; } @ 3\n"
@@ -743,7 +743,7 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile) {
         "    3 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
         "    7 : 00 02    CONSTANT [2]            ; 42 @ 2\n"
-        "    9 : 17 01    CALL [1]                ; f @ 2\n"
+        "    9 : 17 01    CALL (1)                ; f @ 2\n"
         "   11 : 0b       POP                     ; ; @ 2\n"
         "## <fn f> chunk\n"
         "Constants:\n"
@@ -776,7 +776,7 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile) {
         "    3 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
         "    7 : 00 02    CONSTANT [2]            ; 42 @ 2\n"
-        "    9 : 17 01    CALL [1]                ; f @ 2\n"
+        "    9 : 17 01    CALL (1)                ; f @ 2\n"
         "   11 : 0b       POP                     ; ; @ 2\n"
         "## <fn f> chunk\n"
         "Constants:\n"
@@ -807,7 +807,7 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil) {
         "    0 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
         "    3 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; f @ 2\n"
-        "    7 : 17 00    CALL [0]                ; f @ 2\n"
+        "    7 : 17 00    CALL (0)                ; f @ 2\n"
         "    9 : 0b       POP                     ; ; @ 2\n"
         "## <fn f> chunk\n"
         "Constants:\n"
@@ -883,7 +883,7 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables) {
         "    2 : 19 01 01 CLOSURE [1] (1)         ; fun @ 3\n"
         "           01 01 | ^ [1]                 ; fun @ 3\n"
         "    7 : 15 02    GET_LOCAL [2]           ; middle @ 10\n"
-        "    9 : 17 00    CALL [0]                ; middle @ 10\n"
+        "    9 : 17 00    CALL (0)                ; middle @ 10\n"
         "   11 : 0b       POP                     ; ; @ 10\n"
         "   12 : 0b       POP                     ; } @ 11\n"
         "   13 : 1c       CLOSE_UPVALUE           ; } @ 11\n"
@@ -897,7 +897,7 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables) {
         "    0 : 19 00 01 CLOSURE [0] (1)         ; fun @ 4\n"
         "           00 00 | ^^ [0]                ; fun @ 4\n"
         "    5 : 15 01    GET_LOCAL [1]           ; inner @ 8\n"
-        "    7 : 17 00    CALL [0]                ; inner @ 8\n"
+        "    7 : 17 00    CALL (0)                ; inner @ 8\n"
         "    9 : 0b       POP                     ; ; @ 8\n"
         "   10 : 0b       POP                     ; } @ 9\n"
         "   11 : 01       NIL                     ; fun @ 3\n"
@@ -948,10 +948,10 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "    0 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
         "    3 : 14 01    DEFINE_GLOBAL [1]       ; fun @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; outer @ 12\n"
-        "    7 : 17 00    CALL [0]                ; outer @ 12\n"
+        "    7 : 17 00    CALL (0)                ; outer @ 12\n"
         "    9 : 14 02    DEFINE_GLOBAL [2]       ; var @ 12\n"
         "   11 : 12 02    GET_GLOBAL [2]          ; closure @ 13\n"
-        "   13 : 17 00    CALL [0]                ; closure @ 13\n"
+        "   13 : 17 00    CALL (0)                ; closure @ 13\n"
         "   15 : 0b       POP                     ; ; @ 13\n"
 
         "## <fn outer> chunk\n"
@@ -976,7 +976,7 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "    0 : 19 00 01 CLOSURE [0] (1)         ; fun @ 4\n"
         "           00 00 | ^^ [0]                ; fun @ 4\n"
         "    5 : 15 01    GET_LOCAL [1]           ; inner @ 8\n"
-        "    7 : 17 00    CALL [0]                ; inner @ 8\n"
+        "    7 : 17 00    CALL (0)                ; inner @ 8\n"
         "    9 : 0b       POP                     ; ; @ 8\n"
         "   10 : 0b       POP                     ; } @ 9\n"
         "   11 : 01       NIL                     ; fun @ 3\n"
@@ -1027,7 +1027,7 @@ BOOST_AUTO_TEST_CASE(class_will_compile) {
         "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
         // var instance = Klass();
         "    9 : 12 00    GET_GLOBAL [0]          ; Klass @ 4\n"
-        "   11 : 17 00    CALL [0]                ; Klass @ 4\n"
+        "   11 : 17 00    CALL (0)                ; Klass @ 4\n"
         "   13 : 14 03    DEFINE_GLOBAL [3]       ; var @ 4\n"
         // instance.property = 42;
         "   15 : 00 04    CONSTANT [4]            ; 42 @ 5\n"
@@ -1149,11 +1149,11 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained) {
         "    2 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
         // var globalFoo = Klass();
         "    4 : 12 00    GET_GLOBAL [0]          ; Klass @ 2\n"
-        "    6 : 17 00    CALL [0]                ; Klass @ 2\n"
+        "    6 : 17 00    CALL (0)                ; Klass @ 2\n"
         "    8 : 14 01    DEFINE_GLOBAL [1]       ; var @ 2\n"
         // globalFoo.bar = Klass();
         "   10 : 12 00    GET_GLOBAL [0]          ; Klass @ 3\n"
-        "   12 : 17 00    CALL [0]                ; Klass @ 3\n"
+        "   12 : 17 00    CALL (0)                ; Klass @ 3\n"
         "   14 : 12 01    GET_GLOBAL [1]          ; globalFoo @ 3\n"
         "   16 : 20 02    SET_PROPERTY [2]        ; bar @ 3\n"
         "   18 : 0b       POP                     ; ; @ 3\n"
@@ -1170,10 +1170,10 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained) {
         "   34 : 05       PRINT                   ; print @ 5\n"
         // var localFoo = Klass();
         "   35 : 12 00    GET_GLOBAL [0]          ; Klass @ 7\n"
-        "   37 : 17 00    CALL [0]                ; Klass @ 7\n"
+        "   37 : 17 00    CALL (0)                ; Klass @ 7\n"
         // localFoo.bar = Klass();
         "   39 : 12 00    GET_GLOBAL [0]          ; Klass @ 8\n"
-        "   41 : 17 00    CALL [0]                ; Klass @ 8\n"
+        "   41 : 17 00    CALL (0)                ; Klass @ 8\n"
         "   43 : 15 00    GET_LOCAL [0]           ; localFoo @ 8\n"
         "   45 : 20 02    SET_PROPERTY [2]        ; bar @ 8\n"
         "   47 : 0b       POP                     ; ; @ 8\n"
@@ -1193,7 +1193,7 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained) {
         "           01 00 | ^ [0]                 ; fun @ 11\n"
         // f();
         "   69 : 15 01    GET_LOCAL [1]           ; f @ 15\n"
-        "   71 : 17 00    CALL [0]                ; f @ 15\n"
+        "   71 : 17 00    CALL (0)                ; f @ 15\n"
         "   73 : 0b       POP                     ; ; @ 15\n"
         // }
         "   74 : 0b       POP                     ; } @ 16\n"
@@ -1219,5 +1219,71 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained) {
         // }
         "   16 : 01       NIL                     ; fun @ 11\n"
         "   17 : 18       RETURN                  ; fun @ 11\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this) {
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Klass {\n"
+        "    method() {\n"
+        "        fun inner() {\n"
+        "            print this;\n"
+        "        }\n"
+        "        return inner;\n"
+        "    }\n"
+        "}\n"
+        "Klass().method()();\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Klass\n"
+        "    1 : <fn method>\n"
+        "    2 : method\n"
+        "Bytecode:\n"
+        // class Klass {
+        //     method()
+        // }
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 19 01 00 CLOSURE [1] (0)         ; method @ 2\n"
+        "    5 : 1e 02    METHOD [2]              ; method @ 2\n"
+        "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // Klass().method();
+        "    9 : 12 00    GET_GLOBAL [0]          ; Klass @ 9\n"
+        "   11 : 17 00    CALL (0)                ; Klass @ 9\n"
+        "   13 : 1f 02    GET_PROPERTY [2]        ; method @ 9\n"
+        "   15 : 17 00    CALL (0)                ; method @ 9\n"
+        "   17 : 17 00    CALL (0)                ; method @ 9\n"
+        "   19 : 0b       POP                     ; ; @ 9\n"
+        // method() {
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "    0 : <fn inner>\n"
+        "Bytecode:\n"
+        // fun inner()
+        "    0 : 19 00 01 CLOSURE [0] (1)         ; fun @ 3\n"
+        "           01 00 | ^ [0]                 ; fun @ 3\n"
+        // return inner;
+        "    5 : 15 01    GET_LOCAL [1]           ; inner @ 6\n"
+        "    7 : 18       RETURN                  ; return @ 6\n"
+        "    8 : 0b       POP                     ; } @ 7\n"
+        // }
+        "    9 : 01       NIL                     ; method @ 2\n"
+        "   10 : 18       RETURN                  ; method @ 2\n"
+        // fun inner() {
+        "## <fn inner> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        // print this;
+        "    0 : 1a 00    GET_UPVALUE [0]         ; this @ 4\n"
+        "    2 : 05       PRINT                   ; print @ 4\n"
+        // }
+        "    3 : 01       NIL                     ; fun @ 3\n"
+        "    4 : 18       RETURN                  ; fun @ 3\n";
     BOOST_TEST(os.str() == expected);
 }

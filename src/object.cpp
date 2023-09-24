@@ -58,7 +58,7 @@ namespace motts { namespace lox {
     template<>
         void trace_refs_trait(GC_heap& gc_heap, const Class& class_) {
             for (const auto& [_, method] : class_.methods) {
-                std::visit(Dynamic_type_value::Mark_objects_visitor{gc_heap}, method.variant);
+                mark(gc_heap, method);
             }
         }
 
@@ -73,5 +73,11 @@ namespace motts { namespace lox {
             for (const auto& [_, field] : instance.fields) {
                 std::visit(Dynamic_type_value::Mark_objects_visitor{gc_heap}, field.variant);
             }
+        }
+
+    template<>
+        void trace_refs_trait(GC_heap& gc_heap, const Bound_method& bound_method) {
+            mark(gc_heap, bound_method.instance);
+            mark(gc_heap, bound_method.closure);
         }
 }}

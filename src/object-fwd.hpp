@@ -6,4 +6,5 @@ namespace motts { namespace lox {
     struct Closure;
     struct Class;
     struct Instance;
+    struct Bound_method;
 }}

@@ -729,7 +729,7 @@ BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
         "Bytecode:\n"
         "    0 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
         "    3 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
-        "    5 : 17 01    CALL [1]                ; f @ 1\n"
+        "    5 : 17 01    CALL (1)                ; f @ 1\n"
         "## <fn f> chunk\n"
         "Constants:\n"
         "Bytecode:\n"
@@ -791,7 +791,7 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
         "    0 : 01       NIL                     ; nil @ 1\n"
         "    1 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
         "    4 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
-        "    6 : 17 01    CALL [1]                ; f @ 1\n"
+        "    6 : 17 01    CALL (1)                ; f @ 1\n"
         "    8 : 05       PRINT                   ; print @ 1\n"
         "## <fn f> chunk\n"
         "Constants:\n"
@@ -1045,4 +1045,64 @@ BOOST_AUTO_TEST_CASE(class_will_run) {
     vm.run(main_chunk);
 
     BOOST_TEST(os.str() == "<class Klass>\n<instance Klass>\n42\n42\n");
+}
+
+BOOST_AUTO_TEST_CASE(methods_bind_and_can_be_called) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_method_chunk;
+    fn_method_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    fn_method_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "method", 1});
+    fn_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_method = gc_heap.make<motts::lox::Function>({"method", 0, std::move(fn_method_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(fn_method, {}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    main_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "method", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "<fn method>\n42\n");
+}
+
+BOOST_AUTO_TEST_CASE(this_can_be_captured_in_closure) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_inner_chunk;
+    fn_inner_chunk.emit<Opcode::get_upvalue>(0, Token{Token_type::this_, "this", 1});
+    fn_inner_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_inner_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "method", 1});
+    fn_inner_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_inner = gc_heap.make<motts::lox::Function>({"inner", 0, std::move(fn_inner_chunk)});
+
+    motts::lox::Chunk fn_method_chunk;
+    fn_method_chunk.emit_closure(fn_inner, {{true, 0}}, Token{Token_type::fun, "fun", 1});
+    fn_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_method = gc_heap.make<motts::lox::Function>({"method", 0, std::move(fn_method_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(fn_method, {}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "method", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "<instance Klass>\n");
 }
