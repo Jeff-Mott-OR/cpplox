@@ -113,6 +113,18 @@ namespace motts { namespace lox {
                 // Skip whitespace
                 case ' ':
                     continue;
+
+                case '(': return Token{Token_type::left_paren, {token_begin_, token_end_}, line_};
+                case ')': return Token{Token_type::right_paren, {token_begin_, token_end_}, line_};
+                case '{': return Token{Token_type::left_brace, {token_begin_, token_end_}, line_};
+                case '}': return Token{Token_type::right_brace, {token_begin_, token_end_}, line_};
+                case ',': return Token{Token_type::comma, {token_begin_, token_end_}, line_};
+                case '.': return Token{Token_type::dot, {token_begin_, token_end_}, line_};
+                case '-': return Token{Token_type::minus, {token_begin_, token_end_}, line_};
+                case '+': return Token{Token_type::plus, {token_begin_, token_end_}, line_};
+                case ';': return Token{Token_type::semicolon, {token_begin_, token_end_}, line_};
+                case '*': return Token{Token_type::star, {token_begin_, token_end_}, line_};
+                case '/': return Token{Token_type::slash, {token_begin_, token_end_}, line_};
             }
 
             return Token{Token_type::eof, {token_begin_, token_end_}, line_};
