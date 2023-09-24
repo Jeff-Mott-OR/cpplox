@@ -3,7 +3,10 @@
 #include <iomanip>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 #include <gsl/gsl>
+
+#include "scanner.hpp"
 
 namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, const Opcode& opcode) {
@@ -96,5 +99,25 @@ namespace motts { namespace lox {
         }
 
         return os;
+    }
+
+    Chunk compile(std::string_view source) {
+        Chunk chunk;
+
+        Token_iterator token_iter_end;
+        for (Token_iterator token_iter {source}; token_iter != token_iter_end; ++token_iter) {
+            if (token_iter->type == Token_type::number) {
+                const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
+                chunk.emit_constant(number_value, *token_iter);
+            } else if (token_iter->type == Token_type::nil) {
+                chunk.emit_nil(*token_iter);
+            } else {
+                throw std::runtime_error{
+                    "[Line " + std::to_string(token_iter->line) + "] Error: Unexpected token \"" + std::string{token_iter->lexeme} + "\"."
+                };
+            }
+        }
+
+        return chunk;
     }
 }}

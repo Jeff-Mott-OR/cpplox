@@ -7,14 +7,7 @@ option(ENABLE_TESTING "Build and run tests" FALSE)
 include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
-FetchContent_Declare(
-    Microsoft_GSL
-    GIT_REPOSITORY https://github.com/microsoft/GSL
-    GIT_TAG v4.0.0
-    GIT_SHALLOW ON
-)
-
-set(BOOST_INCLUDE_LIBRARIES algorithm program_options test)
+set(BOOST_INCLUDE_LIBRARIES algorithm convert program_options test)
 FetchContent_Declare(
     Boost
     GIT_REPOSITORY https://github.com/boostorg/boost.git
@@ -22,14 +15,21 @@ FetchContent_Declare(
     GIT_SHALLOW ON
 )
 
-FetchContent_MakeAvailable(Microsoft_GSL Boost)
+FetchContent_Declare(
+    Microsoft_GSL
+    GIT_REPOSITORY https://github.com/microsoft/GSL
+    GIT_TAG v4.0.0
+    GIT_SHALLOW ON
+)
+
+FetchContent_MakeAvailable(Boost Microsoft_GSL)
 
 if(NOT DEPS_ONLY)
     add_executable(project src/main.cpp src/scanner.cpp src/compiler.cpp)
     target_compile_features(project PUBLIC cxx_std_20)
     target_compile_options(project PRIVATE -Wall -Wextra -Werror)
     set_property(TARGET project PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-    target_link_libraries(project PRIVATE Microsoft.GSL::GSL Boost::algorithm Boost::program_options)
+    target_link_libraries(project PRIVATE Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL)
 
     if(ENABLE_TESTING)
         enable_testing()
@@ -39,14 +39,22 @@ if(NOT DEPS_ONLY)
         target_compile_features(scanner_test PUBLIC cxx_std_20)
         target_compile_options(scanner_test PRIVATE -Wall -Wextra -Werror)
         set_property(TARGET scanner_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(scanner_test PRIVATE Boost::unit_test_framework)
+        target_link_libraries(scanner_test PRIVATE
+            Boost::unit_test_framework
+            # Project dependencies
+            Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL
+        )
         add_test(NAME scanner_test COMMAND scanner_test)
 
-        add_executable(compiler_test test/compiler-test.cpp src/compiler.cpp)
+        add_executable(compiler_test test/compiler-test.cpp src/compiler.cpp src/scanner.cpp)
         target_compile_features(compiler_test PUBLIC cxx_std_20)
         target_compile_options(compiler_test PRIVATE -Wall -Wextra -Werror)
         set_property(TARGET compiler_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(compiler_test PRIVATE Boost::unit_test_framework Microsoft.GSL::GSL)
+        target_link_libraries(compiler_test PRIVATE
+            Boost::unit_test_framework
+            # Project dependencies
+            Boost::algorithm Boost::convert Boost::program_options Microsoft.GSL::GSL
+        )
         add_test(NAME compiler_test COMMAND compiler_test)
     endif()
 endif()

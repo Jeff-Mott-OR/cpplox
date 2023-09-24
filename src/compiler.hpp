@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <ostream>
+#include <string_view>
 #include <vector>
 
 #include "scanner.hpp"
@@ -34,4 +35,6 @@ namespace motts { namespace lox {
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);
+
+    Chunk compile(std::string_view source);
 }}
