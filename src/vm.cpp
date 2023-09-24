@@ -158,22 +158,31 @@ namespace motts { namespace lox {
                     break;
                 }
 
-                case Opcode::jump: {
-                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
-                    const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
-
-                    bytecode_iter += 3 + jump_distance;
-
-                    break;
-                }
-
-                case Opcode::jump_if_false: {
+                case Opcode::jump:
+                case Opcode::jump_if_false:
+                case Opcode::loop: {
                     const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1));
                     const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
 
                     bytecode_iter += 3;
-                    if (! std::visit(Truthy_visitor{}, stack_.back().variant)) {
-                        bytecode_iter += jump_distance;
+
+                    switch (opcode) {
+                        default:
+                            throw std::logic_error{"Unreachable"};
+
+                        case Opcode::jump:
+                            bytecode_iter += jump_distance;
+                            break;
+
+                        case Opcode::jump_if_false:
+                            if (! std::visit(Truthy_visitor{}, stack_.back().variant)) {
+                                bytecode_iter += jump_distance;
+                            }
+                            break;
+
+                        case Opcode::loop:
+                            bytecode_iter -= jump_distance;
+                            break;
                     }
 
                     break;

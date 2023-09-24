@@ -41,8 +41,8 @@ BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 01       NIL                   ; nil @ 2\n";
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 01       NIL                     ; nil @ 2\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -56,8 +56,8 @@ BOOST_AUTO_TEST_CASE(number_literals_compile) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 01       NIL                   ; nil @ 1\n"
-        "    1 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 01       NIL                     ; nil @ 1\n"
+        "    1 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -94,10 +94,10 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 02       TRUE                  ; true @ 1\n"
-        "    1 : 0b       POP                   ; ; @ 1\n"
-        "    2 : 03       FALSE                 ; false @ 1\n"
-        "    3 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0b       POP                     ; ; @ 1\n"
+        "    2 : 03       FALSE                   ; false @ 1\n"
+        "    3 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -111,8 +111,8 @@ BOOST_AUTO_TEST_CASE(string_literals_compile) {
         "Constants:\n"
         "    0 : hello\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; \"hello\" @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; \"hello\" @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -127,10 +127,10 @@ BOOST_AUTO_TEST_CASE(addition_will_compile) {
         "    0 : 28\n"
         "    1 : 14\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 28 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 14 @ 1\n"
-        "    4 : 04       ADD                   ; + @ 1\n"
-        "    5 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
+        "    4 : 04       ADD                     ; + @ 1\n"
+        "    5 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -154,8 +154,8 @@ BOOST_AUTO_TEST_CASE(print_will_compile) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 05       PRINT                 ; print @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 05       PRINT                   ; print @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -173,16 +173,16 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile) {
         "    3 : 5\n"
         "    4 : 7\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 1 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 2 @ 1\n"
-        "    4 : 04       ADD                   ; + @ 1\n"
-        "    5 : 00 02    CONSTANT [2]          ; 3 @ 1\n"
-        "    7 : 00 03    CONSTANT [3]          ; 5 @ 1\n"
-        "    9 : 07       MULTIPLY              ; * @ 1\n"
-        "   10 : 00 04    CONSTANT [4]          ; 7 @ 1\n"
-        "   12 : 08       DIVIDE                ; / @ 1\n"
-        "   13 : 06       SUBTRACT              ; - @ 1\n"
-        "   14 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 1 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 2 @ 1\n"
+        "    4 : 04       ADD                     ; + @ 1\n"
+        "    5 : 00 02    CONSTANT [2]            ; 3 @ 1\n"
+        "    7 : 00 03    CONSTANT [3]            ; 5 @ 1\n"
+        "    9 : 07       MULTIPLY                ; * @ 1\n"
+        "   10 : 00 04    CONSTANT [4]            ; 7 @ 1\n"
+        "   12 : 08       DIVIDE                  ; / @ 1\n"
+        "   13 : 06       SUBTRACT                ; - @ 1\n"
+        "   14 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -200,16 +200,16 @@ BOOST_AUTO_TEST_CASE(parens_will_compile) {
         "    3 : 5\n"
         "    4 : 7\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 1 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 2 @ 1\n"
-        "    4 : 00 02    CONSTANT [2]          ; 3 @ 1\n"
-        "    6 : 06       SUBTRACT              ; - @ 1\n"
-        "    7 : 00 03    CONSTANT [3]          ; 5 @ 1\n"
-        "    9 : 07       MULTIPLY              ; * @ 1\n"
-        "   10 : 00 04    CONSTANT [4]          ; 7 @ 1\n"
-        "   12 : 08       DIVIDE                ; / @ 1\n"
-        "   13 : 04       ADD                   ; + @ 1\n"
-        "   14 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 1 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 2 @ 1\n"
+        "    4 : 00 02    CONSTANT [2]            ; 3 @ 1\n"
+        "    6 : 06       SUBTRACT                ; - @ 1\n"
+        "    7 : 00 03    CONSTANT [3]            ; 5 @ 1\n"
+        "    9 : 07       MULTIPLY                ; * @ 1\n"
+        "   10 : 00 04    CONSTANT [4]            ; 7 @ 1\n"
+        "   12 : 08       DIVIDE                  ; / @ 1\n"
+        "   13 : 04       ADD                     ; + @ 1\n"
+        "   14 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -224,12 +224,12 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_compile) {
         "    0 : 1\n"
         "    1 : 1\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 1 @ 1\n"
-        "    2 : 09       NEGATE                ; - @ 1\n"
-        "    3 : 00 01    CONSTANT [1]          ; 1 @ 1\n"
-        "    5 : 09       NEGATE                ; - @ 1\n"
-        "    6 : 04       ADD                   ; + @ 1\n"
-        "    7 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 1 @ 1\n"
+        "    2 : 09       NEGATE                  ; - @ 1\n"
+        "    3 : 00 01    CONSTANT [1]            ; 1 @ 1\n"
+        "    5 : 09       NEGATE                  ; - @ 1\n"
+        "    6 : 04       ADD                     ; + @ 1\n"
+        "    7 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -242,9 +242,9 @@ BOOST_AUTO_TEST_CASE(boolean_negation_will_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 02       TRUE                  ; true @ 1\n"
-        "    1 : 0a       NOT                   ; ! @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0a       NOT                     ; ! @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -258,8 +258,8 @@ BOOST_AUTO_TEST_CASE(expression_statements_will_compile) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -284,38 +284,38 @@ BOOST_AUTO_TEST_CASE(comparisons_will_compile) {
         "   10 : 29\n"
         "   11 : 31\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 1 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 2 @ 1\n"
-        "    4 : 0d       GREATER               ; > @ 1\n"
-        "    5 : 0b       POP                   ; ; @ 1\n"
+        "    0 : 00 00    CONSTANT [0]            ; 1 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 2 @ 1\n"
+        "    4 : 0d       GREATER                 ; > @ 1\n"
+        "    5 : 0b       POP                     ; ; @ 1\n"
 
-        "    6 : 00 02    CONSTANT [2]          ; 3 @ 1\n"
-        "    8 : 00 03    CONSTANT [3]          ; 5 @ 1\n"
-        "   10 : 0c       LESS                  ; >= @ 1\n"
-        "   11 : 0a       NOT                   ; >= @ 1\n"
-        "   12 : 0b       POP                   ; ; @ 1\n"
+        "    6 : 00 02    CONSTANT [2]            ; 3 @ 1\n"
+        "    8 : 00 03    CONSTANT [3]            ; 5 @ 1\n"
+        "   10 : 0c       LESS                    ; >= @ 1\n"
+        "   11 : 0a       NOT                     ; >= @ 1\n"
+        "   12 : 0b       POP                     ; ; @ 1\n"
 
-        "   13 : 00 04    CONSTANT [4]          ; 7 @ 1\n"
-        "   15 : 00 05    CONSTANT [5]          ; 11 @ 1\n"
-        "   17 : 0e       EQUAL                 ; == @ 1\n"
-        "   18 : 0b       POP                   ; ; @ 1\n"
+        "   13 : 00 04    CONSTANT [4]            ; 7 @ 1\n"
+        "   15 : 00 05    CONSTANT [5]            ; 11 @ 1\n"
+        "   17 : 0e       EQUAL                   ; == @ 1\n"
+        "   18 : 0b       POP                     ; ; @ 1\n"
 
-        "   19 : 00 06    CONSTANT [6]          ; 13 @ 1\n"
-        "   21 : 00 07    CONSTANT [7]          ; 17 @ 1\n"
-        "   23 : 0e       EQUAL                 ; != @ 1\n"
-        "   24 : 0a       NOT                   ; != @ 1\n"
-        "   25 : 0b       POP                   ; ; @ 1\n"
+        "   19 : 00 06    CONSTANT [6]            ; 13 @ 1\n"
+        "   21 : 00 07    CONSTANT [7]            ; 17 @ 1\n"
+        "   23 : 0e       EQUAL                   ; != @ 1\n"
+        "   24 : 0a       NOT                     ; != @ 1\n"
+        "   25 : 0b       POP                     ; ; @ 1\n"
 
-        "   26 : 00 08    CONSTANT [8]          ; 19 @ 1\n"
-        "   28 : 00 09    CONSTANT [9]          ; 23 @ 1\n"
-        "   30 : 0d       GREATER               ; <= @ 1\n"
-        "   31 : 0a       NOT                   ; <= @ 1\n"
-        "   32 : 0b       POP                   ; ; @ 1\n"
+        "   26 : 00 08    CONSTANT [8]            ; 19 @ 1\n"
+        "   28 : 00 09    CONSTANT [9]            ; 23 @ 1\n"
+        "   30 : 0d       GREATER                 ; <= @ 1\n"
+        "   31 : 0a       NOT                     ; <= @ 1\n"
+        "   32 : 0b       POP                     ; ; @ 1\n"
 
-        "   33 : 00 0a    CONSTANT [10]         ; 29 @ 1\n"
-        "   35 : 00 0b    CONSTANT [11]         ; 31 @ 1\n"
-        "   37 : 0c       LESS                  ; < @ 1\n"
-        "   38 : 0b       POP                   ; ; @ 1\n";
+        "   33 : 00 0a    CONSTANT [10]           ; 29 @ 1\n"
+        "   35 : 00 0b    CONSTANT [11]           ; 31 @ 1\n"
+        "   37 : 0c       LESS                    ; < @ 1\n"
+        "   38 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -328,11 +328,11 @@ BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 02       TRUE                  ; true @ 1\n"
-        "    1 : 0f 00 02 JUMP_IF_FALSE +2 -> 6 ; and @ 1\n"
-        "    4 : 0b       POP                   ; and @ 1\n"
-        "    5 : 03       FALSE                 ; false @ 1\n"
-        "    6 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0f 00 02 JUMP_IF_FALSE +2 -> 6   ; and @ 1\n"
+        "    4 : 0b       POP                     ; and @ 1\n"
+        "    5 : 03       FALSE                   ; false @ 1\n"
+        "    6 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -345,12 +345,12 @@ BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile) {
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
-        "    0 : 02       TRUE                  ; true @ 1\n"
-        "    1 : 0f 00 03 JUMP_IF_FALSE +3 -> 7 ; or @ 1\n"
-        "    4 : 10 00 02 JUMP +2 -> 9          ; or @ 1\n"
-        "    7 : 0b       POP                   ; or @ 1\n"
-        "    8 : 03       FALSE                 ; false @ 1\n"
-        "    9 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 02       TRUE                    ; true @ 1\n"
+        "    1 : 0f 00 03 JUMP_IF_FALSE +3 -> 7   ; or @ 1\n"
+        "    4 : 10 00 02 JUMP +2 -> 9            ; or @ 1\n"
+        "    7 : 0b       POP                     ; or @ 1\n"
+        "    8 : 03       FALSE                   ; false @ 1\n"
+        "    9 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -365,9 +365,9 @@ BOOST_AUTO_TEST_CASE(global_assignment_will_compile) {
         "    0 : 42\n"
         "    1 : x\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 11 01    SET_GLOBAL [1]        ; = @ 1\n"
-        "    4 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 11 01    SET_GLOBAL [1]          ; = @ 1\n"
+        "    4 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
 
@@ -381,7 +381,41 @@ BOOST_AUTO_TEST_CASE(global_identifier_will_compile) {
         "Constants:\n"
         "    0 : x\n"
         "Bytecode:\n"
-        "    0 : 12 00    GET_GLOBAL [0]        ; x @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n";
+        "    0 : 12 00    GET_GLOBAL [0]          ; x @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
+    const auto chunk = motts::lox::compile("x = 42; while (x > 0) x = x - 1;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : x\n"
+        "    2 : x\n"
+        "    3 : 0\n"
+        "    4 : x\n"
+        "    5 : 1\n"
+        "    6 : x\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 11 01    SET_GLOBAL [1]          ; = @ 1\n"
+        "    4 : 0b       POP                     ; ; @ 1\n"
+        "    5 : 12 02    GET_GLOBAL [2]          ; x @ 1\n"
+        "    7 : 00 03    CONSTANT [3]            ; 0 @ 1\n"
+        "    9 : 0d       GREATER                 ; > @ 1\n"
+        "   10 : 0f 00 0c JUMP_IF_FALSE +12 -> 25 ; while @ 1\n"
+        "   13 : 0b       POP                     ; while @ 1\n"
+        "   14 : 12 04    GET_GLOBAL [4]          ; x @ 1\n"
+        "   16 : 00 05    CONSTANT [5]            ; 1 @ 1\n"
+        "   18 : 06       SUBTRACT                ; - @ 1\n"
+        "   19 : 11 06    SET_GLOBAL [6]          ; = @ 1\n"
+        "   21 : 0b       POP                     ; ; @ 1\n"
+        "   22 : 13 00 14 LOOP -20 -> 5           ; while @ 1\n"
+        "   25 : 0b       POP                     ; while @ 1\n";
     BOOST_TEST(os.str() == expected);
 }

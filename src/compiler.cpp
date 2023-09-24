@@ -133,6 +133,20 @@ namespace motts { namespace lox {
         return Jump_backpatch{bytecode_};
     }
 
+    void Chunk::emit_loop(Bytecode_vector::size_type loop_begin_bytecode_index, const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::loop));
+        bytecode_.push_back(0);
+        bytecode_.push_back(0);
+
+        const auto jump_distance = gsl::narrow<std::uint16_t>(bytecode_.size() - loop_begin_bytecode_index);
+        const auto jump_distance_big_endian = boost::endian::native_to_big(jump_distance);
+        reinterpret_cast<std::uint16_t&>(*(bytecode_.end() - 2)) = jump_distance_big_endian;
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     void Chunk::emit_get_global(const Token& variable_name, const Token& source_map_token) {
         const auto constant_index = constants_.size();
         constants_.push_back(Dynamic_type_value{std::string{variable_name.lexeme}});
@@ -168,10 +182,10 @@ namespace motts { namespace lox {
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
             std::ostringstream line;
 
-            const auto index = bytecode_iter - chunk.bytecode().cbegin();
+            const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
             const auto opcode = static_cast<Opcode>(*bytecode_iter);
 
-            line << std::setw(5) << std::setfill(' ') << index
+            line << std::setw(5) << std::setfill(' ') << bytecode_index
                 << " : "
                 << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(opcode)
                 << " ";
@@ -192,11 +206,16 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::jump_if_false:
-                case Opcode::jump: {
+                case Opcode::jump:
+                case Opcode::loop: {
                     const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
-                        << " " << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 2))
-                        << " " << opcode << " +" << jump_distance << " -> " << (index + 3 + jump_distance);
+                    const auto jump_target = bytecode_index + 3 + (opcode == Opcode::loop ? -1 : 1) * jump_distance;
+
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1)) << ' '
+                        << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 2)) << ' '
+                        << opcode << ' '
+                        << (opcode == Opcode::loop ? '-' : '+') << std::setbase(10) << jump_distance
+                        << " -> " << jump_target;
 
                     bytecode_iter += 3;
 
@@ -225,8 +244,8 @@ namespace motts { namespace lox {
                 }
             }
 
-            const auto source_map_token = chunk.source_map_tokens().at(index);
-            os << std::setw(38) << std::setfill(' ') << std::left << line.str()
+            const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
+            os << std::setw(40) << std::setfill(' ') << std::left << line.str()
                 << " ; " << source_map_token.lexeme << " @ " << source_map_token.line << "\n";
         }
 
@@ -489,26 +508,53 @@ namespace motts { namespace lox {
         compile_or_precedence_expression(chunk, token_iter);
     }
 
+    void compile_expression_statement(Chunk& chunk, Token_iterator& token_iter) {
+        compile_assignment_precedence_expression(chunk, token_iter);
+        ensure_token_is(*token_iter, Token_type::semicolon);
+        chunk.emit<Opcode::pop>(*token_iter++);
+    }
+
+    void compile_statement(Chunk& chunk, Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::print) {
+            const auto print_token = *token_iter++;
+
+            compile_assignment_precedence_expression(chunk, token_iter);
+            ensure_token_is(*token_iter++, Token_type::semicolon);
+            chunk.emit<Opcode::print>(print_token);
+
+            return;
+        }
+
+        if (token_iter->type == Token_type::while_) {
+            const auto while_token = *token_iter++;
+            const auto loop_begin_bytecode_index = chunk.bytecode().size();
+
+            ensure_token_is(*token_iter++, Token_type::left_paren);
+            compile_assignment_precedence_expression(chunk, token_iter);
+            ensure_token_is(*token_iter++, Token_type::right_paren);
+
+            auto to_end_jump_backpatch = chunk.emit_jump_if_false(while_token);
+            chunk.emit<Opcode::pop>(while_token);
+
+            compile_statement(chunk, token_iter);
+
+            chunk.emit_loop(loop_begin_bytecode_index, while_token);
+            to_end_jump_backpatch.to_next_opcode();
+            chunk.emit<Opcode::pop>(while_token);
+
+            return;
+        }
+
+        // Else
+        compile_expression_statement(chunk, token_iter);
+    }
+
     Chunk compile(std::string_view source) {
         Chunk chunk;
 
         Token_iterator token_iter_end;
         for (Token_iterator token_iter {source}; token_iter != token_iter_end; ) {
-            if (token_iter->type == Token_type::print) {
-                const auto print_token = *token_iter++;
-
-                compile_assignment_precedence_expression(chunk, token_iter);
-                ensure_token_is(*token_iter, Token_type::semicolon);
-                chunk.emit<Opcode::print>(print_token);
-                ++token_iter;
-
-                continue;
-            }
-
-            compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter, Token_type::semicolon);
-            chunk.emit<Opcode::pop>(*token_iter);
-            ++token_iter;
+            compile_statement(chunk, token_iter);
         }
 
         return chunk;

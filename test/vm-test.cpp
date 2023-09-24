@@ -26,9 +26,9 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
         "    0 : 28\n"
         "    1 : 14\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 28 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 14 @ 1\n"
-        "    4 : 04       ADD                   ; + @ 1\n"
+        "    0 : 00 00    CONSTANT [0]            ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
+        "    4 : 04       ADD                     ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -75,12 +75,12 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
         "    2 : hello\n"
         "    3 : world\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 28 @ 1\n"
-        "    2 : 00 01    CONSTANT [1]          ; 14 @ 1\n"
-        "    4 : 04       ADD                   ; + @ 1\n"
-        "    5 : 00 02    CONSTANT [2]          ; \"hello\" @ 1\n"
-        "    7 : 00 03    CONSTANT [3]          ; \"world\" @ 1\n"
-        "    9 : 04       ADD                   ; + @ 1\n"
+        "    0 : 00 00    CONSTANT [0]            ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
+        "    4 : 04       ADD                     ; + @ 1\n"
+        "    5 : 00 02    CONSTANT [2]            ; \"hello\" @ 1\n"
+        "    7 : 00 03    CONSTANT [3]            ; \"world\" @ 1\n"
+        "    9 : 04       ADD                     ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -304,8 +304,8 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
-        "    2 : 0b       POP                   ; ; @ 1\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 42\n"
@@ -492,4 +492,13 @@ BOOST_AUTO_TEST_CASE(vm_state_can_persist_across_multiple_runs) {
     }
 
     BOOST_TEST(os.str() == "42\n");
+}
+
+BOOST_AUTO_TEST_CASE(while_will_run) {
+    const auto chunk = motts::lox::compile("x = 3; while (x > 0) print x = x - 1;");
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "2\n1\n0\n");
 }
