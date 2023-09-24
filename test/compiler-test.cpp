@@ -387,10 +387,13 @@ BOOST_AUTO_TEST_CASE(global_identifier_will_compile) {
 }
 
 BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
-    const auto chunk = motts::lox::compile("x = 42; while (x > 0) x = x - 1;");
+    const auto chunk_loop_expr = motts::lox::compile("x = 42; while (x > 0) x = x - 1;");
+    std::ostringstream os_loop_expr;
+    os_loop_expr << chunk_loop_expr;
 
-    std::ostringstream os;
-    os << chunk;
+    const auto chunk_loop_block = motts::lox::compile("x = 42; while (x > 0) { x = x - 1; }");
+    std::ostringstream os_loop_block;
+    os_loop_block << chunk_loop_block;
 
     const auto expected =
         "Constants:\n"
@@ -417,5 +420,21 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
         "   21 : 0b       POP                     ; ; @ 1\n"
         "   22 : 13 00 14 LOOP -20 -> 5           ; while @ 1\n"
         "   25 : 0b       POP                     ; while @ 1\n";
+    BOOST_TEST(os_loop_expr.str() == expected);
+    BOOST_TEST(os_loop_block.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile) {
+    const auto chunk = motts::lox::compile("{ 42; }");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
+        "    2 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }

@@ -519,7 +519,8 @@ namespace motts { namespace lox {
             const auto print_token = *token_iter++;
 
             compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter++, Token_type::semicolon);
+            ensure_token_is(*token_iter, Token_type::semicolon);
+            ++token_iter;
             chunk.emit<Opcode::print>(print_token);
 
             return;
@@ -529,9 +530,13 @@ namespace motts { namespace lox {
             const auto while_token = *token_iter++;
             const auto loop_begin_bytecode_index = chunk.bytecode().size();
 
-            ensure_token_is(*token_iter++, Token_type::left_paren);
+            ensure_token_is(*token_iter, Token_type::left_paren);
+            ++token_iter;
+
             compile_assignment_precedence_expression(chunk, token_iter);
-            ensure_token_is(*token_iter++, Token_type::right_paren);
+
+            ensure_token_is(*token_iter, Token_type::right_paren);
+            ++token_iter;
 
             auto to_end_jump_backpatch = chunk.emit_jump_if_false(while_token);
             chunk.emit<Opcode::pop>(while_token);
@@ -541,6 +546,20 @@ namespace motts { namespace lox {
             chunk.emit_loop(loop_begin_bytecode_index, while_token);
             to_end_jump_backpatch.to_next_opcode();
             chunk.emit<Opcode::pop>(while_token);
+
+            return;
+        }
+
+        if (token_iter->type == Token_type::left_brace) {
+            ++token_iter;
+
+            Token_iterator token_iter_end;
+            for ( ; token_iter != token_iter_end && token_iter->type != Token_type::right_brace; ) {
+                compile_statement(chunk, token_iter);
+            }
+
+            ensure_token_is(*token_iter, Token_type::right_brace);
+            ++token_iter;
 
             return;
         }

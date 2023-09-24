@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
     program_options::options_description options {"Usage"};
     options.add_options()
         ("help", "Show help message")
-        ("debug", program_options::bool_switch(), "Disassemble instructions")
+        ("debug", "Disassemble instructions")
         ("input-file", program_options::value<std::string>(), "Input file");
 
     program_options::positional_options_description positional_options;
@@ -35,9 +35,9 @@ int main(int argc, char* argv[]) {
 
     try {
         if (options_map.count("input-file")) {
-            motts::lox::run_file(options_map["input-file"].as<std::string>(), std::cout, options_map["debug"].as<bool>());
+            motts::lox::run_file(options_map["input-file"].as<std::string>(), std::cout, options_map.count("debug"));
         } else {
-            motts::lox::run_prompt(options_map["debug"].as<bool>());
+            motts::lox::run_prompt(options_map.count("debug"));
         }
     } catch (const std::exception& error) {
         std::cerr << error.what() << "\n";
