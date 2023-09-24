@@ -3,6 +3,7 @@
 #include <iomanip>
 
 #include <boost/algorithm/string.hpp>
+#include <gsl/gsl>
 
 namespace motts { namespace lox {
     std::ostream& operator<<(std::ostream& os, const Opcode& opcode) {
@@ -25,18 +26,46 @@ namespace motts { namespace lox {
         return os;
     }
 
+    const decltype(Chunk::constants_)& Chunk::constants() const {
+        return constants_;
+    }
+
+    const decltype(Chunk::bytecode_)& Chunk::bytecode() const {
+        return bytecode_;
+    }
+
+    const decltype(Chunk::source_map_tokens_)& Chunk::source_map_tokens() const {
+        return source_map_tokens_;
+    }
+
+    void Chunk::emit_constant(double constant_value, const Token& source_map_token) {
+        const auto constant_index = constants_.size();
+        constants_.push_back(constant_value);
+
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::constant));
+        bytecode_.push_back(constant_index);
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_nil(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::nil));
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
         os << "Constants:\n";
 
-        for (auto constant_iter = chunk.constants.cbegin(); constant_iter != chunk.constants.cend(); ++constant_iter) {
-            const auto index = constant_iter - chunk.constants.cbegin();
+        for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend(); ++constant_iter) {
+            const auto index = constant_iter - chunk.constants().cbegin();
             os << std::setw(5) << index << " : " << *constant_iter << "\n";
         }
 
         os << "Bytecode:\n";
 
-        for (auto bytecode_iter = chunk.bytecode.cbegin(); bytecode_iter != chunk.bytecode.cend(); ) {
-            const auto index = bytecode_iter - chunk.bytecode.cbegin();
+        for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
+            const auto index = bytecode_iter - chunk.bytecode().cbegin();
             const auto opcode = static_cast<Opcode>(*bytecode_iter);
 
             os << std::setw(5) << std::setfill(' ') << index
@@ -49,9 +78,6 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unexpected opcode."};
 
                 case Opcode::constant:
-                    if (chunk.bytecode.size() - index < 2) {
-                        throw std::runtime_error{"Insufficient byte for opcode."};
-                    }
                     os << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << " " << opcode << " [" << static_cast<int>(*(bytecode_iter + 1)) << "]";
                     bytecode_iter += 2;
@@ -65,7 +91,7 @@ namespace motts { namespace lox {
                     break;
             }
 
-            const auto source_map_token = chunk.source_map_tokens.at(index);
+            const auto source_map_token = chunk.source_map_tokens().at(index);
             os << " ; " << source_map_token.lexeme << " @ " << source_map_token.line << "\n";
         }
 

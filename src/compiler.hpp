@@ -19,10 +19,18 @@ namespace motts { namespace lox {
 
     std::ostream& operator<<(std::ostream&, const Opcode&);
 
-    struct Chunk {
-        std::vector<double> constants;
-        std::vector<std::uint8_t> bytecode;
-        std::vector<Token> source_map_tokens;
+    class Chunk {
+        std::vector<double> constants_;
+        std::vector<std::uint8_t> bytecode_;
+        std::vector<Token> source_map_tokens_;
+
+        public:
+            const decltype(constants_)& constants() const;
+            const decltype(bytecode_)& bytecode() const;
+            const decltype(source_map_tokens_)& source_map_tokens() const;
+
+            void emit_constant(double constant_value, const Token& source_map_token);
+            void emit_nil(const Token& source_map_token);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

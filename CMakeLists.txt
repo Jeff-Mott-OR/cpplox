@@ -46,7 +46,7 @@ if(NOT DEPS_ONLY)
         target_compile_features(compiler_test PUBLIC cxx_std_20)
         target_compile_options(compiler_test PRIVATE -Wall -Wextra -Werror)
         set_property(TARGET compiler_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
-        target_link_libraries(compiler_test PRIVATE Boost::unit_test_framework)
+        target_link_libraries(compiler_test PRIVATE Boost::unit_test_framework Microsoft.GSL::GSL)
         add_test(NAME compiler_test COMMAND compiler_test)
     endif()
 endif()
