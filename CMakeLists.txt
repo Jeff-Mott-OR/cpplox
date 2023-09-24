@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(Project)
 
 include(FetchContent)
+set(FETCHCONTENT_QUIET OFF)
 
 FetchContent_Declare(
     Microsoft_GSL
