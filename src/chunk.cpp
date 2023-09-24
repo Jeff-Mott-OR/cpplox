@@ -83,8 +83,8 @@ namespace motts { namespace lox {
     template void Chunk::emit<Opcode::true_>(const Token&);
 
     template<Opcode opcode>
-        void Chunk::emit(const Token& variable_name, const Token& source_map_token) {
-            const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
+        void Chunk::emit(const Token& identifier_name, const Token& source_map_token) {
+            const auto constant_index = insert_constant(Dynamic_type_value{std::string{identifier_name.lexeme}});
 
             bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
             bytecode_.push_back(gsl::narrow<std::uint8_t>(constant_index));
@@ -96,6 +96,10 @@ namespace motts { namespace lox {
     template void Chunk::emit<Opcode::define_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::get_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::set_global>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::class_>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::method>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::get_property>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::set_property>(const Token&, const Token&);
 
     template<Opcode opcode>
         void Chunk::emit(int local_stack_index, const Token& source_map_token) {
@@ -237,13 +241,17 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::call:
+                case Opcode::class_:
                 case Opcode::constant:
                 case Opcode::define_global:
                 case Opcode::get_global:
                 case Opcode::get_local:
+                case Opcode::get_property:
                 case Opcode::get_upvalue:
+                case Opcode::method:
                 case Opcode::set_global:
                 case Opcode::set_local:
+                case Opcode::set_property:
                 case Opcode::set_upvalue: {
                     lines.back() << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << ']';

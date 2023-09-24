@@ -87,27 +87,51 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::call: {
-                    const auto arg_count = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& arg_count = *(call_frames_.back().bytecode_iter + 1);
                     call_frames_.back().bytecode_iter += 2;
 
                     const auto& maybe_callable = *(stack_.cend() - arg_count - 1);
-                    if (! std::holds_alternative<GC_ptr<Closure>>(maybe_callable.variant)) {
+
+                    if (std::holds_alternative<GC_ptr<Closure>>(maybe_callable.variant))
+                    {
+                        const auto& closure = std::get<GC_ptr<Closure>>(maybe_callable.variant);
+                        if (closure->function->arity != arg_count) {
+                            std::ostringstream os;
+                            os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
+                                << "Expected " << closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                            throw std::runtime_error{os.str()};
+                        }
+
+                        call_frames_.push_back({
+                            closure,
+                            closure->function->chunk,
+                            closure->function->chunk.bytecode().cbegin(),
+                            stack_.size() - arg_count - 1
+                        });
+                    }
+                    else if (std::holds_alternative<GC_ptr<Class>>(maybe_callable.variant))
+                    {
+                        const auto& class_ = std::get<GC_ptr<Class>>(maybe_callable.variant);
+                        const auto new_instance = gc_heap_.make<Instance>({class_});
+                        stack_.pop_back();
+                        stack_.push_back({new_instance});
+                    }
+                    else
+                    {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
                             << "Can only call functions.";
                         throw std::runtime_error{os.str()};
                     }
 
-                    const auto& closure = std::get<GC_ptr<Closure>>(maybe_callable.variant);
-                    if (closure->function->arity != arg_count) {
-                        std::ostringstream os;
-                        os << "[Line " << source_map_token.line << "] Error at \"" << source_map_token.lexeme << "\": "
-                            << "Expected " << closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
-                        throw std::runtime_error{os.str()};
-                    }
+                    break;
+                }
 
-                    call_frames_.push_back({closure, closure->function->chunk, closure->function->chunk.bytecode().cbegin(), stack_.size() - arg_count - 1});
-
+                case Opcode::class_: {
+                    const auto& class_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& class_name = std::get<std::string>(call_frames_.back().chunk.constants().at(class_name_constant_index).variant);
+                    stack_.push_back(Dynamic_type_value{gc_heap_.make<Class>({class_name})});
+                    call_frames_.back().bytecode_iter += 2;
                     break;
                 }
 
@@ -115,9 +139,7 @@ namespace motts { namespace lox {
                     call_frames_.back().closure->open_upvalues.back()->close();
                     call_frames_.back().closure->open_upvalues.pop_back();
                     stack_.pop_back();
-
                     ++call_frames_.back().bytecode_iter;
-
                     break;
                 }
 
@@ -171,7 +193,7 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::constant: {
-                    const auto constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& constant_index = *(call_frames_.back().bytecode_iter + 1);
                     stack_.push_back(call_frames_.back().chunk.constants().at(constant_index));
                     call_frames_.back().bytecode_iter += 2;
                     break;
@@ -216,23 +238,20 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::define_global: {
-                    const auto variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& variable_name = std::get<std::string>(call_frames_.back().chunk.constants().at(variable_name_constant_index).variant);
-
                     globals_[variable_name] = stack_.back();
                     stack_.pop_back();
-
                     call_frames_.back().bytecode_iter += 2;
-
                     break;
                 }
 
                 case Opcode::get_global: {
-                    const auto variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& variable_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& variable_name = std::get<std::string>(call_frames_.back().chunk.constants().at(variable_name_constant_index).variant);
 
                     const auto global_iter = globals_.find(variable_name);
-                    if (global_iter == globals_.end()) {
+                    if (global_iter == globals_.cend()) {
                         throw std::runtime_error{
                             "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
                         };
@@ -247,6 +266,23 @@ namespace motts { namespace lox {
                 case Opcode::get_local: {
                     const auto& local_stack_index = *(call_frames_.back().bytecode_iter + 1);
                     stack_.push_back(stack_.at(call_frames_.back().stack_begin_index + local_stack_index));
+                    call_frames_.back().bytecode_iter += 2;
+                    break;
+                }
+
+                case Opcode::get_property: {
+                    const auto& field_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& field_name = std::get<std::string>(call_frames_.back().chunk.constants().at(field_name_constant_index).variant);
+                    const auto& instance = std::get<GC_ptr<Instance>>(stack_.back().variant);
+
+                    const auto field_iter = instance->fields.find(field_name);
+                    if (field_iter == instance->fields.cend()) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + field_name + "'."
+                        };
+                    }
+                    stack_.pop_back();
+                    stack_.push_back(field_iter->second);
 
                     call_frames_.back().bytecode_iter += 2;
 
@@ -257,9 +293,7 @@ namespace motts { namespace lox {
                     const auto& upvalue_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& upvalue = call_frames_.back().closure->upvalues.at(upvalue_index);
                     stack_.push_back(upvalue->value());
-
                     call_frames_.back().bytecode_iter += 2;
-
                     break;
                 }
 
@@ -285,7 +319,7 @@ namespace motts { namespace lox {
                 case Opcode::jump:
                 case Opcode::jump_if_false:
                 case Opcode::loop: {
-                    const auto jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(call_frames_.back().bytecode_iter + 1));
+                    const auto& jump_distance_big_endian = reinterpret_cast<const std::uint16_t&>(*(call_frames_.back().bytecode_iter + 1));
                     const auto jump_distance = boost::endian::big_to_native(jump_distance_big_endian);
                     call_frames_.back().bytecode_iter += 3;
 
@@ -330,6 +364,19 @@ namespace motts { namespace lox {
                     break;
                 }
 
+                case Opcode::method: {
+                    const auto& method_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& method_name = std::get<std::string>(call_frames_.back().chunk.constants().at(method_name_constant_index).variant);
+                    auto& class_ = std::get<GC_ptr<Class>>((stack_.end() - 2)->variant);
+
+                    class_->methods[method_name] = std::move(stack_.back());
+                    stack_.pop_back();
+
+                    call_frames_.back().bytecode_iter += 2;
+
+                    break;
+                }
+
                 case Opcode::multiply: {
                     const auto& rhs = *(stack_.cend() - 1);
                     const auto& lhs = *(stack_.cend() - 2);
@@ -357,10 +404,8 @@ namespace motts { namespace lox {
                     }
 
                     const auto negated_value = - std::get<double>(stack_.back().variant);
-
                     stack_.pop_back();
                     stack_.push_back(Dynamic_type_value{negated_value});
-
                     ++call_frames_.back().bytecode_iter;
 
                     break;
@@ -374,12 +419,9 @@ namespace motts { namespace lox {
 
                 case Opcode::not_: {
                     const auto negated_value = ! std::visit(Dynamic_type_value::Truthy_visitor{}, stack_.back().variant);
-
                     stack_.pop_back();
                     stack_.push_back(Dynamic_type_value{negated_value});
-
                     ++call_frames_.back().bytecode_iter;
-
                     break;
                 }
 
@@ -392,9 +434,7 @@ namespace motts { namespace lox {
                 case Opcode::print: {
                     os_ << stack_.back() << '\n';
                     stack_.pop_back();
-
                     ++call_frames_.back().bytecode_iter;
-
                     break;
                 }
 
@@ -404,7 +444,6 @@ namespace motts { namespace lox {
                     }
                     stack_.erase(stack_.cbegin() + call_frames_.back().stack_begin_index, stack_.cend() - 1);
                     call_frames_.pop_back();
-
                     break;
                 }
 
@@ -426,8 +465,20 @@ namespace motts { namespace lox {
                 }
 
                 case Opcode::set_local: {
-                    const auto local_stack_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& local_stack_index = *(call_frames_.back().bytecode_iter + 1);
                     stack_.at(call_frames_.back().stack_begin_index + local_stack_index) = stack_.back();
+                    call_frames_.back().bytecode_iter += 2;
+                    break;
+                }
+
+                case Opcode::set_property: {
+                    const auto& field_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& field_name = std::get<std::string>(call_frames_.back().chunk.constants().at(field_name_constant_index).variant);
+                    auto& instance = std::get<GC_ptr<Instance>>(stack_.back().variant);
+                    const auto& new_value = *(stack_.cend() - 2);
+
+                    instance->fields[field_name] = new_value;
+                    stack_.pop_back();
 
                     call_frames_.back().bytecode_iter += 2;
 
@@ -438,9 +489,7 @@ namespace motts { namespace lox {
                     const auto& upvalue_index = *(call_frames_.back().bytecode_iter + 1);
                     auto& upvalue = call_frames_.back().closure->upvalues.at(upvalue_index);
                     upvalue->value() = stack_.back();
-
                     call_frames_.back().bytecode_iter += 2;
-
                     break;
                 }
 

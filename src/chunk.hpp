@@ -37,7 +37,11 @@ namespace motts { namespace lox {
         X(closure) \
         X(get_upvalue) \
         X(set_upvalue) \
-        X(close_upvalue)
+        X(close_upvalue) \
+        X(class_) \
+        X(method) \
+        X(get_property) \
+        X(set_property)
 
     enum class Opcode {
         #define X(name) name,
@@ -92,8 +96,8 @@ namespace motts { namespace lox {
             // This template is useful for simple, single-byte opcodes.
             template<Opcode> void emit(const Token& source_map_token);
 
-            // This template is for the *_global opcodes.
-            template<Opcode> void emit(const Token& variable_name, const Token& source_map_token);
+            // This template is for the *_global/class/method/*_property opcodes.
+            template<Opcode> void emit(const Token& identifier_name, const Token& source_map_token);
 
             // This template is for the get/set local/upvalue opcodes.
             template<Opcode> void emit(int local_stack_index, const Token& source_map_token);

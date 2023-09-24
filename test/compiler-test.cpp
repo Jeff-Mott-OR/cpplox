@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE(global_assignment_will_compile) {
         "    1 : x\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
-        "    2 : 11 01    SET_GLOBAL [1]          ; = @ 1\n"
+        "    2 : 11 01    SET_GLOBAL [1]          ; x @ 1\n"
         "    4 : 0b       POP                     ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
         "    3 : 1\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
-        "    2 : 11 01    SET_GLOBAL [1]          ; = @ 1\n"
+        "    2 : 11 01    SET_GLOBAL [1]          ; x @ 1\n"
         "    4 : 0b       POP                     ; ; @ 1\n"
         "    5 : 12 01    GET_GLOBAL [1]          ; x @ 1\n"
         "    7 : 00 02    CONSTANT [2]            ; 0 @ 1\n"
@@ -432,7 +432,7 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile) {
         "   14 : 12 01    GET_GLOBAL [1]          ; x @ 1\n"
         "   16 : 00 03    CONSTANT [3]            ; 1 @ 1\n"
         "   18 : 06       SUBTRACT                ; - @ 1\n"
-        "   19 : 11 01    SET_GLOBAL [1]          ; = @ 1\n"
+        "   19 : 11 01    SET_GLOBAL [1]          ; x @ 1\n"
         "   21 : 0b       POP                     ; ; @ 1\n"
         "   22 : 13 00 14 LOOP -20 -> 5           ; while @ 1\n"
         "   25 : 0b       POP                     ; while @ 1\n";
@@ -522,7 +522,7 @@ BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw) {
     try {
         compile(gc_heap, "{ var x; var x; }");
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Variable with this name already declared in this scope.");
+        BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Identifier with this name already declared in this scope.");
     }
 }
 
@@ -993,5 +993,231 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "    7 : 05       PRINT                   ; print @ 6\n"
         "    8 : 01       NIL                     ; fun @ 4\n"
         "    9 : 18       RETURN                  ; fun @ 4\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(class_will_compile) {
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Klass {\n"
+        "    method() {}\n"
+        "}\n"
+        "var instance = Klass();\n"
+        "instance.property = 42;\n"
+        "instance.property;\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Klass\n"
+        "    1 : <fn method>\n"
+        "    2 : method\n"
+        "    3 : instance\n"
+        "    4 : 42\n"
+        "    5 : property\n"
+        "Bytecode:\n"
+        // class Klass
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 19 01 00 CLOSURE [1] (0)         ; method @ 2\n"
+        "    5 : 1e 02    METHOD [2]              ; method @ 2\n"
+        "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // var instance = Klass();
+        "    9 : 12 00    GET_GLOBAL [0]          ; Klass @ 4\n"
+        "   11 : 17 00    CALL [0]                ; Klass @ 4\n"
+        "   13 : 14 03    DEFINE_GLOBAL [3]       ; var @ 4\n"
+        // instance.property = 42;
+        "   15 : 00 04    CONSTANT [4]            ; 42 @ 5\n"
+        "   17 : 12 03    GET_GLOBAL [3]          ; instance @ 5\n"
+        "   19 : 20 05    SET_PROPERTY [5]        ; property @ 5\n"
+        "   21 : 0b       POP                     ; ; @ 5\n"
+        // instance.property;
+        "   22 : 12 03    GET_GLOBAL [3]          ; instance @ 6\n"
+        "   24 : 1f 05    GET_PROPERTY [5]        ; property @ 6\n"
+        "   26 : 0b       POP                     ; ; @ 6\n"
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; method @ 2\n"
+        "    1 : 18       RETURN                  ; method @ 2\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(class_name_can_be_used_in_methods) {
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class GlobalClass {\n"
+        "    method() {\n"
+        "        GlobalClass;\n"
+        "    }\n"
+        "}\n"
+        "{\n"
+        "    class LocalClass {\n"
+        "        method() {\n"
+        "            LocalClass;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : GlobalClass\n"
+        "    1 : <fn method>\n"
+        "    2 : method\n"
+        "    3 : LocalClass\n"
+        "    4 : <fn method>\n"
+        "Bytecode:\n"
+        // class GlobalClass {
+        //     method()
+        // }
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 19 01 00 CLOSURE [1] (0)         ; method @ 2\n"
+        "    5 : 1e 02    METHOD [2]              ; method @ 2\n"
+        "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // {
+        //     class LocalClass {
+        //         method()
+        //     }
+        // }
+        "    9 : 1d 03    CLASS [3]               ; class @ 7\n"
+        "   11 : 19 04 01 CLOSURE [4] (1)         ; method @ 8\n"
+        "           01 00 | ^ [0]                 ; method @ 8\n"
+        "   16 : 1e 02    METHOD [2]              ; method @ 8\n"
+        "   18 : 1c       CLOSE_UPVALUE           ; } @ 12\n"
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "    0 : GlobalClass\n"
+        "Bytecode:\n"
+        "    0 : 12 00    GET_GLOBAL [0]          ; GlobalClass @ 3\n"
+        "    2 : 0b       POP                     ; ; @ 3\n"
+        "    3 : 01       NIL                     ; method @ 2\n"
+        "    4 : 18       RETURN                  ; method @ 2\n"
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 1a 00    GET_UPVALUE [0]         ; LocalClass @ 9\n"
+        "    2 : 0b       POP                     ; ; @ 9\n"
+        "    3 : 01       NIL                     ; method @ 8\n"
+        "    4 : 18       RETURN                  ; method @ 8\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(property_access_can_be_chained) {
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Klass {}\n"
+        "var globalFoo = Klass();\n"
+        "globalFoo.bar = Klass();\n"
+        "globalFoo.bar.baz = 42;\n"
+        "print globalFoo.bar.baz;\n"
+        "{\n"
+        "    var localFoo = Klass();\n"
+        "    localFoo.bar = Klass();\n"
+        "    localFoo.bar.baz = 42;\n"
+        "    print localFoo.bar.baz;\n"
+        "    fun f() {\n"
+        "        localFoo.bar.baz = 108;\n"
+        "        print localFoo.bar.baz;\n"
+        "    }\n"
+        "    f();\n"
+        "}\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Klass\n"
+        "    1 : globalFoo\n"
+        "    2 : bar\n"
+        "    3 : 42\n"
+        "    4 : baz\n"
+        "    5 : <fn f>\n"
+        "Bytecode:\n"
+        // class Klass {}
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // var globalFoo = Klass();
+        "    4 : 12 00    GET_GLOBAL [0]          ; Klass @ 2\n"
+        "    6 : 17 00    CALL [0]                ; Klass @ 2\n"
+        "    8 : 14 01    DEFINE_GLOBAL [1]       ; var @ 2\n"
+        // globalFoo.bar = Klass();
+        "   10 : 12 00    GET_GLOBAL [0]          ; Klass @ 3\n"
+        "   12 : 17 00    CALL [0]                ; Klass @ 3\n"
+        "   14 : 12 01    GET_GLOBAL [1]          ; globalFoo @ 3\n"
+        "   16 : 20 02    SET_PROPERTY [2]        ; bar @ 3\n"
+        "   18 : 0b       POP                     ; ; @ 3\n"
+        // globalFoo.bar.baz = 42;
+        "   19 : 00 03    CONSTANT [3]            ; 42 @ 4\n"
+        "   21 : 12 01    GET_GLOBAL [1]          ; globalFoo @ 4\n"
+        "   23 : 1f 02    GET_PROPERTY [2]        ; bar @ 4\n"
+        "   25 : 20 04    SET_PROPERTY [4]        ; baz @ 4\n"
+        "   27 : 0b       POP                     ; ; @ 4\n"
+        // print globalFoo.bar.baz;
+        "   28 : 12 01    GET_GLOBAL [1]          ; globalFoo @ 5\n"
+        "   30 : 1f 02    GET_PROPERTY [2]        ; bar @ 5\n"
+        "   32 : 1f 04    GET_PROPERTY [4]        ; baz @ 5\n"
+        "   34 : 05       PRINT                   ; print @ 5\n"
+        // var localFoo = Klass();
+        "   35 : 12 00    GET_GLOBAL [0]          ; Klass @ 7\n"
+        "   37 : 17 00    CALL [0]                ; Klass @ 7\n"
+        // localFoo.bar = Klass();
+        "   39 : 12 00    GET_GLOBAL [0]          ; Klass @ 8\n"
+        "   41 : 17 00    CALL [0]                ; Klass @ 8\n"
+        "   43 : 15 00    GET_LOCAL [0]           ; localFoo @ 8\n"
+        "   45 : 20 02    SET_PROPERTY [2]        ; bar @ 8\n"
+        "   47 : 0b       POP                     ; ; @ 8\n"
+        // localFoo.bar.baz = 42;
+        "   48 : 00 03    CONSTANT [3]            ; 42 @ 9\n"
+        "   50 : 15 00    GET_LOCAL [0]           ; localFoo @ 9\n"
+        "   52 : 1f 02    GET_PROPERTY [2]        ; bar @ 9\n"
+        "   54 : 20 04    SET_PROPERTY [4]        ; baz @ 9\n"
+        "   56 : 0b       POP                     ; ; @ 9\n"
+        // print localFoo.bar.baz;
+        "   57 : 15 00    GET_LOCAL [0]           ; localFoo @ 10\n"
+        "   59 : 1f 02    GET_PROPERTY [2]        ; bar @ 10\n"
+        "   61 : 1f 04    GET_PROPERTY [4]        ; baz @ 10\n"
+        "   63 : 05       PRINT                   ; print @ 10\n"
+        // fun f()
+        "   64 : 19 05 01 CLOSURE [5] (1)         ; fun @ 11\n"
+        "           01 00 | ^ [0]                 ; fun @ 11\n"
+        // f();
+        "   69 : 15 01    GET_LOCAL [1]           ; f @ 15\n"
+        "   71 : 17 00    CALL [0]                ; f @ 15\n"
+        "   73 : 0b       POP                     ; ; @ 15\n"
+        // }
+        "   74 : 0b       POP                     ; } @ 16\n"
+        "   75 : 1c       CLOSE_UPVALUE           ; } @ 16\n"
+        // fun f()
+        "## <fn f> chunk\n"
+        "Constants:\n"
+        "    0 : 108\n"
+        "    1 : bar\n"
+        "    2 : baz\n"
+        "Bytecode:\n"
+        // localFoo.bar.baz = 108;
+        "    0 : 00 00    CONSTANT [0]            ; 108 @ 12\n"
+        "    2 : 1a 00    GET_UPVALUE [0]         ; localFoo @ 12\n"
+        "    4 : 1f 01    GET_PROPERTY [1]        ; bar @ 12\n"
+        "    6 : 20 02    SET_PROPERTY [2]        ; baz @ 12\n"
+        "    8 : 0b       POP                     ; ; @ 12\n"
+        // print localFoo.bar.baz;
+        "    9 : 1a 00    GET_UPVALUE [0]         ; localFoo @ 13\n"
+        "   11 : 1f 01    GET_PROPERTY [1]        ; bar @ 13\n"
+        "   13 : 1f 02    GET_PROPERTY [2]        ; baz @ 13\n"
+        "   15 : 05       PRINT                   ; print @ 13\n"
+        // }
+        "   16 : 01       NIL                     ; fun @ 11\n"
+        "   17 : 18       RETURN                  ; fun @ 11\n";
     BOOST_TEST(os.str() == expected);
 }

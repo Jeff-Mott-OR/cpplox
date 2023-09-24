@@ -1006,3 +1006,43 @@ BOOST_AUTO_TEST_CASE(closure_early_return_will_close_upvalues) {
 
     BOOST_TEST(os.str() == "42\n");
 }
+
+BOOST_AUTO_TEST_CASE(class_will_run) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_method_chunk;
+    fn_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "method", 1});
+    fn_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_method = gc_heap.make<motts::lox::Function>({"method", 0, std::move(fn_method_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(fn_method, {}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Klass", 1});
+    main_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "instance", 1}, Token{Token_type::var, "var", 1});
+
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "instance", 1}, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "instance", 1}, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::set_property>(Token{Token_type::identifier, "property", 1}, Token{Token_type::identifier, "property", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "instance", 1}, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "property", 1}, Token{Token_type::identifier, "property", 1});
+    main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "<class Klass>\n<instance Klass>\n42\n42\n");
+}

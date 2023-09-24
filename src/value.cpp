@@ -30,6 +30,14 @@ namespace {
             (*this)(closure->function);
         }
 
+        auto operator()(const GC_ptr<Class>& class_) {
+            os << "<class " << class_->name << '>';
+        }
+
+        auto operator()(const GC_ptr<Instance>& instance) {
+            os << "<instance " << instance->class_->name << '>';
+        }
+
         template<typename T>
             auto operator()(const T& value) {
                 os << value;

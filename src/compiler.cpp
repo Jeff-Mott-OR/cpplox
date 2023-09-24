@@ -1,5 +1,6 @@
 #include "compiler.hpp"
 
+#include <cassert>
 #include <sstream>
 #include <vector>
 
@@ -65,6 +66,10 @@ namespace {
             return false;
         }
 
+        bool is_global_scope() const {
+            return scope_depth == 0 && function_chunks.size() == 1;
+        }
+
         void pop_top_scope_depth(const Token& source_map_token) {
             while (
                 ! function_chunks.back().tracked_locals.empty() &&
@@ -80,6 +85,25 @@ namespace {
             --scope_depth;
         }
 
+        void track_local(const Token& identifier_token, bool initialized = true) {
+            assert(! is_global_scope() && "We don't track locals in the global scope.");
+
+            const auto maybe_redeclared_iter = std::find_if(
+                function_chunks.back().tracked_locals.cbegin(), function_chunks.back().tracked_locals.cend(),
+                [&] (const auto& tracked_local) {
+                    return tracked_local.depth == scope_depth && tracked_local.name.lexeme == identifier_token.lexeme;
+                }
+            );
+            if (maybe_redeclared_iter != function_chunks.back().tracked_locals.cend()) {
+                std::ostringstream os;
+                os << "[Line " << identifier_token.line << "] Error at \"" << identifier_token.lexeme
+                    << "\": Identifier with this name already declared in this scope.";
+                throw std::runtime_error{os.str()};
+            }
+
+            function_chunks.back().tracked_locals.push_back({identifier_token, scope_depth, initialized});
+        }
+
         std::vector<Chunk::Tracked_upvalue>::const_iterator track_upvalue(const Token& identifier_token) {
             // Walk up nested functions looking for a local.
             for (auto enclosing_fn_iter = function_chunks.rbegin() + 1; enclosing_fn_iter != function_chunks.rend(); ++enclosing_fn_iter) {
@@ -90,12 +114,12 @@ namespace {
                     }
                 );
 
-                if (maybe_enclosing_local_iter != enclosing_fn_iter->tracked_locals.rend()) {
+                if (maybe_enclosing_local_iter != enclosing_fn_iter->tracked_locals.crend()) {
                     maybe_enclosing_local_iter->is_captured = true;
 
                     // First the "direct" capture level that points to an enclosing stack local.
                     auto enclosing_upvalue_index = [&] {
-                        const auto enclosing_local_index = maybe_enclosing_local_iter.base() - 1 - enclosing_fn_iter->tracked_locals.begin();
+                        const auto enclosing_local_index = maybe_enclosing_local_iter.base() - 1 - enclosing_fn_iter->tracked_locals.cbegin();
                         const Chunk::Tracked_upvalue new_tracked_upvalue {true, gsl::narrow<unsigned int>(enclosing_local_index)};
 
                         const auto directly_capturing_fn_iter = enclosing_fn_iter.base();
@@ -114,7 +138,7 @@ namespace {
                     // Then walk back down the nested functions of indirect capture levels that point to an enclosing upvalue.
                     for (
                         auto indirectly_capturing_fn_iter = enclosing_fn_iter.base() + 1;
-                        indirectly_capturing_fn_iter != function_chunks.end();
+                        indirectly_capturing_fn_iter != function_chunks.cend();
                         ++indirectly_capturing_fn_iter
                     ) {
                         const Chunk::Tracked_upvalue new_tracked_upvalue {false, gsl::narrow<unsigned int>(enclosing_upvalue_index)};
@@ -179,6 +203,14 @@ namespace {
                         } else {
                             function_chunks.back().chunk.emit<Opcode::get_global>(identifier_token, identifier_token);
                         }
+                    }
+
+                    // Check for property access following identifier.
+                    while (token_iter->type == Token_type::dot) {
+                        ++token_iter;
+                        ensure_token_is(*token_iter, Token_type::identifier);
+                        const auto property_name_token = *token_iter++;
+                        function_chunks.back().chunk.emit<Opcode::get_property>(property_name_token, property_name_token);
                     }
 
                     // Check for function call following identifier.
@@ -415,9 +447,16 @@ namespace {
                 auto peek_ahead_iter = token_iter;
                 ++peek_ahead_iter;
 
+                // Check for property access following identifier.
+                std::vector<Token> property_name_tokens;
+                while (peek_ahead_iter->type == Token_type::dot) {
+                    ++peek_ahead_iter;
+                    ensure_token_is(*peek_ahead_iter, Token_type::identifier);
+                    property_name_tokens.push_back(*peek_ahead_iter++);
+                }
+
                 if (peek_ahead_iter->type == Token_type::equal) {
-                    token_iter = peek_ahead_iter;
-                    const auto assign_token = *token_iter++;
+                    token_iter = ++peek_ahead_iter;
 
                     // Right expression.
                     compile_assignment_precedence_expression();
@@ -428,18 +467,48 @@ namespace {
                             return tracked_local.name.lexeme == variable_name_token.lexeme;
                         }
                     );
-                    if (maybe_local_iter != function_chunks.back().tracked_locals.crend()) {
+
+                    if (maybe_local_iter != function_chunks.back().tracked_locals.crend())
+                    {
                         const auto local_iter = maybe_local_iter.base() - 1;
                         const auto tracked_local_stack_index = local_iter - function_chunks.back().tracked_locals.cbegin();
-                        function_chunks.back().chunk.emit<Opcode::set_local>(tracked_local_stack_index, variable_name_token);
-                    } else {
-                        const auto maybe_upvalue_iter = track_upvalue(variable_name_token);
-                        if (maybe_upvalue_iter != function_chunks.back().tracked_upvalues.cend()) {
-                            const auto tracked_upvalue_index = maybe_upvalue_iter - function_chunks.back().tracked_upvalues.cbegin();
-                            function_chunks.back().chunk.emit<Opcode::set_upvalue>(tracked_upvalue_index, variable_name_token);
+                        if (property_name_tokens.empty()) {
+                            function_chunks.back().chunk.emit<Opcode::set_local>(tracked_local_stack_index, variable_name_token);
                         } else {
-                            function_chunks.back().chunk.emit<Opcode::set_global>(variable_name_token, assign_token);
+                            function_chunks.back().chunk.emit<Opcode::get_local>(tracked_local_stack_index, variable_name_token);
                         }
+                    }
+                    else
+                    {
+                        const auto maybe_upvalue_iter = track_upvalue(variable_name_token);
+                        if (maybe_upvalue_iter != function_chunks.back().tracked_upvalues.cend())
+                        {
+                            const auto tracked_upvalue_index = maybe_upvalue_iter - function_chunks.back().tracked_upvalues.cbegin();
+                            if (property_name_tokens.empty()) {
+                                function_chunks.back().chunk.emit<Opcode::set_upvalue>(tracked_upvalue_index, variable_name_token);
+                            } else {
+                                function_chunks.back().chunk.emit<Opcode::get_upvalue>(tracked_upvalue_index, variable_name_token);
+                            }
+                        }
+                        else
+                        {
+                            if (property_name_tokens.empty()) {
+                                function_chunks.back().chunk.emit<Opcode::set_global>(variable_name_token, variable_name_token);
+                            } else {
+                                function_chunks.back().chunk.emit<Opcode::get_global>(variable_name_token, variable_name_token);
+                            }
+                        }
+                    }
+
+                    if (! property_name_tokens.empty()) {
+                        for (
+                            auto property_name_iter = property_name_tokens.cbegin();
+                            property_name_iter != property_name_tokens.cend() - 1;
+                            ++property_name_iter
+                        ) {
+                            function_chunks.back().chunk.emit<Opcode::get_property>(*property_name_iter, *property_name_iter);
+                        }
+                        function_chunks.back().chunk.emit<Opcode::set_property>(property_name_tokens.back(), property_name_tokens.back());
                     }
 
                     return;
@@ -455,10 +524,69 @@ namespace {
             function_chunks.back().chunk.emit<Opcode::pop>(*token_iter++);
         }
 
+        int compile_function_rest(const Token& source_map_token) {
+            auto param_count = 0;
+
+            ensure_token_is(*token_iter++, Token_type::left_paren);
+            if (token_iter->type != Token_type::right_paren) {
+                do {
+                    ensure_token_is(*token_iter, Token_type::identifier);
+                    track_local(*token_iter++);
+                    ++param_count;
+                } while (advance_if_match(Token_type::comma));
+            }
+            ensure_token_is(*token_iter++, Token_type::right_paren);
+
+            ensure_token_is(*token_iter, Token_type::left_brace);
+            compile_statement();
+
+            // A default return value.
+            function_chunks.back().chunk.emit<Opcode::nil>(source_map_token);
+            function_chunks.back().chunk.emit<Opcode::return_>(source_map_token);
+
+            return param_count;
+        }
+
         void compile_statement() {
             switch (token_iter->type) {
                 default: {
                     compile_expression_statement();
+                    break;
+                }
+
+                case Token_type::class_: {
+                    const auto class_token = *token_iter++;
+
+                    ensure_token_is(*token_iter, Token_type::identifier);
+                    const auto class_name_token = *token_iter++;
+                    function_chunks.back().chunk.emit<Opcode::class_>(class_name_token, class_token);
+
+                    if (! is_global_scope()) {
+                        track_local(class_name_token);
+                    }
+
+                    ensure_token_is(*token_iter++, Token_type::left_brace);
+                    while (token_iter->type == Token_type::identifier) {
+                        const auto method_name_token = *token_iter++;
+
+                        function_chunks.push_back({});
+                        const auto param_count = compile_function_rest(method_name_token);
+
+                        (function_chunks.end() - 2)->chunk.emit_closure(
+                            gc_heap.make<Function>({method_name_token.lexeme, param_count, std::move(function_chunks.back().chunk)}),
+                            function_chunks.back().tracked_upvalues,
+                            method_name_token
+                        );
+                        function_chunks.pop_back();
+
+                        function_chunks.back().chunk.emit<Opcode::method>(method_name_token, method_name_token);
+                    }
+                    ensure_token_is(*token_iter++, Token_type::right_brace);
+
+                    if (is_global_scope()) {
+                        function_chunks.back().chunk.emit<Opcode::define_global>(class_name_token, class_token);
+                    }
+
                     break;
                 }
 
@@ -543,44 +671,20 @@ namespace {
                     const auto fun_name_token = *token_iter++;
 
                     function_chunks.push_back({});
-                    // The caller already put the function on the stack. Within the function's body,
-                    // we track that stack position and access it through the function's name identifier.
-                    function_chunks.back().tracked_locals.push_back({fun_name_token, scope_depth});
+                    track_local(fun_name_token);
+                    const auto param_count = compile_function_rest(fun_token);
 
-                    ensure_token_is(*token_iter++, Token_type::left_paren);
-                    auto param_count = 0;
-                    if (token_iter->type == Token_type::right_paren) {
-                        ++token_iter;
-                    } else {
-                        do {
-                            ensure_token_is(*token_iter, Token_type::identifier);
-                            const auto param_token = *token_iter++;
-                            // The caller already put the argument on the stack. Within the function's body,
-                            // we track that stack position and access it through the parameter's name.
-                            function_chunks.back().tracked_locals.push_back({param_token, scope_depth});
-                            ++param_count;
-                        } while (advance_if_match(Token_type::comma));
-                        ensure_token_is(*token_iter++, Token_type::right_paren);
-                    }
-
-                    ensure_token_is(*token_iter, Token_type::left_brace);
-                    compile_statement();
-
-                    // A default return value.
-                    function_chunks.back().chunk.emit<Opcode::nil>(fun_token);
-                    function_chunks.back().chunk.emit<Opcode::return_>(fun_token);
-
-                    (function_chunks.rbegin() + 1)->chunk.emit_closure(
+                    (function_chunks.end() - 2)->chunk.emit_closure(
                         gc_heap.make<Function>({fun_name_token.lexeme, param_count, std::move(function_chunks.back().chunk)}),
                         function_chunks.back().tracked_upvalues,
                         fun_token
                     );
                     function_chunks.pop_back();
 
-                    if (scope_depth == 0) {
+                    if (is_global_scope()) {
                         function_chunks.back().chunk.emit<Opcode::define_global>(fun_name_token, fun_token);
                     } else {
-                        function_chunks.back().tracked_locals.push_back({fun_name_token, scope_depth});
+                        track_local(fun_name_token);
                     }
 
                     break;
@@ -629,22 +733,8 @@ namespace {
 
                     ensure_token_is(*token_iter, Token_type::identifier);
                     const auto variable_name_token = *token_iter++;
-
-                    if (scope_depth > 0) {
-                        const auto maybe_redeclared_iter = std::find_if(
-                            function_chunks.back().tracked_locals.crbegin(), function_chunks.back().tracked_locals.crend(),
-                            [&] (const auto& tracked_local) {
-                                return tracked_local.depth == scope_depth && tracked_local.name.lexeme == variable_name_token.lexeme;
-                            }
-                        );
-                        if (maybe_redeclared_iter != function_chunks.back().tracked_locals.crend()) {
-                            std::ostringstream os;
-                            os << "[Line " << variable_name_token.line << "] Error at \"" << variable_name_token.lexeme
-                                << "\": Variable with this name already declared in this scope.";
-                            throw std::runtime_error{os.str()};
-                        }
-
-                        function_chunks.back().tracked_locals.push_back({variable_name_token, scope_depth, false});
+                    if (! is_global_scope()) {
+                        track_local(variable_name_token, false);
                     }
 
                     if (token_iter->type == Token_type::equal) {
@@ -655,11 +745,9 @@ namespace {
                     }
                     ensure_token_is(*token_iter++, Token_type::semicolon);
 
-                    if (scope_depth == 0) {
+                    if (is_global_scope()) {
                         function_chunks.back().chunk.emit<Opcode::define_global>(variable_name_token, var_token);
                     } else {
-                        // No bytecode to emit. The value is already on the stack,
-                        // and the tracked local index will correspond to the stack position.
                         function_chunks.back().tracked_locals.back().initialized = true;
                     }
 

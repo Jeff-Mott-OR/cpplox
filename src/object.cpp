@@ -50,4 +50,28 @@ namespace motts { namespace lox {
                 mark(gc_heap, upvalue);
             }
         }
+
+    Class::Class(const std::string_view& name_arg)
+        : name {name_arg}
+    {}
+
+    template<>
+        void trace_refs_trait(GC_heap& gc_heap, const Class& class_) {
+            for (const auto& [_, method] : class_.methods) {
+                std::visit(Dynamic_type_value::Mark_objects_visitor{gc_heap}, method.variant);
+            }
+        }
+
+    Instance::Instance(const GC_ptr<Class>& class_arg)
+        : class_ {class_arg}
+    {}
+
+    template<>
+        void trace_refs_trait(GC_heap& gc_heap, const Instance& instance) {
+            mark(gc_heap, instance.class_);
+
+            for (const auto& [_, field] : instance.fields) {
+                std::visit(Dynamic_type_value::Mark_objects_visitor{gc_heap}, field.variant);
+            }
+        }
 }}

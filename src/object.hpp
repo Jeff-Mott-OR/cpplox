@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string_view>
+#include <unordered_map>
 
 #include "chunk.hpp"
 #include "memory.hpp"
@@ -43,4 +44,22 @@ namespace motts { namespace lox {
     };
 
     template<> void trace_refs_trait(GC_heap&, const Closure&);
+
+    struct Class {
+        std::string_view name;
+        std::unordered_map<std::string, Dynamic_type_value> methods;
+
+        Class(const std::string_view& name);
+    };
+
+    template<> void trace_refs_trait(GC_heap&, const Class&);
+
+    struct Instance {
+        GC_ptr<Class> class_;
+        std::unordered_map<std::string, Dynamic_type_value> fields;
+
+        Instance(const GC_ptr<Class>&);
+    };
+
+    template<> void trace_refs_trait(GC_heap&, const Instance&);
 }}
