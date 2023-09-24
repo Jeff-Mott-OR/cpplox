@@ -22,7 +22,7 @@ BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw) {
 
 BOOST_AUTO_TEST_CASE(chunks_can_be_printed) {
     motts::lox::Chunk chunk;
-    chunk.emit_constant(42, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
+    chunk.emit_constant(motts::lox::Dynamic_type_value{42.0}, motts::lox::Token{motts::lox::Token_type::number, "42", 1});
     chunk.emit_nil(motts::lox::Token{motts::lox::Token_type::nil, "nil", 2});
 
     std::ostringstream os;
@@ -79,5 +79,19 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile) {
         "Bytecode:\n"
         "    0 : 02    TRUE         ; true @ 1\n"
         "    1 : 03    FALSE        ; false @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(string_literals_compile) {
+    const auto chunk = motts::lox::compile("\"hello\"");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : hello\n"
+        "Bytecode:\n"
+        "    0 : 00 00 CONSTANT [0] ; \"hello\" @ 1\n";
     BOOST_TEST(os.str() == expected);
 }

@@ -33,6 +33,24 @@ namespace motts { namespace lox {
         return os;
     }
 
+    struct Print_visitor {
+        std::ostream& os;
+        Print_visitor(std::ostream& os_arg)
+            : os {os_arg}
+        {
+        }
+
+        template<typename T>
+            auto operator()(const T& value) {
+                os << value;
+            }
+    };
+
+    std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value) {
+        std::visit(Print_visitor{os}, value.variant);
+        return os;
+    }
+
     const decltype(Chunk::constants_)& Chunk::constants() const {
         return constants_;
     }
@@ -45,7 +63,7 @@ namespace motts { namespace lox {
         return source_map_tokens_;
     }
 
-    void Chunk::emit_constant(double constant_value, const Token& source_map_token) {
+    void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
         const auto constant_index = constants_.size();
         constants_.push_back(constant_value);
 
@@ -141,7 +159,13 @@ namespace motts { namespace lox {
 
                 case Token_type::number: {
                     const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
-                    chunk.emit_constant(number_value, *token_iter);
+                    chunk.emit_constant(Dynamic_type_value{number_value}, *token_iter);
+                    break;
+                }
+
+                case Token_type::string: {
+                    auto string_value = std::string{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
+                    chunk.emit_constant(Dynamic_type_value{std::move(string_value)}, *token_iter);
                     break;
                 }
 

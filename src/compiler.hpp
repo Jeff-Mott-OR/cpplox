@@ -2,7 +2,10 @@
 
 #include <cstdint>
 #include <ostream>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "scanner.hpp"
@@ -22,8 +25,14 @@ namespace motts { namespace lox {
 
     std::ostream& operator<<(std::ostream&, const Opcode&);
 
+    struct Dynamic_type_value {
+        std::variant<double, std::string> variant;
+    };
+
+    std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
+
     class Chunk {
-        std::vector<double> constants_;
+        std::vector<Dynamic_type_value> constants_;
         std::vector<std::uint8_t> bytecode_;
         std::vector<Token> source_map_tokens_;
 
@@ -32,7 +41,7 @@ namespace motts { namespace lox {
             const decltype(bytecode_)& bytecode() const;
             const decltype(source_map_tokens_)& source_map_tokens() const;
 
-            void emit_constant(double constant_value, const Token& source_map_token);
+            void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
             void emit_false(const Token& source_map_token);
             void emit_nil(const Token& source_map_token);
             void emit_true(const Token& source_map_token);
