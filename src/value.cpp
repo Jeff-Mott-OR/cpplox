@@ -7,10 +7,10 @@ namespace {
     // Allow the internal linkage section to access names
     using namespace motts::lox;
 
-    struct Dynamic_type_value_print_visitor {
+    struct Print_visitor {
         std::ostream& os;
 
-        Dynamic_type_value_print_visitor(std::ostream& os_arg)
+        Print_visitor(std::ostream& os_arg)
             : os {os_arg}
         {}
 
@@ -23,7 +23,11 @@ namespace {
         }
 
         auto operator()(const GC_ptr<Function>& fn) {
-            os << "<fn " << fn->name << ">";
+            os << "<fn " << fn->name << '>';
+        }
+
+        auto operator()(const GC_ptr<Closure>& closure) {
+            (*this)(closure->function);
         }
 
         template<typename T>
@@ -39,7 +43,7 @@ namespace motts { namespace lox {
     }
 
     std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value) {
-        std::visit(Dynamic_type_value_print_visitor{os}, value.variant);
+        std::visit(Print_visitor{os}, value.variant);
         return os;
     }
 }}

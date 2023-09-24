@@ -66,6 +66,7 @@ namespace motts { namespace lox {
     // Explicit instantiation of the opcodes allowed with this templated member function.
     // `emit<Opcode::constant>`, for example, should *not* be accepted through this template.
     template void Chunk::emit<Opcode::add>(const Token&);
+    template void Chunk::emit<Opcode::close_upvalue>(const Token&);
     template void Chunk::emit<Opcode::divide>(const Token&);
     template void Chunk::emit<Opcode::false_>(const Token&);
     template void Chunk::emit<Opcode::equal>(const Token&);
@@ -107,6 +108,8 @@ namespace motts { namespace lox {
 
     template void Chunk::emit<Opcode::get_local>(int, const Token&);
     template void Chunk::emit<Opcode::set_local>(int, const Token&);
+    template void Chunk::emit<Opcode::get_upvalue>(int, const Token&);
+    template void Chunk::emit<Opcode::set_upvalue>(int, const Token&);
 
     void Chunk::emit_call(int arg_count, const Token& source_map_token) {
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::call));
@@ -114,6 +117,30 @@ namespace motts { namespace lox {
 
         source_map_tokens_.push_back(source_map_token);
         source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_closure(
+        const GC_ptr<Function>& function,
+        const std::vector<Tracked_upvalue>& tracked_upvalues,
+        const Token& source_map_token
+    ) {
+        const auto fn_constant_index = insert_constant(Dynamic_type_value{function});
+
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::closure));
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(fn_constant_index));
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalues.size()));
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+
+        for (const auto& tracked_upvalue : tracked_upvalues) {
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalue.is_direct_capture ? 1 : 0));
+            bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalue.enclosing_index));
+
+            source_map_tokens_.push_back(source_map_token);
+            source_map_tokens_.push_back(source_map_token);
+        }
     }
 
     void Chunk::emit_constant(Dynamic_type_value&& constant_value, const Token& source_map_token) {
@@ -168,17 +195,18 @@ namespace motts { namespace lox {
         os << "Constants:\n";
         for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend(); ++constant_iter) {
             const auto constant_index = constant_iter - chunk.constants().cbegin();
-            os << std::setw(5) << constant_index << " : " << *constant_iter << '\n';
+            os << std::setw(5) << std::right << constant_index << " : " << *constant_iter << '\n';
         }
 
         os << "Bytecode:\n";
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
-            std::ostringstream line;
+            std::vector<std::ostringstream> lines;
+            lines.push_back({});
 
             const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
             const auto opcode = static_cast<Opcode>(*bytecode_iter);
 
-            line << std::setw(5) << std::setfill(' ') << bytecode_index
+            lines.back() << std::setw(5) << std::setfill(' ') << bytecode_index
                 << " : "
                 << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(opcode)
                 << " ";
@@ -188,6 +216,7 @@ namespace motts { namespace lox {
                     throw std::logic_error{"Unexpected opcode."};
 
                 case Opcode::add:
+                case Opcode::close_upvalue:
                 case Opcode::divide:
                 case Opcode::equal:
                 case Opcode::false_:
@@ -202,7 +231,7 @@ namespace motts { namespace lox {
                 case Opcode::return_:
                 case Opcode::subtract:
                 case Opcode::true_: {
-                    line << std::setw(6) << std::setfill(' ') << ' ' << opcode;
+                    lines.back() << std::setw(6) << std::setfill(' ') << ' ' << opcode;
                     bytecode_iter += 1;
                     break;
                 }
@@ -212,11 +241,37 @@ namespace motts { namespace lox {
                 case Opcode::define_global:
                 case Opcode::get_global:
                 case Opcode::get_local:
+                case Opcode::get_upvalue:
                 case Opcode::set_global:
-                case Opcode::set_local: {
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
+                case Opcode::set_local:
+                case Opcode::set_upvalue: {
+                    lines.back() << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << ']';
                     bytecode_iter += 2;
+                    break;
+                }
+
+                case Opcode::closure: {
+                    const auto& fn_constant_index = *(bytecode_iter + 1);
+                    const auto& n_tracked_upvalues = *(bytecode_iter + 2);
+
+                    lines.back() << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(fn_constant_index) << ' '
+                        << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(n_tracked_upvalues) << ' '
+                        << opcode << " [" << std::setbase(10) << static_cast<int>(fn_constant_index) << "] (" << static_cast<int>(n_tracked_upvalues) << ')';
+
+                    for (auto n_tracked_upvalue = 0; n_tracked_upvalue != n_tracked_upvalues; ++n_tracked_upvalue) {
+                        const auto& is_direct_capture = *(bytecode_iter + 3 + 2 * n_tracked_upvalue);
+                        const auto& enclosing_index = *(bytecode_iter + 3 + 2 * n_tracked_upvalue + 1);
+
+                        lines.push_back({});
+                        lines.back() << std::setw(11) << std::setfill(' ') << ' '
+                            << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(is_direct_capture) << ' '
+                            << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(enclosing_index)
+                            << " | " << (is_direct_capture ? "^" : "^^") << " [" << static_cast<int>(enclosing_index) << ']';
+                    }
+
+                    bytecode_iter += 3 + 2 * n_tracked_upvalues;
+
                     break;
                 }
 
@@ -226,7 +281,7 @@ namespace motts { namespace lox {
                     const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
                     const auto jump_target = bytecode_index + 3 + (opcode == Opcode::loop ? -1 : 1) * jump_distance;
 
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1)) << ' '
+                    lines.back() << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1)) << ' '
                         << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 2)) << ' '
                         << opcode << ' '
                         << (opcode == Opcode::loop ? '-' : '+') << std::setbase(10) << jump_distance
@@ -238,8 +293,10 @@ namespace motts { namespace lox {
             }
 
             const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
-            os << std::setw(40) << std::setfill(' ') << std::left << line.str()
-                << " ; " << source_map_token.lexeme << " @ " << source_map_token.line << '\n';
+            for (const auto& line : lines) {
+                os << std::setw(40) << std::setfill(' ') << std::left << line.str() << " ; "
+                    << source_map_token.lexeme << " @ " << source_map_token.line << '\n';
+            }
         }
 
         for (const auto& constant_dynamic_value : chunk.constants()) {
@@ -250,5 +307,9 @@ namespace motts { namespace lox {
         }
 
         return os;
+    }
+
+    bool operator==(const Chunk::Tracked_upvalue& lhs, const Chunk::Tracked_upvalue& rhs) {
+        return lhs.is_direct_capture == rhs.is_direct_capture && lhs.enclosing_index == rhs.enclosing_index;
     }
 }}

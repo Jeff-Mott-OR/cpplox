@@ -714,7 +714,7 @@ BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
     const auto fn_f = gc_heap.make<motts::lox::Function>({"f", 1, std::move(fn_f_chunk)});
 
     motts::lox::Chunk main_chunk;
-    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_closure(fn_f, {}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
 
@@ -727,9 +727,9 @@ BOOST_AUTO_TEST_CASE(call_with_args_will_run) {
         "    0 : <fn f>\n"
         "    1 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00    CONSTANT [0]            ; fun @ 1\n"
-        "    2 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
-        "    4 : 17 01    CALL [1]                ; f @ 1\n"
+        "    0 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
+        "    3 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
+        "    5 : 17 01    CALL [1]                ; f @ 1\n"
         "## <fn f> chunk\n"
         "Constants:\n"
         "Bytecode:\n"
@@ -774,7 +774,7 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
 
     motts::lox::Chunk main_chunk;
     main_chunk.emit<Opcode::nil>(Token{Token_type::nil, "nil", 1}); // Force the call frame's stack offset to matter.
-    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_closure(fn_f, {}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
     main_chunk.emit_call(1, Token{Token_type::identifier, "f", 1});
     main_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
@@ -789,10 +789,10 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack) {
         "    1 : 42\n"
         "Bytecode:\n"
         "    0 : 01       NIL                     ; nil @ 1\n"
-        "    1 : 00 00    CONSTANT [0]            ; fun @ 1\n"
-        "    3 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
-        "    5 : 17 01    CALL [1]                ; f @ 1\n"
-        "    7 : 05       PRINT                   ; print @ 1\n"
+        "    1 : 19 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
+        "    4 : 00 01    CONSTANT [1]            ; 42 @ 1\n"
+        "    6 : 17 01    CALL [1]                ; f @ 1\n"
+        "    8 : 05       PRINT                   ; print @ 1\n"
         "## <fn f> chunk\n"
         "Constants:\n"
         "Bytecode:\n"
@@ -862,7 +862,7 @@ BOOST_AUTO_TEST_CASE(function_calls_will_wrong_arity_will_throw) {
     const auto fn_f = gc_heap.make<motts::lox::Function>({"f", 1, std::move(fn_f_chunk)});
 
     motts::lox::Chunk main_chunk;
-    main_chunk.emit_constant(Dynamic_type_value{fn_f}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_closure(fn_f, {}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_call(0, Token{Token_type::identifier, "f", 1});
 
     BOOST_CHECK_THROW(vm.run(main_chunk), std::exception);
@@ -888,4 +888,121 @@ BOOST_AUTO_TEST_CASE(calling_a_noncallable_will_throw) {
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"42\": Can only call functions.");
     }
+}
+
+BOOST_AUTO_TEST_CASE(closure_get_set_upvalue_will_run) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_inner_get_chunk;
+    fn_inner_get_chunk.emit<Opcode::get_upvalue>(0, Token{Token_type::identifier, "x", 1});
+    fn_inner_get_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_inner_get_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_inner_get = gc_heap.make<motts::lox::Function>({"get", 0, std::move(fn_inner_get_chunk)});
+
+    motts::lox::Chunk fn_inner_set_chunk;
+    fn_inner_set_chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "14", 1});
+    fn_inner_set_chunk.emit<Opcode::set_upvalue>(0, Token{Token_type::identifier, "x", 1});
+    fn_inner_set_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_inner_set = gc_heap.make<motts::lox::Function>({"set", 0, std::move(fn_inner_set_chunk)});
+
+    motts::lox::Chunk fn_middle_chunk;
+    fn_middle_chunk.emit_closure(fn_inner_get, {{false, 0}}, Token{Token_type::fun, "fun", 1});
+    fn_middle_chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "get", 1}, Token{Token_type::identifier, "get", 1});
+    fn_middle_chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
+    fn_middle_chunk.emit_closure(fn_inner_set, {{false, 0}}, Token{Token_type::fun, "fun", 1});
+    fn_middle_chunk.emit<Opcode::set_global>(Token{Token_type::identifier, "set", 1}, Token{Token_type::identifier, "set", 1});
+    fn_middle_chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
+    fn_middle_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_middle = gc_heap.make<motts::lox::Function>({"middle", 0, std::move(fn_middle_chunk)});
+
+    motts::lox::Chunk fn_outer_chunk;
+    fn_outer_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    fn_outer_chunk.emit_closure(fn_middle, {{true, 1}}, Token{Token_type::fun, "fun", 1});
+    fn_outer_chunk.emit_call(0, Token{Token_type::identifier, "middle", 1});
+    fn_outer_chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
+    fn_outer_chunk.emit<Opcode::close_upvalue>(Token{Token_type::right_brace, "}", 1});
+    fn_outer_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_outer = gc_heap.make<motts::lox::Function>({"outer", 0, std::move(fn_outer_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+    main_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "get", 1}, Token{Token_type::var, "var", 1});
+    main_chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+    main_chunk.emit<Opcode::define_global>(Token{Token_type::identifier, "set", 1}, Token{Token_type::var, "var", 1});
+    main_chunk.emit_closure(fn_outer, {}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "outer", 1});
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "get", 1}, Token{Token_type::identifier, "get", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "get", 1});
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "set", 1}, Token{Token_type::identifier, "set", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "set", 1});
+    main_chunk.emit<Opcode::get_global>(Token{Token_type::identifier, "get", 1}, Token{Token_type::identifier, "get", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "get", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "42\n14\n");
+}
+
+BOOST_AUTO_TEST_CASE(closure_decl_and_capture_can_be_out_of_order) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_inner_get_chunk;
+    fn_inner_get_chunk.emit<Opcode::get_upvalue>(0, Token{Token_type::identifier, "x", 1});
+    fn_inner_get_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_inner_get_chunk.emit<Opcode::get_upvalue>(1, Token{Token_type::identifier, "y", 1});
+    fn_inner_get_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_inner_get_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_inner_get = gc_heap.make<motts::lox::Function>({"get", 0, std::move(fn_inner_get_chunk)});
+
+    motts::lox::Chunk fn_outer_chunk;
+    fn_outer_chunk.emit<Opcode::nil>(Token{Token_type::var, "var", 1});
+    fn_outer_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    fn_outer_chunk.emit_constant(Dynamic_type_value{14.0}, Token{Token_type::number, "42", 1});
+    fn_outer_chunk.emit_closure(fn_inner_get, {{true, 3}, {true, 2}}, Token{Token_type::fun, "fun", 1});
+    fn_outer_chunk.emit<Opcode::set_local>(1, Token{Token_type::identifier, "closure", 1});
+    fn_outer_chunk.emit<Opcode::pop>(Token{Token_type::right_brace, "}", 1});
+    fn_outer_chunk.emit<Opcode::close_upvalue>(Token{Token_type::right_brace, "}", 1});
+    fn_outer_chunk.emit<Opcode::close_upvalue>(Token{Token_type::right_brace, "}", 1});
+    fn_outer_chunk.emit_call(0, Token{Token_type::identifier, "get", 1});
+    fn_outer_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_outer = gc_heap.make<motts::lox::Function>({"outer", 0, std::move(fn_outer_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit_closure(fn_outer, {}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "outer", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "14\n42\n");
+}
+
+BOOST_AUTO_TEST_CASE(closure_early_return_will_close_upvalues) {
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk fn_inner_get_chunk;
+    fn_inner_get_chunk.emit<Opcode::get_upvalue>(0, Token{Token_type::identifier, "x", 1});
+    fn_inner_get_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    fn_inner_get_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_inner_get = gc_heap.make<motts::lox::Function>({"get", 0, std::move(fn_inner_get_chunk)});
+
+    motts::lox::Chunk fn_outer_chunk;
+    fn_outer_chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    fn_outer_chunk.emit_closure(fn_inner_get, {{true, 1}}, Token{Token_type::fun, "fun", 1});
+    fn_outer_chunk.emit<Opcode::return_>(Token{Token_type::return_, "return", 1});
+    const auto fn_outer = gc_heap.make<motts::lox::Function>({"outer", 0, std::move(fn_outer_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit_closure(fn_outer, {}, Token{Token_type::fun, "fun", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "outer", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "get", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "42\n");
 }

@@ -33,7 +33,11 @@ namespace motts { namespace lox {
         X(get_local) \
         X(set_local) \
         X(call) \
-        X(return_)
+        X(return_) \
+        X(closure) \
+        X(get_upvalue) \
+        X(set_upvalue) \
+        X(close_upvalue)
 
     enum class Opcode {
         #define X(name) name,
@@ -47,6 +51,11 @@ namespace motts { namespace lox {
         public:
             using Constants_vector = std::vector<Dynamic_type_value>;
             using Bytecode_vector = std::vector<std::uint8_t>;
+
+            struct Tracked_upvalue {
+                bool is_direct_capture;
+                unsigned int enclosing_index;
+            };
 
         private:
             Constants_vector constants_;
@@ -86,10 +95,11 @@ namespace motts { namespace lox {
             // This template is for the *_global opcodes.
             template<Opcode> void emit(const Token& variable_name, const Token& source_map_token);
 
-            // This template is for the *_local opcodes.
+            // This template is for the get/set local/upvalue opcodes.
             template<Opcode> void emit(int local_stack_index, const Token& source_map_token);
 
             void emit_call(int arg_count, const Token& source_map_token);
+            void emit_closure(const GC_ptr<Function>&, const std::vector<Tracked_upvalue>&, const Token& source_map_token);
             void emit_constant(Dynamic_type_value&& constant_value, const Token& source_map_token);
             Jump_backpatch emit_jump(const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
@@ -97,4 +107,6 @@ namespace motts { namespace lox {
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);
+
+    bool operator==(const Chunk::Tracked_upvalue&, const Chunk::Tracked_upvalue&);
 }}

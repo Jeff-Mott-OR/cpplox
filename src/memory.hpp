@@ -47,8 +47,14 @@ namespace motts { namespace lox {
             const T& operator*() const {
                return control_block->value;
             }
+            T& operator*() {
+               return control_block->value;
+            }
 
             const T* operator->() const {
+                return &control_block->value;
+            }
+            T* operator->() {
                 return &control_block->value;
             }
 
@@ -71,6 +77,9 @@ namespace motts { namespace lox {
             // When we mark-and-sweep, we need to start marking somewhere.
             // Add a callback to this list to mark your roots, whatever they may be.
             std::vector<std::function<void()>> on_mark_roots;
+
+            GC_heap() = default;
+            GC_heap(const GC_heap&) = delete;
 
             // Move your value into a heap-allocated and tracked control block.
             template<typename T>
