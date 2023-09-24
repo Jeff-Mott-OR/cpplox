@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/endian/conversion.hpp>
 #include <boost/lexical_cast.hpp>
 #include <gsl/gsl>
 
@@ -62,6 +63,18 @@ namespace motts { namespace lox {
         return os;
     }
 
+    Jump_backpatch::Jump_backpatch(Bytecode_vector& bytecode)
+        : bytecode_ {bytecode},
+          jump_begin_index_ {bytecode.size()}
+    {
+    }
+
+    void Jump_backpatch::to_next_opcode() {
+        const auto jump_distance = gsl::narrow<std::uint16_t>(bytecode_.size() - jump_begin_index_);
+        const auto jump_distance_big_endian = boost::endian::native_to_big(jump_distance);
+        reinterpret_cast<std::uint16_t&>(bytecode_.at(jump_begin_index_ - 2)) = jump_distance_big_endian;
+    }
+
     template<Opcode opcode>
         void Chunk::emit(const Token& source_map_token) {
             bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
@@ -96,6 +109,18 @@ namespace motts { namespace lox {
         source_map_tokens_.push_back(source_map_token);
     }
 
+    Jump_backpatch Chunk::emit_jump_if_false(const Token& source_map_token) {
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::jump_if_false));
+        bytecode_.push_back(0);
+        bytecode_.push_back(0);
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+
+        return Jump_backpatch{bytecode_};
+    }
+
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
         os << "Constants:\n";
 
@@ -121,12 +146,25 @@ namespace motts { namespace lox {
                 default:
                     throw std::logic_error{"Unexpected opcode."};
 
-                case Opcode::constant:
+                case Opcode::constant: {
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
-                        << " " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << "]";
+                        << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << "]";
+
                     bytecode_iter += 2;
 
                     break;
+                }
+
+                case Opcode::jump_if_false: {
+                    const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
+                        << " " << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 2))
+                        << " " << opcode << " +" << jump_distance << " -> " << (index + 3 + jump_distance);
+
+                    bytecode_iter += 3;
+
+                    break;
+                }
 
                 case Opcode::add:
                 case Opcode::divide:
@@ -141,15 +179,17 @@ namespace motts { namespace lox {
                 case Opcode::pop:
                 case Opcode::print:
                 case Opcode::subtract:
-                case Opcode::true_:
-                    line << std::setw(3) << std::setfill(' ') << " " << opcode;
+                case Opcode::true_: {
+                    line << std::setw(6) << std::setfill(' ') << " " << opcode;
+
                     bytecode_iter += 1;
 
                     break;
+                }
             }
 
             const auto source_map_token = chunk.source_map_tokens().at(index);
-            os << std::setw(27) << std::setfill(' ') << std::left << line.str()
+            os << std::setw(38) << std::setfill(' ') << std::left << line.str()
                 << " ; " << source_map_token.lexeme << " @ " << source_map_token.line << "\n";
         }
 
@@ -164,7 +204,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void compile_equality_precedence_expression(Chunk&, Token_iterator&);
+    void compile_and_precedence_expression(Chunk&, Token_iterator&);
 
     void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
         switch (token_iter->type) {
@@ -179,7 +219,7 @@ namespace motts { namespace lox {
 
             case Token_type::left_paren:
                 ++token_iter;
-                compile_equality_precedence_expression(chunk, token_iter);
+                compile_and_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::right_paren);
                 break;
 
@@ -209,8 +249,7 @@ namespace motts { namespace lox {
 
     void compile_unary_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
         if (token_iter->type == Token_type::minus || token_iter->type == Token_type::bang) {
-            const auto unary_op_token = *token_iter;
-            ++token_iter;
+            const auto unary_op_token = *token_iter++;
 
             // Right expression
             compile_unary_precedence_expression(chunk, token_iter);
@@ -239,8 +278,7 @@ namespace motts { namespace lox {
         compile_unary_precedence_expression(chunk, token_iter);
 
         while (token_iter->type == Token_type::star || token_iter->type == Token_type::slash) {
-            const auto binary_op_token = *token_iter;
-            ++token_iter;
+            const auto binary_op_token = *token_iter++;
 
             // Right expression
             compile_unary_precedence_expression(chunk, token_iter);
@@ -265,8 +303,7 @@ namespace motts { namespace lox {
         compile_multiplication_precedence_expression(chunk, token_iter);
 
         while (token_iter->type == Token_type::plus || token_iter->type == Token_type::minus) {
-            const auto binary_op_token = *token_iter;
-            ++token_iter;
+            const auto binary_op_token = *token_iter++;
 
             // Right expression
             compile_multiplication_precedence_expression(chunk, token_iter);
@@ -294,8 +331,7 @@ namespace motts { namespace lox {
             token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal ||
             token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal
         ) {
-            const auto comparison_token = *token_iter;
-            ++token_iter;
+            const auto comparison_token = *token_iter++;
 
             // Right expression
             compile_addition_precedence_expression(chunk, token_iter);
@@ -330,8 +366,7 @@ namespace motts { namespace lox {
         compile_comparison_precedence_expression(chunk, token_iter);
 
         while (token_iter->type == Token_type::equal_equal || token_iter->type == Token_type::bang_equal) {
-            const auto equality_token = *token_iter;
-            ++token_iter;
+            const auto equality_token = *token_iter++;
 
             // Right expression
             compile_comparison_precedence_expression(chunk, token_iter);
@@ -352,26 +387,42 @@ namespace motts { namespace lox {
         }
     }
 
+    void compile_and_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
+        // Left expression
+        compile_equality_precedence_expression(chunk, token_iter);
+
+        while (token_iter->type == Token_type::and_) {
+            auto short_circuit_jump_backpatch = chunk.emit_jump_if_false(*token_iter);
+            // If the LHS was true, then the expression now depends solely on the RHS, and we can discard the LHS
+            chunk.emit<Opcode::pop>(*token_iter);
+            ++token_iter;
+
+            // Right expression
+            compile_equality_precedence_expression(chunk, token_iter);
+
+            short_circuit_jump_backpatch.to_next_opcode();
+        }
+    }
+
     Chunk compile(std::string_view source) {
         Chunk chunk;
 
         Token_iterator token_iter_end;
         for (Token_iterator token_iter {source}; token_iter != token_iter_end; ) {
             if (token_iter->type == Token_type::print) {
-                const auto print_token = *token_iter;
-                ++token_iter;
+                const auto print_token = *token_iter++;
 
-                compile_equality_precedence_expression(chunk, token_iter);
-                chunk.emit<Opcode::print>(print_token);
+                compile_and_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::semicolon);
+                chunk.emit<Opcode::print>(print_token);
                 ++token_iter;
 
                 continue;
             }
 
-            compile_equality_precedence_expression(chunk, token_iter);
-            chunk.emit<Opcode::pop>(*token_iter);
+            compile_and_precedence_expression(chunk, token_iter);
             ensure_token_is(*token_iter, Token_type::semicolon);
+            chunk.emit<Opcode::pop>(*token_iter);
             ++token_iter;
         }
 

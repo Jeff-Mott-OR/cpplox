@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <vector>
 
+#include <boost/endian/conversion.hpp>
+
 namespace {
     struct Truthy_visitor {
         auto operator()(std::nullptr_t) const {
@@ -132,6 +134,17 @@ namespace motts { namespace lox {
                     stack.push_back(Dynamic_type_value{result});
 
                     ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::jump_if_false: {
+                    const auto jump_distance = boost::endian::big_to_native(reinterpret_cast<const std::uint16_t&>(*(bytecode_iter + 1)));
+
+                    bytecode_iter += 3;
+                    if (! std::visit(Truthy_visitor{}, stack.back().variant)) {
+                        bytecode_iter += jump_distance;
+                    }
+
                     break;
                 }
 

@@ -27,7 +27,8 @@ namespace motts { namespace lox {
         X(pop) \
         X(less) \
         X(greater) \
-        X(equal)
+        X(equal) \
+        X(jump_if_false)
 
     enum class Opcode {
         #define X(name) name,
@@ -43,9 +44,20 @@ namespace motts { namespace lox {
 
     std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
 
+    using Bytecode_vector = std::vector<std::uint8_t>;
+
+    class Jump_backpatch {
+        Bytecode_vector& bytecode_;
+        const Bytecode_vector::size_type jump_begin_index_;
+
+        public:
+            Jump_backpatch(Bytecode_vector&);
+            void to_next_opcode();
+    };
+
     class Chunk {
         std::vector<Dynamic_type_value> constants_;
-        std::vector<std::uint8_t> bytecode_;
+        Bytecode_vector bytecode_;
         std::vector<Token> source_map_tokens_;
 
         public:
@@ -61,9 +73,11 @@ namespace motts { namespace lox {
                 return source_map_tokens_;
             }
 
+            // This template is useful for simple, single-byte opcodes
             template<Opcode> void emit(const Token& source_map_token);
 
             void emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token);
+            Jump_backpatch emit_jump_if_false(const Token& source_map_token);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

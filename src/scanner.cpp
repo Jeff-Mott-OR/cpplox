@@ -56,6 +56,12 @@ namespace motts { namespace lox {
         return *this;
     }
 
+    Token_iterator Token_iterator::operator++(int) {
+        auto copy = *this;
+        operator++();
+        return copy;
+    }
+
     bool Token_iterator::operator==(const Token_iterator& rhs) const {
         return token_.type == rhs.token_.type;
     }

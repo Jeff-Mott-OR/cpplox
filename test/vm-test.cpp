@@ -26,9 +26,9 @@ BOOST_AUTO_TEST_CASE(vm_will_run_chunks_of_bytecode) {
         "    0 : 28\n"
         "    1 : 14\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0]  ; 28 @ 1\n"
-        "    2 : 00 01 CONSTANT [1]  ; 14 @ 1\n"
-        "    4 : 04    ADD           ; + @ 1\n"
+        "    0 : 00 00    CONSTANT [0]          ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]          ; 14 @ 1\n"
+        "    4 : 04       ADD                   ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -75,12 +75,12 @@ BOOST_AUTO_TEST_CASE(numbers_and_strings_add) {
         "    2 : hello\n"
         "    3 : world\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0]  ; 28 @ 1\n"
-        "    2 : 00 01 CONSTANT [1]  ; 14 @ 1\n"
-        "    4 : 04    ADD           ; + @ 1\n"
-        "    5 : 00 02 CONSTANT [2]  ; \"hello\" @ 1\n"
-        "    7 : 00 03 CONSTANT [3]  ; \"world\" @ 1\n"
-        "    9 : 04    ADD           ; + @ 1\n"
+        "    0 : 00 00    CONSTANT [0]          ; 28 @ 1\n"
+        "    2 : 00 01    CONSTANT [1]          ; 14 @ 1\n"
+        "    4 : 04       ADD                   ; + @ 1\n"
+        "    5 : 00 02    CONSTANT [2]          ; \"hello\" @ 1\n"
+        "    7 : 00 03    CONSTANT [3]          ; \"world\" @ 1\n"
+        "    9 : 04       ADD                   ; + @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 28\n"
@@ -304,8 +304,8 @@ BOOST_AUTO_TEST_CASE(pop_will_run) {
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
-        "    0 : 00 00 CONSTANT [0]  ; 42 @ 1\n"
-        "    2 : 0b    POP           ; ; @ 1\n"
+        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
+        "    2 : 0b       POP                   ; ; @ 1\n"
         "\n"
         "Stack:\n"
         "    0 : 42\n"
@@ -394,4 +394,39 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw) {
             BOOST_TEST(error.what() == "[Line 1] Error: Operands must be numbers.");
         }
     }
+}
+
+BOOST_AUTO_TEST_CASE(jump_if_false_will_run) {
+    motts::lox::Chunk chunk;
+
+    chunk.emit<Opcode::true_>(Token{Token_type::true_, "true", 1});
+    {
+        auto jump_backpatch = chunk.emit_jump_if_false(Token{Token_type::and_, "and", 1});
+        chunk.emit_constant(Dynamic_type_value{"true path"}, Token{Token_type::string, "\"true path\"", 1});
+        chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+        jump_backpatch.to_next_opcode();
+
+        chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+        chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    }
+
+    chunk.emit<Opcode::false_>(Token{Token_type::false_, "false", 1});
+    {
+        auto jump_backpatch = chunk.emit_jump_if_false(Token{Token_type::and_, "and", 1});
+        chunk.emit_constant(Dynamic_type_value{"true path"}, Token{Token_type::string, "\"true path\"", 1});
+        chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+        jump_backpatch.to_next_opcode();
+
+        chunk.emit_constant(Dynamic_type_value{"fall through"}, Token{Token_type::string, "\"fall through\"", 1});
+        chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    }
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    const auto expected =
+        "true path\n"
+        "fall through\n"
+        "fall through\n";
+    BOOST_TEST(os.str() == expected);
 }
