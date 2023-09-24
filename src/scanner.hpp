@@ -11,8 +11,29 @@ namespace motts { namespace lox {
         X(comma) X(dot) X(minus) X(plus) \
         X(semicolon) X(slash) X(star) \
         \
+        /* Literals */ \
         X(identifier) X(string) X(number) \
-        X(and_) X(or_) \
+        \
+        /* Keywords */ \
+        X(and_) \
+        X(break_) \
+        X(class_) \
+        X(continue_) \
+        X(else_) \
+        X(false_) \
+        X(for_) \
+        X(fun) \
+        X(if_) \
+        X(nil) \
+        X(or_) \
+        X(print) \
+        X(return_) \
+        X(super) \
+        X(this_) \
+        X(true_) \
+        X(var) \
+        X(while_) \
+        \
         X(eof)
 
     enum class Token_type {

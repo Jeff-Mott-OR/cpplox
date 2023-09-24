@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
     BOOST_CHECK_THROW(os << invalid_token_type, std::exception);
 }
 
-BOOST_AUTO_TEST_CASE(single_characters_tokenize) {
+BOOST_AUTO_TEST_CASE(single_punctuation_characters_tokenize) {
     motts::lox::Token_iterator token_iter {"(){},.-+;/*"};
     motts::lox::Token_iterator token_iter_end;
 
@@ -123,4 +123,37 @@ BOOST_AUTO_TEST_CASE(strings_can_be_multiline) {
 
 BOOST_AUTO_TEST_CASE(unterminated_strings_will_throw) {
     BOOST_CHECK_THROW(motts::lox::Token_iterator{"\""}, std::exception);
+}
+
+BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords) {
+    motts::lox::Token_iterator token_iter {
+        "and class else false for fun if nil or print return super this true var while break continue"
+    };
+    motts::lox::Token_iterator token_iter_end;
+
+    std::ostringstream os;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: AND, lexeme: and, line: 1 }\n"
+        "Token { type: CLASS, lexeme: class, line: 1 }\n"
+        "Token { type: ELSE, lexeme: else, line: 1 }\n"
+        "Token { type: FALSE, lexeme: false, line: 1 }\n"
+        "Token { type: FOR, lexeme: for, line: 1 }\n"
+        "Token { type: FUN, lexeme: fun, line: 1 }\n"
+        "Token { type: IF, lexeme: if, line: 1 }\n"
+        "Token { type: NIL, lexeme: nil, line: 1 }\n"
+        "Token { type: OR, lexeme: or, line: 1 }\n"
+        "Token { type: PRINT, lexeme: print, line: 1 }\n"
+        "Token { type: RETURN, lexeme: return, line: 1 }\n"
+        "Token { type: SUPER, lexeme: super, line: 1 }\n"
+        "Token { type: THIS, lexeme: this, line: 1 }\n"
+        "Token { type: TRUE, lexeme: true, line: 1 }\n"
+        "Token { type: VAR, lexeme: var, line: 1 }\n"
+        "Token { type: WHILE, lexeme: while, line: 1 }\n"
+        "Token { type: BREAK, lexeme: break, line: 1 }\n"
+        "Token { type: CONTINUE, lexeme: continue, line: 1 }\n";
+    BOOST_TEST(os.str() == expected);
 }

@@ -144,7 +144,23 @@ namespace motts { namespace lox {
 
         const auto token_type = ([&] () {
             if ("and" == token_lexeme) return Token_type::and_;
+            if ("break" == token_lexeme) return Token_type::break_;
+            if ("class" == token_lexeme) return Token_type::class_;
+            if ("continue" == token_lexeme) return Token_type::continue_;
+            if ("else" == token_lexeme) return Token_type::else_;
+            if ("false" == token_lexeme) return Token_type::false_;
+            if ("for" == token_lexeme) return Token_type::for_;
+            if ("fun" == token_lexeme) return Token_type::fun;
+            if ("if" == token_lexeme) return Token_type::if_;
+            if ("nil" == token_lexeme) return Token_type::nil;
             if ("or" == token_lexeme) return Token_type::or_;
+            if ("print" == token_lexeme) return Token_type::print;
+            if ("return" == token_lexeme) return Token_type::return_;
+            if ("super" == token_lexeme) return Token_type::super;
+            if ("this" == token_lexeme) return Token_type::this_;
+            if ("true" == token_lexeme) return Token_type::true_;
+            if ("var" == token_lexeme) return Token_type::var;
+            if ("while" == token_lexeme) return Token_type::while_;
             return Token_type::identifier;
         })();
 
