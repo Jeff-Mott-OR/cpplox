@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(token_types_can_be_printed) {
 
 BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw) {
     std::ostringstream os;
-    const auto invalid_token_type_value = 276'709;
+    const auto invalid_token_type_value = 276'709; // don't panic
     const auto invalid_token_type = reinterpret_cast<const motts::lox::Token_type&>(invalid_token_type_value);
     BOOST_CHECK_THROW(os << invalid_token_type, std::exception);
 }
@@ -46,5 +46,34 @@ BOOST_AUTO_TEST_CASE(single_characters_tokenize) {
         "Token { type: SEMICOLON, lexeme: ;, line: 1 }\n"
         "Token { type: SLASH, lexeme: /, line: 1 }\n"
         "Token { type: STAR, lexeme: *, line: 1 }\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(tokens_track_what_line_they_came_from) {
+    std::ostringstream os;
+    motts::lox::Token_iterator token_iter {"one\ntwo\nthree\n"};
+    motts::lox::Token_iterator token_iter_end;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
+        "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n"
+        "Token { type: IDENTIFIER, lexeme: three, line: 3 }\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment) {
+    std::ostringstream os;
+    motts::lox::Token_iterator token_iter {"// line comment\nnext line\n"};
+    motts::lox::Token_iterator token_iter_end;
+    for (; token_iter != token_iter_end; ++token_iter) {
+        os << *token_iter << "\n";
+    }
+
+    const auto expected =
+        "Token { type: IDENTIFIER, lexeme: next, line: 2 }\n"
+        "Token { type: IDENTIFIER, lexeme: line, line: 2 }\n";
     BOOST_TEST(os.str() == expected);
 }

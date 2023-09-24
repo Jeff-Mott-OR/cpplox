@@ -54,6 +54,7 @@ namespace motts { namespace lox {
             Token scan_token();
             Token scan_identifier_token();
             Token scan_number_token();
+            bool scan_if_match(char expected);
     };
 
     bool operator!=(const Token_iterator&, const Token_iterator&);

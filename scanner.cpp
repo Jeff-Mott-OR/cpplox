@@ -95,6 +95,25 @@ namespace motts { namespace lox {
                 case ' ':
                     continue;
 
+                // Count lines then skip whitespace
+                case '\n':
+                    ++line_;
+                    continue;
+
+                // Slash or line comment
+                case '/':
+                    // Two cosecutive slashes means line comment
+                    if (scan_if_match('/')) {
+                        while (token_end_ != source_end_ && *token_end_ != '\n') {
+                            ++token_end_;
+                        }
+
+                        continue;
+                    }
+
+                    // Else, single slash token
+                    return Token{Token_type::slash, {token_begin_, token_end_}, line_};
+
                 case '(': return Token{Token_type::left_paren, {token_begin_, token_end_}, line_};
                 case ')': return Token{Token_type::right_paren, {token_begin_, token_end_}, line_};
                 case '{': return Token{Token_type::left_brace, {token_begin_, token_end_}, line_};
@@ -105,10 +124,7 @@ namespace motts { namespace lox {
                 case '+': return Token{Token_type::plus, {token_begin_, token_end_}, line_};
                 case ';': return Token{Token_type::semicolon, {token_begin_, token_end_}, line_};
                 case '*': return Token{Token_type::star, {token_begin_, token_end_}, line_};
-                case '/': return Token{Token_type::slash, {token_begin_, token_end_}, line_};
             }
-
-            return Token{Token_type::eof, {token_begin_, token_end_}, line_};
         }
 
         return Token{Token_type::eof, "", 0};
@@ -149,5 +165,14 @@ namespace motts { namespace lox {
         }
 
         return Token{Token_type::number, {token_begin_, token_end_}, line_};
+    }
+
+    bool Token_iterator::scan_if_match(char expected) {
+        if (token_end_ != source_end_ && *token_end_ == expected) {
+            ++token_end_;
+            return true;
+        }
+
+        return false;
     }
 }}
