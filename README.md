@@ -15,3 +15,9 @@
 Optionally, interact with built image in bash.
 
     docker run --interactive --tty --rm cpplox bash
+
+Or copy the build artifact to your host system.
+
+    docker create --name xcontainer cpplox
+    docker cp xcontainer:/project/build/project .
+    docker rm xcontainer
