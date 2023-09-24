@@ -46,6 +46,8 @@ namespace motts { namespace lox {
         std::variant<std::nullptr_t, bool, double, std::string> variant;
     };
 
+    bool operator==(const Dynamic_type_value& lhs, const Dynamic_type_value& rhs);
+
     std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
 
     using Bytecode_vector = std::vector<std::uint8_t>;
@@ -86,6 +88,9 @@ namespace motts { namespace lox {
             void emit_loop(Bytecode_vector::size_type loop_begin_bytecode_index, const Token& source_map_token);
             void emit_get_global(const Token& variable_name, const Token& source_map_token);
             void emit_set_global(const Token& variable_name, const Token& source_map_token);
+
+        private:
+            decltype(Chunk::constants_)::size_type insert_constant(const Dynamic_type_value& constant_value);
     };
 
     std::ostream& operator<<(std::ostream&, const Chunk&);

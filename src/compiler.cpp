@@ -58,6 +58,10 @@ namespace motts { namespace lox {
         return os;
     }
 
+    bool operator==(const Dynamic_type_value& lhs, const Dynamic_type_value& rhs) {
+        return lhs.variant == rhs.variant;
+    }
+
     std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value) {
         std::visit(Print_visitor{os}, value.variant);
         return os;
@@ -99,8 +103,7 @@ namespace motts { namespace lox {
     template void Chunk::emit<Opcode::true_>(const Token&);
 
     void Chunk::emit_constant(const Dynamic_type_value& constant_value, const Token& source_map_token) {
-        const auto constant_index = constants_.size();
-        constants_.push_back(constant_value);
+        const auto constant_index = insert_constant(constant_value);
 
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::constant));
         bytecode_.push_back(constant_index);
@@ -148,8 +151,7 @@ namespace motts { namespace lox {
     }
 
     void Chunk::emit_get_global(const Token& variable_name, const Token& source_map_token) {
-        const auto constant_index = constants_.size();
-        constants_.push_back(Dynamic_type_value{std::string{variable_name.lexeme}});
+        const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
 
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::get_global));
         bytecode_.push_back(constant_index);
@@ -159,14 +161,26 @@ namespace motts { namespace lox {
     }
 
     void Chunk::emit_set_global(const Token& variable_name, const Token& source_map_token) {
-        const auto constant_index = constants_.size();
-        constants_.push_back(Dynamic_type_value{std::string{variable_name.lexeme}});
+        const auto constant_index = insert_constant(Dynamic_type_value{std::string{variable_name.lexeme}});
 
         bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::set_global));
         bytecode_.push_back(constant_index);
 
         source_map_tokens_.push_back(source_map_token);
         source_map_tokens_.push_back(source_map_token);
+    }
+
+    decltype(Chunk::constants_)::size_type Chunk::insert_constant(const Dynamic_type_value& constant_value) {
+        const auto maybe_constant_iter = std::find(constants_.cbegin(), constants_.cend(), constant_value);
+        if (maybe_constant_iter != constants_.cend()) {
+            const auto constant_index = maybe_constant_iter - constants_.cbegin();
+            return gsl::narrow<decltype(constants_.size())>(constant_index);
+        }
+
+        const auto constant_index = constants_.size();
+        constants_.push_back(constant_value);
+
+        return constant_index;
     }
 
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
