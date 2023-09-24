@@ -1412,3 +1412,116 @@ BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw)
         BOOST_TEST(error.what() == "[Line 3] Error: Can't return a value from an initializer.");
     }
 }
+
+BOOST_AUTO_TEST_CASE(classes_can_inherit_from_classes)
+{
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Parent {}\n"
+        "class Child < Parent {}\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Parent\n"
+        "    1 : Child\n"
+        "Bytecode:\n"
+        // class Parent
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // class Child < Parent
+        "    4 : 1d 01    CLASS [1]               ; class @ 2\n"
+        "    6 : 12 00    GET_GLOBAL [0]          ; Parent @ 2\n"
+        "    8 : 21       INHERIT                 ; Parent @ 2\n"
+        "    9 : 0b       POP                     ; Parent @ 2\n"
+        "   10 : 0b       POP                     ; super @ 2\n"
+        "   11 : 14 01    DEFINE_GLOBAL [1]       ; class @ 2\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(class_inheriting_from_itself_will_throw)
+{
+    const auto expect_to_throw = [] {
+        motts::lox::GC_heap gc_heap;
+        compile(
+            gc_heap,
+            "class Klass < Klass {}\n"
+        );
+    };
+
+    BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
+    try {
+        expect_to_throw();
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: A class can't inherit from itself.");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(subclass_can_access_super)
+{
+    motts::lox::GC_heap gc_heap;
+    const auto chunk = compile(
+        gc_heap,
+        "class Parent {\n"
+        "    method() {}\n"
+        "}\n"
+        "class Child < Parent {\n"
+        "    method() {\n"
+        "        super.method();\n"
+        "    }\n"
+        "}\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : Parent\n"
+        "    1 : <fn method>\n"
+        "    2 : method\n"
+        "    3 : Child\n"
+        "    4 : <fn method>\n"
+        "Bytecode:\n"
+        // class Parent {
+        //     method()
+        // }
+        "    0 : 1d 00    CLASS [0]               ; class @ 1\n"
+        "    2 : 19 01 00 CLOSURE [1] (0)         ; method @ 2\n"
+        "    5 : 1e 02    METHOD [2]              ; method @ 2\n"
+        "    7 : 14 00    DEFINE_GLOBAL [0]       ; class @ 1\n"
+        // class Child < Parent {
+        //     method()
+        // }
+        "    9 : 1d 03    CLASS [3]               ; class @ 4\n"
+        "   11 : 12 00    GET_GLOBAL [0]          ; Parent @ 4\n"
+        "   13 : 21       INHERIT                 ; Parent @ 4\n"
+        "   14 : 19 04 01 CLOSURE [4] (1)         ; method @ 5\n"
+        "           01 01 | ^ [1]                 ; method @ 5\n"
+        "   19 : 1e 02    METHOD [2]              ; method @ 5\n"
+        "   21 : 0b       POP                     ; Parent @ 4\n"
+        "   22 : 1c       CLOSE_UPVALUE           ; super @ 4\n"
+        "   23 : 14 03    DEFINE_GLOBAL [3]       ; class @ 4\n"
+        // Parent::method() {
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; method @ 2\n"
+        "    1 : 18       RETURN                  ; method @ 2\n"
+        // Child::method() {
+        "## <fn method> chunk\n"
+        "Constants:\n"
+        "    0 : method\n"
+        "Bytecode:\n"
+        "    0 : 1a 00    GET_UPVALUE [0]         ; super @ 6\n"
+        "    2 : 22 00    GET_SUPER [0]           ; method @ 6\n"
+        "    4 : 17 00    CALL (0)                ; method @ 6\n"
+        "    6 : 0b       POP                     ; ; @ 6\n"
+        "    7 : 01       NIL                     ; method @ 5\n"
+        "    8 : 18       RETURN                  ; method @ 5\n";
+    BOOST_TEST(os.str() == expected);
+}

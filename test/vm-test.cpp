@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_will_throw)
     motts::lox::GC_heap gc_heap;
     motts::lox::VM vm {gc_heap, os};
 
-    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         chunk.emit_constant(true, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::add>(Token{Token_type::plus, "+", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -223,7 +223,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         chunk.emit_constant(true, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::subtract>(Token{Token_type::minus, "-", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         chunk.emit_constant(true, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::multiply>(Token{Token_type::star, "*", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(invalid_plus_minus_star_slash_will_throw)
         chunk.emit_constant(true, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::divide>(Token{Token_type::slash, "/", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -290,7 +290,7 @@ BOOST_AUTO_TEST_CASE(invalid_negation_will_throw)
     motts::lox::GC_heap gc_heap;
     motts::lox::VM vm {gc_heap, os};
 
-    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
@@ -428,7 +428,7 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw)
         chunk.emit_constant(true, Token{Token_type::true_, "true", 1});
         chunk.emit<Opcode::greater>(Token{Token_type::greater, ">", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -441,7 +441,7 @@ BOOST_AUTO_TEST_CASE(invalid_comparisons_will_throw)
         chunk.emit_constant(1.0, Token{Token_type::number, "1", 1});
         chunk.emit<Opcode::less>(Token{Token_type::less, "<", 1});
 
-        BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+        BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
         try {
             vm.run(chunk);
         } catch (const std::exception& error) {
@@ -536,7 +536,7 @@ BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw)
     motts::lox::GC_heap gc_heap;
     motts::lox::VM vm {gc_heap, os};
 
-    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
@@ -554,7 +554,7 @@ BOOST_AUTO_TEST_CASE(set_global_of_undeclared_will_throw)
     motts::lox::GC_heap gc_heap;
     motts::lox::VM vm {gc_heap, os};
 
-    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
@@ -892,7 +892,7 @@ BOOST_AUTO_TEST_CASE(function_calls_will_wrong_arity_will_throw)
     main_chunk.emit_closure(fn_f, {}, Token{Token_type::fun, "fun", 1});
     main_chunk.emit_call(0, Token{Token_type::identifier, "f", 1});
 
-    BOOST_CHECK_THROW(vm.run(main_chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(main_chunk), std::runtime_error);
     try {
         vm.run(main_chunk);
     } catch (const std::exception& error) {
@@ -910,7 +910,7 @@ BOOST_AUTO_TEST_CASE(calling_a_noncallable_will_throw)
     motts::lox::GC_heap gc_heap;
     motts::lox::VM vm {gc_heap, os};
 
-    BOOST_CHECK_THROW(vm.run(chunk), std::exception);
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
     try {
         vm.run(chunk);
     } catch (const std::exception& error) {
@@ -1166,4 +1166,121 @@ BOOST_AUTO_TEST_CASE(init_method_will_run_when_instance_created)
     vm.run(main_chunk);
 
     BOOST_TEST(os.str() == "42\n");
+}
+
+BOOST_AUTO_TEST_CASE(class_methods_can_inherit)
+{
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk parent_method_chunk;
+    parent_method_chunk.emit_constant("Parent", Token{Token_type::string, "\"Parent\"", 1});
+    parent_method_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    parent_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "parentMethod", 1});
+    parent_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "parentMethod", 1});
+    const auto parent_method = gc_heap.make<motts::lox::Function>({"parentMethod", 0, std::move(parent_method_chunk)});
+
+    motts::lox::Chunk child_method_chunk;
+    child_method_chunk.emit_constant("Child", Token{Token_type::string, "\"Child\"", 1});
+    child_method_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    child_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "childMethod", 1});
+    child_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "childMethod", 1});
+    const auto child_method = gc_heap.make<motts::lox::Function>({"childMethod", 0, std::move(child_method_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Parent", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(parent_method, {}, Token{Token_type::identifier, "parentMethod1", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "parentMethod1", 1}, Token{Token_type::identifier, "parentMethod1", 1});
+    main_chunk.emit_closure(parent_method, {}, Token{Token_type::identifier, "parentMethod2", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "parentMethod2", 1}, Token{Token_type::identifier, "parentMethod2", 1});
+
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Child", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit<Opcode::inherit>(Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit_closure(child_method, {}, Token{Token_type::identifier, "childMethod", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "childMethod", 1}, Token{Token_type::identifier, "childMethod", 1});
+    main_chunk.emit_closure(child_method, {}, Token{Token_type::identifier, "parentMethod2", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "parentMethod2", 1}, Token{Token_type::identifier, "parentMethod2", 1});
+    main_chunk.emit<Opcode::pop>(Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit<Opcode::pop>(Token{Token_type::identifier, "Parent", 1});
+
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Child", 1});
+    main_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "childMethod", 1}, Token{Token_type::identifier, "childMethod", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "childMethod", 1});
+    main_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "parentMethod1", 1}, Token{Token_type::identifier, "parentMethod1", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "parentMethod1", 1});
+    main_chunk.emit<Opcode::get_local>(1, Token{Token_type::identifier, "instance", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "parentMethod2", 1}, Token{Token_type::identifier, "parentMethod2", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "parentMethod2", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "Child\nParent\nChild\n");
+}
+
+BOOST_AUTO_TEST_CASE(inheriting_from_a_non_class_will_throw)
+{
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk chunk;
+    chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Klass", 1}, Token{Token_type::class_, "class", 1});
+    chunk.emit_constant(42.0, Token{Token_type::number, "42", 1});
+    chunk.emit<Opcode::inherit>(Token{Token_type::identifier, "42", 1});
+
+    BOOST_CHECK_THROW(vm.run(chunk), std::runtime_error);
+    try {
+        vm.run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Superclass must be a class.");
+    }
+}
+
+BOOST_AUTO_TEST_CASE(super_calls_will_run)
+{
+    std::ostringstream os;
+    motts::lox::GC_heap gc_heap;
+    motts::lox::VM vm {gc_heap, os};
+
+    motts::lox::Chunk parent_method_chunk;
+    parent_method_chunk.emit_constant("Parent", Token{Token_type::string, "\"Parent\"", 1});
+    parent_method_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    parent_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "parentMethod", 1});
+    parent_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "parentMethod", 1});
+    const auto parent_method = gc_heap.make<motts::lox::Function>({"parentMethod", 0, std::move(parent_method_chunk)});
+
+    motts::lox::Chunk child_method_chunk;
+    child_method_chunk.emit_constant("Child", Token{Token_type::string, "\"Child\"", 1});
+    child_method_chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+    child_method_chunk.emit<Opcode::get_upvalue>(0, Token{Token_type::super, "super", 1});
+    child_method_chunk.emit<Opcode::get_super>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    child_method_chunk.emit_call(0, Token{Token_type::identifier, "method", 1});
+    child_method_chunk.emit<Opcode::nil>(Token{Token_type::identifier, "childMethod", 1});
+    child_method_chunk.emit<Opcode::return_>(Token{Token_type::return_, "childMethod", 1});
+    const auto child_method = gc_heap.make<motts::lox::Function>({"childMethod", 0, std::move(child_method_chunk)});
+
+    motts::lox::Chunk main_chunk;
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Parent", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit_closure(parent_method, {}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+
+    main_chunk.emit<Opcode::class_>(Token{Token_type::identifier, "Child", 1}, Token{Token_type::class_, "class", 1});
+    main_chunk.emit<Opcode::get_local>(0, Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit<Opcode::inherit>(Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit_closure(child_method, {{true, 2}}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::method>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit<Opcode::pop>(Token{Token_type::identifier, "Parent", 1});
+    main_chunk.emit<Opcode::close_upvalue>(Token{Token_type::identifier, "Parent", 1});
+
+    main_chunk.emit_call(0, Token{Token_type::identifier, "Child", 1});
+    main_chunk.emit<Opcode::get_property>(Token{Token_type::identifier, "method", 1}, Token{Token_type::identifier, "method", 1});
+    main_chunk.emit_call(0, Token{Token_type::identifier, "method", 1});
+
+    vm.run(main_chunk);
+
+    BOOST_TEST(os.str() == "Child\nParent\n");
 }

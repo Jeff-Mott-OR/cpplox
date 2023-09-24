@@ -43,7 +43,9 @@ namespace motts { namespace lox
         X(class_) \
         X(method) \
         X(get_property) \
-        X(set_property)
+        X(set_property) \
+        X(inherit) \
+        X(get_super)
 
     enum class Opcode
     {

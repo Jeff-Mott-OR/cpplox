@@ -39,7 +39,8 @@ namespace motts { namespace lox
 
     void VM::run(const Chunk& chunk)
     {
-        call_frames_.push_back({{}, chunk, chunk.bytecode().cbegin(), 0});
+        const auto root_script_fn = gc_heap_.make<Closure>(gc_heap_.make<Function>({"", 0, chunk}));
+        call_frames_.push_back({root_script_fn, chunk, chunk.bytecode().cbegin(), 0});
         const auto _ = gsl::finally([&] {
             call_frames_.pop_back();
         });
@@ -339,6 +340,28 @@ namespace motts { namespace lox
                     };
                 }
 
+                case Opcode::get_super: {
+                    const auto method_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
+                    const auto& method_name = std::get<std::string>(call_frames_.back().chunk.constants().at(method_name_constant_index));
+                    const auto superclass = std::get<GC_ptr<Class>>(stack_.back());
+                    const auto instance = std::get<GC_ptr<Instance>>(stack_.at(call_frames_.back().stack_begin_index));
+
+                    const auto maybe_method_iter = superclass->methods.find(method_name);
+                    if (maybe_method_iter == superclass->methods.cend()) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property '" + method_name + "'."
+                        };
+                    }
+
+                    const auto new_bound_method = gc_heap_.make<Bound_method>({instance, maybe_method_iter->second});
+                    stack_.pop_back();
+                    stack_.push_back(new_bound_method);
+
+                    call_frames_.back().bytecode_iter += 2;
+
+                    break;
+                }
+
                 case Opcode::get_upvalue: {
                     const auto upvalue_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& upvalue = call_frames_.back().closure->upvalues.at(upvalue_index);
@@ -362,6 +385,24 @@ namespace motts { namespace lox
                     const auto result = std::get<double>(lhs) > std::get<double>(rhs);
                     stack_.erase(stack_.cend() - 2, stack_.cend());
                     stack_.push_back(result);
+
+                    ++call_frames_.back().bytecode_iter;
+
+                    break;
+                }
+
+                case Opcode::inherit: {
+                    const auto& maybe_parent_class = *(stack_.end() - 1);
+                    if (! std::holds_alternative<GC_ptr<Class>>(maybe_parent_class)) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Superclass must be a class."
+                        };
+                    }
+                    const auto parent = std::get<GC_ptr<Class>>(maybe_parent_class);
+                    auto child = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
+
+                    child->methods.insert(parent->methods.cbegin(), parent->methods.cend());
+                    stack_.push_back(child);
 
                     ++call_frames_.back().bytecode_iter;
 
@@ -420,9 +461,10 @@ namespace motts { namespace lox
                 case Opcode::method: {
                     const auto method_name_constant_index = *(call_frames_.back().bytecode_iter + 1);
                     const auto& method_name = std::get<std::string>(call_frames_.back().chunk.constants().at(method_name_constant_index));
+                    const auto closure = std::get<GC_ptr<Closure>>(*(stack_.cend() - 1));
                     auto klass = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
 
-                    klass->methods[method_name] = std::get<GC_ptr<Closure>>(stack_.back());
+                    klass->methods[method_name] = closure;
                     stack_.pop_back();
 
                     call_frames_.back().bytecode_iter += 2;

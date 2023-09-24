@@ -78,6 +78,7 @@ namespace motts { namespace lox
     template void Chunk::emit<Opcode::equal>(const Token&);
     template void Chunk::emit<Opcode::false_>(const Token&);
     template void Chunk::emit<Opcode::greater>(const Token&);
+    template void Chunk::emit<Opcode::inherit>(const Token&);
     template void Chunk::emit<Opcode::less>(const Token&);
     template void Chunk::emit<Opcode::multiply>(const Token&);
     template void Chunk::emit<Opcode::negate>(const Token&);
@@ -105,6 +106,7 @@ namespace motts { namespace lox
     template void Chunk::emit<Opcode::define_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::get_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::get_property>(const Token&, const Token&);
+    template void Chunk::emit<Opcode::get_super>(const Token&, const Token&);
     template void Chunk::emit<Opcode::method>(const Token&, const Token&);
     template void Chunk::emit<Opcode::set_global>(const Token&, const Token&);
     template void Chunk::emit<Opcode::set_property>(const Token&, const Token&);
@@ -235,6 +237,7 @@ namespace motts { namespace lox
                 case Opcode::equal:
                 case Opcode::false_:
                 case Opcode::greater:
+                case Opcode::inherit:
                 case Opcode::less:
                 case Opcode::multiply:
                 case Opcode::negate:
@@ -263,6 +266,7 @@ namespace motts { namespace lox
                 case Opcode::get_global:
                 case Opcode::get_local:
                 case Opcode::get_property:
+                case Opcode::get_super:
                 case Opcode::get_upvalue:
                 case Opcode::method:
                 case Opcode::set_global:
