@@ -23,15 +23,26 @@ namespace motts { namespace lox {
                     };
 
                 case Opcode::add: {
-                    const auto b = std::get<double>(stack.back().variant);
-                    stack.pop_back();
+                    const auto b = (stack.cend() - 1)->variant;
+                    const auto a = (stack.cend() - 2)->variant;
+                    stack.erase(stack.cend() - 2, stack.cend());
 
-                    const auto a = std::get<double>(stack.back().variant);
-                    stack.pop_back();
+                    if (std::holds_alternative<double>(a) && std::holds_alternative<double>(b))
+                    {
+                        stack.push_back(Dynamic_type_value{std::get<double>(a) + std::get<double>(b)});
+                    }
+                    else if (std::holds_alternative<std::string>(a) && std::holds_alternative<std::string>(b))
+                    {
+                        stack.push_back(Dynamic_type_value{std::get<std::string>(a) + std::get<std::string>(b)});
+                    }
+                    else
+                    {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Operands must be two numbers or two strings."
+                        };
+                    }
 
-                    stack.push_back(Dynamic_type_value{a + b});
                     ++bytecode_iter;
-
                     break;
                 }
 
