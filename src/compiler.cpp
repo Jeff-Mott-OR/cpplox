@@ -133,6 +133,28 @@ namespace motts { namespace lox {
         return Jump_backpatch{bytecode_};
     }
 
+    void Chunk::emit_get_global(const Token& variable_name, const Token& source_map_token) {
+        const auto constant_index = constants_.size();
+        constants_.push_back(Dynamic_type_value{std::string{variable_name.lexeme}});
+
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::get_global));
+        bytecode_.push_back(constant_index);
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+    }
+
+    void Chunk::emit_set_global(const Token& variable_name, const Token& source_map_token) {
+        const auto constant_index = constants_.size();
+        constants_.push_back(Dynamic_type_value{std::string{variable_name.lexeme}});
+
+        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::set_global));
+        bytecode_.push_back(constant_index);
+
+        source_map_tokens_.push_back(source_map_token);
+        source_map_tokens_.push_back(source_map_token);
+    }
+
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk) {
         os << "Constants:\n";
 
@@ -158,7 +180,9 @@ namespace motts { namespace lox {
                 default:
                     throw std::logic_error{"Unexpected opcode."};
 
-                case Opcode::constant: {
+                case Opcode::constant:
+                case Opcode::get_global:
+                case Opcode::set_global: {
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(*(bytecode_iter + 1))
                         << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(*(bytecode_iter + 1)) << "]";
 
@@ -217,7 +241,7 @@ namespace motts { namespace lox {
         }
     }
 
-    void compile_or_precedence_expression(Chunk&, Token_iterator&);
+    void compile_assignment_precedence_expression(Chunk&, Token_iterator&);
 
     void compile_primary_expression(Chunk& chunk, Token_iterator& token_iter) {
         switch (token_iter->type) {
@@ -230,9 +254,13 @@ namespace motts { namespace lox {
                 chunk.emit<Opcode::false_>(*token_iter);
                 break;
 
+            case Token_type::identifier:
+                chunk.emit_get_global(*token_iter, *token_iter);
+                break;
+
             case Token_type::left_paren:
                 ++token_iter;
-                compile_or_precedence_expression(chunk, token_iter);
+                compile_assignment_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::right_paren);
                 break;
 
@@ -437,6 +465,30 @@ namespace motts { namespace lox {
         }
     }
 
+    void compile_assignment_precedence_expression(Chunk& chunk, Token_iterator& token_iter) {
+        if (token_iter->type == Token_type::identifier) {
+            const auto variable_name_token = *token_iter;
+
+            auto peek_ahead_iter = token_iter;
+            ++peek_ahead_iter;
+
+            if (peek_ahead_iter->type == Token_type::equal) {
+                token_iter = peek_ahead_iter;
+                const auto assign_token = *token_iter++;
+
+                // Right expression
+                compile_assignment_precedence_expression(chunk, token_iter);
+
+                chunk.emit_set_global(variable_name_token, assign_token);
+
+                return;
+            }
+        }
+
+        // Else
+        compile_or_precedence_expression(chunk, token_iter);
+    }
+
     Chunk compile(std::string_view source) {
         Chunk chunk;
 
@@ -445,7 +497,7 @@ namespace motts { namespace lox {
             if (token_iter->type == Token_type::print) {
                 const auto print_token = *token_iter++;
 
-                compile_or_precedence_expression(chunk, token_iter);
+                compile_assignment_precedence_expression(chunk, token_iter);
                 ensure_token_is(*token_iter, Token_type::semicolon);
                 chunk.emit<Opcode::print>(print_token);
                 ++token_iter;
@@ -453,7 +505,7 @@ namespace motts { namespace lox {
                 continue;
             }
 
-            compile_or_precedence_expression(chunk, token_iter);
+            compile_assignment_precedence_expression(chunk, token_iter);
             ensure_token_is(*token_iter, Token_type::semicolon);
             chunk.emit<Opcode::pop>(*token_iter);
             ++token_iter;

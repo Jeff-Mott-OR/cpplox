@@ -447,3 +447,30 @@ BOOST_AUTO_TEST_CASE(jump_will_run) {
 
     BOOST_TEST(os.str() == "fall through\n");
 }
+
+BOOST_AUTO_TEST_CASE(set_get_global_will_run) {
+    motts::lox::Chunk chunk;
+
+    chunk.emit_constant(Dynamic_type_value{42.0}, Token{Token_type::number, "42", 1});
+    chunk.emit_set_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::pop>(Token{Token_type::semicolon, ";", 1});
+    chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+    chunk.emit<Opcode::print>(Token{Token_type::print, "print", 1});
+
+    std::ostringstream os;
+    motts::lox::run(chunk, os);
+
+    BOOST_TEST(os.str() == "42\n");
+}
+
+BOOST_AUTO_TEST_CASE(get_global_of_undeclared_will_throw) {
+    motts::lox::Chunk chunk;
+    chunk.emit_get_global(Token{Token_type::identifier, "x", 1}, Token{Token_type::identifier, "x", 1});
+
+    BOOST_CHECK_THROW(motts::lox::run(chunk), std::exception);
+    try {
+        motts::lox::run(chunk);
+    } catch (const std::exception& error) {
+        BOOST_TEST(error.what() == "[Line 1] Error: Undefined variable 'x'.");
+    }
+}

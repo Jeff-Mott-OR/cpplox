@@ -337,3 +337,35 @@ BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile) {
         "    9 : 0b       POP                   ; ; @ 1\n";
     BOOST_TEST(os.str() == expected);
 }
+
+BOOST_AUTO_TEST_CASE(global_assignment_will_compile) {
+    const auto chunk = motts::lox::compile("x = 42;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : 42\n"
+        "    1 : x\n"
+        "Bytecode:\n"
+        "    0 : 00 00    CONSTANT [0]          ; 42 @ 1\n"
+        "    2 : 11 01    SET_GLOBAL [1]        ; = @ 1\n"
+        "    4 : 0b       POP                   ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(global_identifier_will_compile) {
+    const auto chunk = motts::lox::compile("x;");
+
+    std::ostringstream os;
+    os << chunk;
+
+    const auto expected =
+        "Constants:\n"
+        "    0 : x\n"
+        "Bytecode:\n"
+        "    0 : 12 00    GET_GLOBAL [0]        ; x @ 1\n"
+        "    2 : 0b       POP                   ; ; @ 1\n";
+    BOOST_TEST(os.str() == expected);
+}

@@ -1,6 +1,7 @@
 #include "vm.hpp"
 
 #include <iomanip>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/endian/conversion.hpp>
@@ -29,6 +30,7 @@ namespace motts { namespace lox {
         }
 
         std::vector<Dynamic_type_value> stack;
+        std::unordered_map<std::string, Dynamic_type_value> globals;
 
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend(); ) {
             const auto index = bytecode_iter - chunk.bytecode().cbegin();
@@ -116,6 +118,23 @@ namespace motts { namespace lox {
                 case Opcode::false_: {
                     stack.push_back(Dynamic_type_value{false});
                     ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::get_global: {
+                    const auto variable_name_constant_index = *(bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+
+                    const auto global_iter = globals.find(variable_name);
+                    if (global_iter == globals.end()) {
+                        throw std::runtime_error{
+                            "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable '" + variable_name + "'."
+                        };
+                    }
+                    stack.push_back(global_iter->second);
+
+                    bytecode_iter += 2;
+
                     break;
                 }
 
@@ -235,6 +254,16 @@ namespace motts { namespace lox {
                     os << stack.back() << "\n";
                     stack.pop_back();
                     ++bytecode_iter;
+                    break;
+                }
+
+                case Opcode::set_global: {
+                    const auto variable_name_constant_index = *(bytecode_iter + 1);
+                    const auto& variable_name = std::get<std::string>(chunk.constants().at(variable_name_constant_index).variant);
+                    globals[variable_name] = stack.back();
+
+                    bytecode_iter += 2;
+
                     break;
                 }
 
