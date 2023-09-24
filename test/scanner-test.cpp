@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE CppLox Tests
+#define BOOST_TEST_MODULE Scanner Tests
 #include <boost/test/unit_test.hpp>
 
 #include <sstream>
