@@ -5,10 +5,14 @@
 #include <vector>
 
 #include "scanner.hpp"
+#include "memory.hpp"
 #include "value.hpp"
 
 namespace motts { namespace lox
 {
+    // Internally, these opcodes could be listed in any order and work fine.
+    // But for the generated opcode values to match clox opcodes
+    // (which isn't necessarily important to do), then this order has to match clox.
     // X-macro technique to re-use this list in multiple places.
     #define MOTTS_LOX_OPCODE_NAMES \
         X(constant) \
@@ -58,16 +62,27 @@ namespace motts { namespace lox
 
     std::ostream& operator<<(std::ostream&, Opcode);
 
+    // A chunk of bytecode.
     class Chunk
     {
         public:
             using Constants_vector = std::vector<Dynamic_type_value>;
             using Bytecode_vector = std::vector<std::uint8_t>;
 
+            // Like the scanner token, but this one owns the lexeme string.
+            struct Token
+            {
+                Token_type type;
+                GC_ptr<const std::string> lexeme;
+                unsigned int line;
+            };
+
             struct Tracked_upvalue
             {
-                bool is_direct_capture;
+                // This value is either an index into the enclosing locals, if direct capture is true,
+                // or it's an index into the enclosing upvalues, if direct capture is false.
                 unsigned int enclosing_index;
+                bool is_direct_capture;
             };
 
         private:
@@ -87,7 +102,7 @@ namespace motts { namespace lox
                     void to_next_opcode();
             };
 
-            Constants_vector::size_type insert_constant(Dynamic_type_value&& constant_value);
+            Constants_vector::size_type insert_constant(Dynamic_type_value);
 
         public:
             // Read-only access.
@@ -96,11 +111,13 @@ namespace motts { namespace lox
                 return constants_;
             }
 
+            // Read-only access.
             const auto& bytecode() const
             {
                 return bytecode_;
             }
 
+            // Read-only access.
             const auto& source_map_tokens() const
             {
                 return source_map_tokens_;
@@ -110,14 +127,14 @@ namespace motts { namespace lox
             template<Opcode> void emit(const Token& source_map_token);
 
             // This template is for the *_global/class/method/*_property opcodes.
-            template<Opcode> void emit(const Token& identifier_name, const Token& source_map_token);
+            template<Opcode> void emit(GC_ptr<const std::string> identifier_name, const Token& source_map_token);
 
-            // This template is for the get/set local/upvalue opcodes.
-            template<Opcode> void emit(unsigned int local_stack_index, const Token& source_map_token);
+            // This template is for the *_local/*_upvalue opcodes.
+            template<Opcode> void emit(unsigned int index, const Token& source_map_token);
 
             void emit_call(unsigned int arg_count, const Token& source_map_token);
             void emit_closure(GC_ptr<Function>, const std::vector<Tracked_upvalue>&, const Token& source_map_token);
-            void emit_constant(Dynamic_type_value&& constant_value, const Token& source_map_token);
+            void emit_constant(Dynamic_type_value, const Token& source_map_token);
             Jump_backpatch emit_jump(const Token& source_map_token);
             Jump_backpatch emit_jump_if_false(const Token& source_map_token);
             void emit_loop(unsigned int loop_begin_bytecode_index, const Token& source_map_token);
@@ -125,5 +142,5 @@ namespace motts { namespace lox
 
     std::ostream& operator<<(std::ostream&, const Chunk&);
 
-    bool operator==(const Chunk::Tracked_upvalue&, const Chunk::Tracked_upvalue&);
+    bool operator==(Chunk::Tracked_upvalue, Chunk::Tracked_upvalue);
 }}

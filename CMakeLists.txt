@@ -52,6 +52,7 @@ if(NOT DEPS_ONLY)
     set(cpploxbc_sources
         "${CMAKE_CURRENT_SOURCE_DIR}/src/chunk.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/compiler.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/interned_strings.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/lox.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/memory.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/object.cpp"
@@ -100,6 +101,10 @@ if(NOT DEPS_ONLY)
         add_executable(compiler_test test/compiler-test.cpp)
         target_link_libraries(compiler_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
         add_test(NAME compiler_test COMMAND compiler_test)
+
+        add_executable(interned_strings_test test/interned_strings-test.cpp)
+        target_link_libraries(interned_strings_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+        add_test(NAME interned_strings_test COMMAND interned_strings_test)
 
         add_executable(memory_test test/memory-test.cpp)
         target_link_libraries(memory_test PUBLIC cpploxbc_lib Boost::unit_test_framework)

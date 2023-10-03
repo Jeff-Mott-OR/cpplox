@@ -154,8 +154,6 @@ namespace motts { namespace lox
                 case '>': return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
                 case '<': return {scan_if_match('=') ? Token_type::less_equal    : Token_type::less,    {token_begin_, token_end_}, line_};
             }
-
-            throw std::logic_error{"Unreachable."};
         }
 
         return Token{Token_type::eof, "EOF", line_};
@@ -169,7 +167,7 @@ namespace motts { namespace lox
 
         // Check if this identifier is a keyword.
         const auto token_type = [&] {
-            // `string_view` lets us use `==` with a c-string.
+            // string_view lets us use == with a c-string.
             std::string_view token_lexeme {token_begin_, token_end_};
 
             if (token_lexeme == "and")      return Token_type::and_;

@@ -2,10 +2,9 @@
 
 #include "object-fwd.hpp"
 
-#include <optional>
 #include <span>
-#include <string_view>
 #include <unordered_map>
+#include <variant>
 
 #include "chunk.hpp"
 #include "memory.hpp"
@@ -22,10 +21,10 @@ namespace motts { namespace lox
 
     struct Class
     {
-        std::string_view name;
-        std::unordered_map<std::string, GC_ptr<Closure>> methods;
+        GC_ptr<const std::string> name;
+        std::unordered_map<GC_ptr<const std::string>, GC_ptr<Closure>> methods;
 
-        Class(std::string_view name);
+        Class(GC_ptr<const std::string> name);
     };
 
     template<> void trace_refs_trait(GC_heap&, const Class&);
@@ -45,8 +44,8 @@ namespace motts { namespace lox
 
     struct Function
     {
-        std::string_view name;
-        int arity {0};
+        GC_ptr<const std::string> name;
+        unsigned int arity {0};
         Chunk chunk;
     };
 
@@ -55,7 +54,7 @@ namespace motts { namespace lox
     struct Instance
     {
         GC_ptr<Class> klass;
-        std::unordered_map<std::string, Dynamic_type_value> fields;
+        std::unordered_map<GC_ptr<const std::string>, Dynamic_type_value> fields;
 
         Instance(GC_ptr<Class>);
     };
@@ -69,20 +68,28 @@ namespace motts { namespace lox
 
     class Upvalue
     {
-        std::optional<Dynamic_type_value> closed_;
-
-        public:
+        struct Open
+        {
             // These two fields can be thought of as an iterator into the stack,
             // but iterators can be invalidated, so instead keep a stack reference and index.
             std::vector<Dynamic_type_value>& stack;
             const std::vector<Dynamic_type_value>::size_type stack_index;
+        };
 
+        struct Closed
+        {
+            Dynamic_type_value value;
+        };
+
+        std::variant<Open, Closed> value_;
+
+        public:
             Upvalue(std::vector<Dynamic_type_value>& stack, std::vector<Dynamic_type_value>::size_type stack_index);
 
+            void close();
+            std::vector<Dynamic_type_value>::size_type stack_index() const;
             const Dynamic_type_value& value() const;
             Dynamic_type_value& value();
-
-            void close();
     };
 
     template<> void trace_refs_trait(GC_heap&, const Upvalue&);

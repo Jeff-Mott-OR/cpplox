@@ -9,7 +9,7 @@ namespace motts { namespace lox
             mark(gc_heap, bound_method.method);
         }
 
-    Class::Class(std::string_view name_arg)
+    Class::Class(GC_ptr<const std::string> name_arg)
         : name {name_arg}
     {
     }
@@ -17,7 +17,9 @@ namespace motts { namespace lox
     template<>
         void trace_refs_trait(GC_heap& gc_heap, const Class& klass)
         {
-            for (const auto& [_, method] : klass.methods) {
+            mark(gc_heap, klass.name);
+            for (const auto& [key, method] : klass.methods) {
+                mark(gc_heap, key);
                 mark(gc_heap, method);
             }
         }
@@ -31,7 +33,6 @@ namespace motts { namespace lox
         void trace_refs_trait(GC_heap& gc_heap, const Closure& closure)
         {
             mark(gc_heap, closure.function);
-
             for (const auto& upvalue : closure.upvalues) {
                 mark(gc_heap, upvalue);
             }
@@ -43,8 +44,12 @@ namespace motts { namespace lox
     template<>
         void trace_refs_trait(GC_heap& gc_heap, const Function& function)
         {
+            mark(gc_heap, function.name);
             for (const auto& value : function.chunk.constants()) {
                 std::visit(Mark_objects_visitor{gc_heap}, value);
+            }
+            for (const auto& source_map_token : function.chunk.source_map_tokens()) {
+                mark(gc_heap, source_map_token.lexeme);
             }
         }
 
@@ -57,36 +62,41 @@ namespace motts { namespace lox
         void trace_refs_trait(GC_heap& gc_heap, const Instance& instance)
         {
             mark(gc_heap, instance.klass);
-
-            for (const auto& [_, field] : instance.fields) {
+            for (const auto& [key, field] : instance.fields) {
+                mark(gc_heap, key);
                 std::visit(Mark_objects_visitor{gc_heap}, field);
             }
         }
 
     Upvalue::Upvalue(std::vector<Dynamic_type_value>& stack_arg, std::vector<Dynamic_type_value>::size_type stack_index_arg)
-        : stack {stack_arg},
-          stack_index {stack_index_arg}
+        : value_ {Open{stack_arg, stack_index_arg}}
     {
+    }
+
+    void Upvalue::close()
+    {
+        const auto open = std::get<Open>(value_);
+        value_ = Closed{open.stack.at(open.stack_index)};
+    }
+
+    std::vector<Dynamic_type_value>::size_type Upvalue::stack_index() const
+    {
+        return std::get<Open>(value_).stack_index;
     }
 
     const Dynamic_type_value& Upvalue::value() const
     {
-        if (closed_) {
-            return *closed_;
+        if (std::holds_alternative<Closed>(value_)) {
+            return std::get<Closed>(value_).value;
         }
-        return stack.at(stack_index);
+
+        const auto& open = std::get<Open>(value_);
+        return open.stack.at(open.stack_index);
     }
 
     Dynamic_type_value& Upvalue::value()
     {
         return const_cast<Dynamic_type_value&>(const_cast<const Upvalue&>(*this).value());
-    }
-
-    void Upvalue::close()
-    {
-        if (! closed_) {
-            closed_ = stack.at(stack_index);
-        }
     }
 
     template<>

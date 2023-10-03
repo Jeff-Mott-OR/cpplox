@@ -33,12 +33,17 @@ namespace motts { namespace lox
             // Expected side-effect: References will be marked and added to gray worklist.
             gray_control_block->trace_refs(*this);
         }
+        gray_worklist_.shrink_to_fit();
 
         const auto not_marked_begin = std::partition(all_ptrs_.begin(), all_ptrs_.end(), [] (const auto* control_block) {
             return control_block->marked;
         });
 
         std::for_each(not_marked_begin, all_ptrs_.end(), [&] (const auto* control_block) {
+            for (const auto& fn : on_destroy_ptr) {
+                fn(*control_block);
+            }
+
             n_allocated_bytes_ -= control_block->size();
             delete control_block;
         });

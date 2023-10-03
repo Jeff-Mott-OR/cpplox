@@ -7,17 +7,13 @@
 
 #include "lox.hpp"
 
-int main(int argc, char* argv[])
+int main(int argc, const char* argv[])
 {
     boost::program_options::options_description options;
     options.add_options()
         ("help", "Show this help message.")
-        ("input-file", boost::program_options::value<std::string>(), "Input lox script file.")
+        ("input-file", boost::program_options::value<std::string>(), "Lox script file to run.")
         ("debug", "Disassemble instructions and dump the stack.");
-
-    // The `--input-file=` prefix can be skipped when added as a positional option.
-    // The `-1` means unliimited max count, but the input-file option is still restrained to 1
-    // from the regular options description.
     boost::program_options::positional_options_description positional_options;
     positional_options.add("input-file", -1);
 

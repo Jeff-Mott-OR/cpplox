@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <ostream>
 #include <vector>
 
 namespace motts { namespace lox
@@ -91,6 +92,14 @@ namespace motts { namespace lox
             return lhs.control_block == rhs.control_block;
         }
 
+    // Printing GC_ptrs prints the underlying control block pointer.
+    template<typename User_value_type>
+        std::ostream& operator<<(std::ostream& os, GC_ptr<User_value_type> ptr)
+        {
+            os << ptr.control_block;
+            return os;
+        }
+
     class GC_heap
     {
         std::vector<GC_control_block_base*> all_ptrs_;
@@ -101,6 +110,9 @@ namespace motts { namespace lox
             // When we mark-and-sweep, we need to start marking somewhere.
             // Add a callback to this list to mark your roots, whatever they may be.
             std::vector<std::function<void()>> on_mark_roots;
+
+            // Before we delete a ptr during collection, give others a chance to act on the pending deletion.
+            std::vector<std::function<void(const GC_control_block_base&)>> on_destroy_ptr;
 
             GC_heap() = default;
 
@@ -113,7 +125,7 @@ namespace motts { namespace lox
                 {
                     auto* control_block = new GC_control_block<User_value_type>{std::move(value)};
                     all_ptrs_.push_back(control_block);
-                    n_allocated_bytes_ += control_block->size();
+                    n_allocated_bytes_ += sizeof(*control_block);
                     return {control_block};
                 }
 

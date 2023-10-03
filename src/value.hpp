@@ -8,6 +8,7 @@
 
 namespace motts { namespace lox
 {
+    // This variant will be the size of two CPU words and is safe to pass around by value.
     using Dynamic_type_value = std::variant<
         // `nullptr_t` should be first so it will be picked as the default constructed value.
         // All others can be listed in any order.
@@ -16,7 +17,6 @@ namespace motts { namespace lox
         // Primitive types.
         bool,
         double,
-        std::string,
 
         // Object types.
         GC_ptr<Bound_method>,
@@ -24,10 +24,11 @@ namespace motts { namespace lox
         GC_ptr<Closure>,
         GC_ptr<Function>,
         GC_ptr<Instance>,
-        GC_ptr<Native_fn>
+        GC_ptr<Native_fn>,
+        GC_ptr<const std::string>
     > ;
 
-    std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
+    std::ostream& operator<<(std::ostream&, Dynamic_type_value);
 
     struct Is_truthy_visitor
     {
@@ -42,7 +43,7 @@ namespace motts { namespace lox
         }
 
         template<typename T>
-            auto operator()(const T&) const
+            auto operator()(T) const
             {
                 return true;
             }
@@ -64,9 +65,22 @@ namespace motts { namespace lox
             }
 
         template<typename T>
-            auto operator()(const T& /* primitive_type */)
+            auto operator()(T)
             {
                 // No-op.
             }
     };
 }}
+
+// Define how to hash a GC_ptr of string, which will just be a hash of the underlying string.
+namespace std
+{
+    template<>
+        struct hash<motts::lox::GC_ptr<const std::string>>
+        {
+            std::size_t operator()(motts::lox::GC_ptr<const std::string> str) const
+            {
+                return std::hash<motts::lox::GC_control_block_base*>{}(str.control_block);
+            }
+        };
+}

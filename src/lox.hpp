@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 
+#include "interned_strings.hpp"
 #include "memory.hpp"
 #include "vm.hpp"
 
@@ -23,8 +24,11 @@ namespace motts { namespace lox
         // Tracks allocations, and frees using mark-and-sweep.
         GC_heap gc_heap;
 
+        // Dedup string allocations
+        Interned_strings interned_strings {gc_heap};
+
         // Keeps globals and a stack, and executes bytecode.
-        VM vm {gc_heap, cout, debug};
+        VM vm {gc_heap, interned_strings, cout, debug};
 
         Lox(
             std::ostream& cout = std::cout,

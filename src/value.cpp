@@ -27,9 +27,14 @@ namespace
             os << std::boolalpha << value;
         }
 
+        auto operator()(double value)
+        {
+            os << value;
+        }
+
         auto operator()(GC_ptr<Function> fn)
         {
-            os << "<fn " << fn->name << '>';
+            os << "<fn " << *fn->name << '>';
         }
 
         auto operator()(GC_ptr<Bound_method> bound_method)
@@ -39,7 +44,7 @@ namespace
 
         auto operator()(GC_ptr<Class> klass)
         {
-            os << "<class " << klass->name << '>';
+            os << "<class " << *klass->name << '>';
         }
 
         auto operator()(GC_ptr<Closure> closure)
@@ -49,7 +54,7 @@ namespace
 
         auto operator()(GC_ptr<Instance> instance)
         {
-            os << "<instance " << instance->klass->name << '>';
+            os << "<instance " << *instance->klass->name << '>';
         }
 
         auto operator()(GC_ptr<Native_fn>)
@@ -57,18 +62,16 @@ namespace
             os << "<native fn>";
         }
 
-        // All others such as double and string just print as is.
-        template<typename T>
-            auto operator()(const T& value)
-            {
-                os << value;
-            }
+        auto operator()(GC_ptr<const std::string> str)
+        {
+            os << *str;
+        }
     };
 }
 
 namespace motts { namespace lox
 {
-    std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value)
+    std::ostream& operator<<(std::ostream& os, Dynamic_type_value value)
     {
         std::visit(Print_visitor{os}, value);
         return os;

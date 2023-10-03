@@ -45,11 +45,11 @@ BOOST_AUTO_TEST_CASE(debug_option_will_print_bytecode_and_stack)
         "    0 : 00 00    CONSTANT [0]            ; \"Hello, World!\" @ 1\n"
         "    2 : 18       PRINT                   ; print @ 1\n"
         "\n"
-        "Stack:\n"
+        "# Stack:\n"
         "    0 : Hello, World!\n"
         "\n"
         "Hello, World!\n"
-        "Stack:\n"
+        "# Stack:\n"
         "\n";
     BOOST_TEST(actual_out == expected);
     BOOST_TEST(actual_err == "");
