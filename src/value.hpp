@@ -71,16 +71,3 @@ namespace motts { namespace lox
             }
     };
 }}
-
-// Define how to hash a GC_ptr of string, which will just be a hash of the underlying string.
-namespace std
-{
-    template<>
-        struct hash<motts::lox::GC_ptr<const std::string>>
-        {
-            std::size_t operator()(motts::lox::GC_ptr<const std::string> str) const
-            {
-                return std::hash<motts::lox::GC_control_block_base*>{}(str.control_block);
-            }
-        };
-}

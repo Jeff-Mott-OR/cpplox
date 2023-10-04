@@ -147,3 +147,16 @@ namespace motts { namespace lox
             gc_heap.mark(gc_ptr.control_block);
         }
 }}
+
+// The hash of GC_ptrs is the hash of the underlying control block pointers.
+namespace std
+{
+    template<typename User_value_type>
+        struct hash<motts::lox::GC_ptr<User_value_type>>
+        {
+            std::size_t operator()(motts::lox::GC_ptr<User_value_type> gc_ptr) const
+            {
+                return std::hash<motts::lox::GC_control_block_base*>{}(gc_ptr.control_block);
+            }
+        };
+}
