@@ -1,11 +1,11 @@
 #include "interned_strings.hpp"
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     Interned_strings::Interned_strings(GC_heap& gc_heap)
-        : gc_heap_ {gc_heap}
+        : gc_heap_{gc_heap}
     {
-        gc_heap_.on_destroy_ptr.push_back([this] (const auto& control_block) {
+        gc_heap_.on_destroy_ptr.push_back([this](const auto& control_block) {
             const auto maybe_gc_str_iter = strings_by_ptr_.find(&control_block);
             if (maybe_gc_str_iter != strings_by_ptr_.cend()) {
                 const auto gc_str = maybe_gc_str_iter->second;
@@ -50,4 +50,4 @@ namespace motts { namespace lox
 
         return gc_str;
     }
-}}
+}

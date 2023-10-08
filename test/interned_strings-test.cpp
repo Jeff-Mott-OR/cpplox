@@ -1,22 +1,23 @@
 #define BOOST_TEST_MODULE Interned Strings Tests
-#include <boost/test/unit_test.hpp>
 
 #include <string>
+
+#include <boost/test/unit_test.hpp>
 
 #include "../src/interned_strings.hpp"
 
 BOOST_AUTO_TEST_CASE(interned_string_views_make_owning_copy_and_dedup)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
 
-    std::string_view str_view {"hello"};
+    std::string_view str_view{"hello"};
     const auto interned_str_gc_ptr = interned_strings.get(str_view);
 
     BOOST_TEST(*interned_str_gc_ptr == str_view);
     BOOST_TEST(reinterpret_cast<const void*>(&*(interned_str_gc_ptr->cbegin())) != reinterpret_cast<const void*>(&*(str_view.cbegin())));
 
-    std::string_view str_view_2 {"hello"};
+    std::string_view str_view_2{"hello"};
     const auto interned_str_gc_ptr_2 = interned_strings.get(str_view_2);
 
     BOOST_TEST(interned_str_gc_ptr_2 == interned_str_gc_ptr);
@@ -25,7 +26,7 @@ BOOST_AUTO_TEST_CASE(interned_string_views_make_owning_copy_and_dedup)
 BOOST_AUTO_TEST_CASE(interned_strings_are_weakref_and_delete_if_collected)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
 
     const auto gc_ptr_not_marked = interned_strings.get(std::string_view{"hello"});
     const auto gc_ptr_not_marked_dup = interned_strings.get(std::string_view{"hello"});

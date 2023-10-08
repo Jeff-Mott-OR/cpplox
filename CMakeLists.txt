@@ -74,6 +74,12 @@ if(NOT DEPS_ONLY)
     if(ENABLE_TESTING)
         enable_testing()
 
+        file(GLOB clang_format_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.[hc]pp" "${CMAKE_CURRENT_SOURCE_DIR}/test/*.[hc]pp")
+        add_test(
+            NAME clang_format
+            COMMAND clang-format --dry-run --Werror ${clang_format_files}
+        )
+
         add_test(
             NAME cppcheck
             COMMAND cppcheck --error-exitcode=1 "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp" ${cpploxbc_sources}

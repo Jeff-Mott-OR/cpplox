@@ -6,7 +6,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     std::ostream& operator<<(std::ostream& os, Token_type token_type)
     {
@@ -16,16 +16,16 @@ namespace motts { namespace lox
                 default:
                     throw std::logic_error{"Unexpected token type."};
 
-                #define X(name) \
-                    case Token_type::name: \
-                        return #name;
-                MOTTS_LOX_TOKEN_TYPE_NAMES
-                #undef X
+#define X(name) \
+    case Token_type::name: \
+        return #name;
+                    MOTTS_LOX_TOKEN_TYPE_NAMES
+#undef X
             }
         }();
 
         // Names should print as uppercase without trailing underscores.
-        std::string name_str {name};
+        std::string name_str{name};
         boost::trim_right_if(name_str, boost::is_any_of("_"));
         boost::to_upper(name_str);
 
@@ -41,19 +41,19 @@ namespace motts { namespace lox
            << "lexeme: " << token.lexeme << ", "
            << "line: " << token.line << " }";
 
-       return os;
+        return os;
     }
 
     Token_iterator::Token_iterator(std::string_view source)
-        : token_begin_ {source.cbegin()},
-          token_end_ {source.cbegin()},
-          source_end_ {source.cend()},
-          token_ {scan_token()}
+        : token_begin_{source.cbegin()},
+          token_end_{source.cbegin()},
+          source_end_{source.cend()},
+          token_{scan_token()}
     {
     }
 
     Token_iterator::Token_iterator()
-        : token_ {Token_type::eof, "", 0}
+        : token_{Token_type::eof, "", 0}
     {
     }
 
@@ -108,9 +108,7 @@ namespace motts { namespace lox
 
             switch (next_char) {
                 default:
-                    throw std::runtime_error{
-                        "[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."
-                    };
+                    throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."};
 
                 case '"':
                     return scan_string_token();
@@ -138,21 +136,35 @@ namespace motts { namespace lox
                     // Else, single slash token.
                     return Token{Token_type::slash, {token_begin_, token_end_}, line_};
 
-                case '(': return Token{Token_type::left_paren,  {token_begin_, token_end_}, line_};
-                case ')': return Token{Token_type::right_paren, {token_begin_, token_end_}, line_};
-                case '{': return Token{Token_type::left_brace,  {token_begin_, token_end_}, line_};
-                case '}': return Token{Token_type::right_brace, {token_begin_, token_end_}, line_};
-                case ',': return Token{Token_type::comma,       {token_begin_, token_end_}, line_};
-                case '.': return Token{Token_type::dot,         {token_begin_, token_end_}, line_};
-                case '-': return Token{Token_type::minus,       {token_begin_, token_end_}, line_};
-                case '+': return Token{Token_type::plus,        {token_begin_, token_end_}, line_};
-                case ';': return Token{Token_type::semicolon,   {token_begin_, token_end_}, line_};
-                case '*': return Token{Token_type::star,        {token_begin_, token_end_}, line_};
+                case '(':
+                    return Token{Token_type::left_paren, {token_begin_, token_end_}, line_};
+                case ')':
+                    return Token{Token_type::right_paren, {token_begin_, token_end_}, line_};
+                case '{':
+                    return Token{Token_type::left_brace, {token_begin_, token_end_}, line_};
+                case '}':
+                    return Token{Token_type::right_brace, {token_begin_, token_end_}, line_};
+                case ',':
+                    return Token{Token_type::comma, {token_begin_, token_end_}, line_};
+                case '.':
+                    return Token{Token_type::dot, {token_begin_, token_end_}, line_};
+                case '-':
+                    return Token{Token_type::minus, {token_begin_, token_end_}, line_};
+                case '+':
+                    return Token{Token_type::plus, {token_begin_, token_end_}, line_};
+                case ';':
+                    return Token{Token_type::semicolon, {token_begin_, token_end_}, line_};
+                case '*':
+                    return Token{Token_type::star, {token_begin_, token_end_}, line_};
 
-                case '!': return {scan_if_match('=') ? Token_type::bang_equal    : Token_type::bang,    {token_begin_, token_end_}, line_};
-                case '=': return {scan_if_match('=') ? Token_type::equal_equal   : Token_type::equal,   {token_begin_, token_end_}, line_};
-                case '>': return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
-                case '<': return {scan_if_match('=') ? Token_type::less_equal    : Token_type::less,    {token_begin_, token_end_}, line_};
+                case '!':
+                    return {scan_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
+                case '=':
+                    return {scan_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
+                case '>':
+                    return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
+                case '<':
+                    return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
             }
         }
 
@@ -168,26 +180,44 @@ namespace motts { namespace lox
         // Check if this identifier is a keyword.
         const auto token_type = [&] {
             // string_view lets us use == with a c-string.
-            std::string_view token_lexeme {token_begin_, token_end_};
+            std::string_view token_lexeme{token_begin_, token_end_};
 
-            if (token_lexeme == "and")      return Token_type::and_;
-            if (token_lexeme == "break")    return Token_type::break_;
-            if (token_lexeme == "class")    return Token_type::class_;
-            if (token_lexeme == "continue") return Token_type::continue_;
-            if (token_lexeme == "else")     return Token_type::else_;
-            if (token_lexeme == "false")    return Token_type::false_;
-            if (token_lexeme == "for")      return Token_type::for_;
-            if (token_lexeme == "fun")      return Token_type::fun;
-            if (token_lexeme == "if")       return Token_type::if_;
-            if (token_lexeme == "nil")      return Token_type::nil;
-            if (token_lexeme == "or")       return Token_type::or_;
-            if (token_lexeme == "print")    return Token_type::print;
-            if (token_lexeme == "return")   return Token_type::return_;
-            if (token_lexeme == "super")    return Token_type::super;
-            if (token_lexeme == "this")     return Token_type::this_;
-            if (token_lexeme == "true")     return Token_type::true_;
-            if (token_lexeme == "var")      return Token_type::var;
-            if (token_lexeme == "while")    return Token_type::while_;
+            if (token_lexeme == "and")
+                return Token_type::and_;
+            if (token_lexeme == "break")
+                return Token_type::break_;
+            if (token_lexeme == "class")
+                return Token_type::class_;
+            if (token_lexeme == "continue")
+                return Token_type::continue_;
+            if (token_lexeme == "else")
+                return Token_type::else_;
+            if (token_lexeme == "false")
+                return Token_type::false_;
+            if (token_lexeme == "for")
+                return Token_type::for_;
+            if (token_lexeme == "fun")
+                return Token_type::fun;
+            if (token_lexeme == "if")
+                return Token_type::if_;
+            if (token_lexeme == "nil")
+                return Token_type::nil;
+            if (token_lexeme == "or")
+                return Token_type::or_;
+            if (token_lexeme == "print")
+                return Token_type::print;
+            if (token_lexeme == "return")
+                return Token_type::return_;
+            if (token_lexeme == "super")
+                return Token_type::super;
+            if (token_lexeme == "this")
+                return Token_type::this_;
+            if (token_lexeme == "true")
+                return Token_type::true_;
+            if (token_lexeme == "var")
+                return Token_type::var;
+            if (token_lexeme == "while")
+                return Token_type::while_;
 
             return Token_type::identifier;
         }();
@@ -202,10 +232,7 @@ namespace motts { namespace lox
         }
 
         // Fractional part.
-        if (
-            token_end_ != source_end_ && *token_end_ == '.' &&
-            (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))
-        ) {
+        if (token_end_ != source_end_ && *token_end_ == '.' && (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))) {
             // Consume the "." and digit.
             token_end_ += 2;
 
@@ -247,4 +274,4 @@ namespace motts { namespace lox
 
         return false;
     }
-}}
+}

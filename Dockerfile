@@ -31,7 +31,8 @@ FROM deps AS build
 
 FROM build AS test
 
-    RUN apt update && apt install -y cppcheck valgrind
+    RUN apt update && apt install -y clang-format cppcheck valgrind
+    COPY .clang-format /project/src
     COPY test /project/src/test
     RUN cmake ../src -GNinja -DDEPS_ONLY=FALSE -DENABLE_TESTING=TRUE
     RUN cmake --build .

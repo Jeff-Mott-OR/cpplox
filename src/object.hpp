@@ -1,15 +1,14 @@
 #pragma once
 
-#include "object-fwd.hpp"
-
 #include <span>
 #include <unordered_map>
 #include <variant>
 
 #include "chunk.hpp"
 #include "memory.hpp"
+#include "object-fwd.hpp"
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     struct Bound_method
     {
@@ -17,7 +16,8 @@ namespace motts { namespace lox
         GC_ptr<Closure> method;
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Bound_method&);
+    template<>
+    void trace_refs_trait(GC_heap&, const Bound_method&);
 
     struct Class
     {
@@ -27,7 +27,8 @@ namespace motts { namespace lox
         Class(GC_ptr<const std::string> name);
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Class&);
+    template<>
+    void trace_refs_trait(GC_heap&, const Class&);
 
     struct Closure
     {
@@ -40,16 +41,18 @@ namespace motts { namespace lox
         Closure(GC_ptr<Function>);
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Closure&);
+    template<>
+    void trace_refs_trait(GC_heap&, const Closure&);
 
     struct Function
     {
         GC_ptr<const std::string> name;
-        unsigned int arity {0};
+        unsigned int arity{0};
         Chunk chunk;
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Function&);
+    template<>
+    void trace_refs_trait(GC_heap&, const Function&);
 
     struct Instance
     {
@@ -59,7 +62,8 @@ namespace motts { namespace lox
         Instance(GC_ptr<Class>);
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Instance&);
+    template<>
+    void trace_refs_trait(GC_heap&, const Instance&);
 
     struct Native_fn
     {
@@ -83,14 +87,15 @@ namespace motts { namespace lox
 
         std::variant<Open, Closed> value_;
 
-        public:
-            Upvalue(std::vector<Dynamic_type_value>& stack, std::vector<Dynamic_type_value>::size_type stack_index);
+      public:
+        Upvalue(std::vector<Dynamic_type_value>& stack, std::vector<Dynamic_type_value>::size_type stack_index);
 
-            void close();
-            std::vector<Dynamic_type_value>::size_type stack_index() const;
-            const Dynamic_type_value& value() const;
-            Dynamic_type_value& value();
+        void close();
+        std::vector<Dynamic_type_value>::size_type stack_index() const;
+        const Dynamic_type_value& value() const;
+        Dynamic_type_value& value();
     };
 
-    template<> void trace_refs_trait(GC_heap&, const Upvalue&);
-}}
+    template<>
+    void trace_refs_trait(GC_heap&, const Upvalue&);
+}

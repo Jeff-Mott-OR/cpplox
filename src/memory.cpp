@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     GC_heap::~GC_heap()
     {
@@ -35,11 +35,10 @@ namespace motts { namespace lox
         }
         gray_worklist_.shrink_to_fit();
 
-        const auto not_marked_begin = std::partition(all_ptrs_.begin(), all_ptrs_.end(), [] (const auto* control_block) {
-            return control_block->marked;
-        });
+        const auto not_marked_begin =
+            std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto* control_block) { return control_block->marked; });
 
-        std::for_each(not_marked_begin, all_ptrs_.end(), [&] (const auto* control_block) {
+        std::for_each(not_marked_begin, all_ptrs_.end(), [&](const auto* control_block) {
             for (const auto& fn : on_destroy_ptr) {
                 fn(*control_block);
             }
@@ -58,4 +57,4 @@ namespace motts { namespace lox
     {
         return n_allocated_bytes_;
     }
-}}
+}

@@ -1,8 +1,9 @@
 #define BOOST_TEST_MODULE Compiler Tests
-#include <boost/test/unit_test.hpp>
 
 #include <sstream>
 #include <stdexcept>
+
+#include <boost/test/unit_test.hpp>
 
 #include "../src/compiler.hpp"
 #include "../src/interned_strings.hpp"
@@ -16,10 +17,12 @@ BOOST_AUTO_TEST_CASE(opcodes_can_be_printed)
 
 BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw)
 {
-    union Invalid_opcode {
+    union Invalid_opcode
+    {
         motts::lox::Opcode as_opcode;
         int as_int;
     };
+
     Invalid_opcode invalid_opcode;
     invalid_opcode.as_int = 276'709; // Don't panic.
 
@@ -30,63 +33,74 @@ BOOST_AUTO_TEST_CASE(printing_invalid_opcode_will_throw)
 BOOST_AUTO_TEST_CASE(chunks_can_be_printed)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
 
     motts::lox::Chunk chunk;
     chunk.emit_constant(42.0, motts::lox::Chunk::Token{motts::lox::Token_type::number, interned_strings.get(std::string_view{"42"}), 1});
-    chunk.emit<motts::lox::Opcode::nil>(motts::lox::Chunk::Token{motts::lox::Token_type::nil, interned_strings.get(std::string_view{"nil"}), 2});
+    chunk.emit<motts::lox::Opcode::nil>(
+        motts::lox::Chunk::Token{motts::lox::Token_type::nil, interned_strings.get(std::string_view{"nil"}), 2}
+    );
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 01       NIL                     ; nil @ 2\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(number_literals_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "42;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(nil_literals_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "nil;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
         "    0 : 01       NIL                     ; nil @ 1\n"
         "    1 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     BOOST_CHECK_THROW(compile(gc_heap, interned_strings, "?"), std::runtime_error);
 
     try {
@@ -99,12 +113,13 @@ BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw)
 BOOST_AUTO_TEST_CASE(true_false_literals_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "true; false;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -112,36 +127,42 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile)
         "    1 : 04       POP                     ; ; @ 1\n"
         "    2 : 03       FALSE                   ; false @ 1\n"
         "    3 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(string_literals_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "\"hello\";");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : hello\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; \"hello\" @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(addition_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "28 + 14;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 28\n"
@@ -151,6 +172,8 @@ BOOST_AUTO_TEST_CASE(addition_will_compile)
         "    2 : 00 01    CONSTANT [1]            ; 14 @ 1\n"
         "    4 : 12       ADD                     ; + @ 1\n"
         "    5 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
@@ -158,7 +181,7 @@ BOOST_AUTO_TEST_CASE(invalid_addition_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "42 + ");
     };
 
@@ -174,30 +197,34 @@ BOOST_AUTO_TEST_CASE(invalid_addition_will_throw)
 BOOST_AUTO_TEST_CASE(print_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "print 42;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 18       PRINT                   ; print @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "1 + 2 - 3 * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 1\n"
@@ -216,18 +243,21 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile)
         "   12 : 15       DIVIDE                  ; / @ 1\n"
         "   13 : 13       SUBTRACT                ; - @ 1\n"
         "   14 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(parens_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "1 + (2 - 3) * 5 / 7;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 1\n"
@@ -246,18 +276,21 @@ BOOST_AUTO_TEST_CASE(parens_will_compile)
         "   12 : 15       DIVIDE                  ; / @ 1\n"
         "   13 : 12       ADD                     ; + @ 1\n"
         "   14 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(numeric_negation_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "-1 + -1;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 1\n"
@@ -268,54 +301,63 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_compile)
         "    5 : 17       NEGATE                  ; - @ 1\n"
         "    6 : 12       ADD                     ; + @ 1\n"
         "    7 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(boolean_negation_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "!true;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
         "    0 : 02       TRUE                    ; true @ 1\n"
         "    1 : 16       NOT                     ; ! @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(expression_statements_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "42;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(comparisons_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "1 > 2; 3 >= 5; 7 == 11; 13 != 17; 19 <= 23; 29 < 31;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 1\n"
@@ -363,18 +405,21 @@ BOOST_AUTO_TEST_CASE(comparisons_will_compile)
         "   35 : 00 0b    CONSTANT [11]           ; 31 @ 1\n"
         "   37 : 11       LESS                    ; < @ 1\n"
         "   38 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "true and false;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -383,18 +428,21 @@ BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile)
         "    4 : 04       POP                     ; and @ 1\n"
         "    5 : 03       FALSE                   ; false @ 1\n"
         "    6 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "true or false;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -404,18 +452,21 @@ BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile)
         "    7 : 04       POP                     ; or @ 1\n"
         "    8 : 03       FALSE                   ; false @ 1\n"
         "    9 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(global_assignment_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "x = 42;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
@@ -424,31 +475,36 @@ BOOST_AUTO_TEST_CASE(global_assignment_will_compile)
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 09 01    SET_GLOBAL [1]          ; x @ 1\n"
         "    4 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(global_identifier_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "x;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : x\n"
         "Bytecode:\n"
         "    0 : 07 00    GET_GLOBAL [0]          ; x @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(while_loop_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
 
     const auto chunk_loop_expr = compile(gc_heap, interned_strings, "x = 42; while (x > 0) x = x - 1;");
     std::ostringstream os_loop_expr;
@@ -458,6 +514,7 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile)
     std::ostringstream os_loop_block;
     os_loop_block << chunk_loop_block;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
@@ -480,6 +537,8 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile)
         "   21 : 04       POP                     ; ; @ 1\n"
         "   22 : 1b 00 14 LOOP -20 -> 5           ; while @ 1\n"
         "   25 : 04       POP                     ; while @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os_loop_expr.str() == expected);
     BOOST_TEST(os_loop_block.str() == expected);
 }
@@ -487,48 +546,55 @@ BOOST_AUTO_TEST_CASE(while_loop_will_compile)
 BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "{ 42; }");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(var_declaration_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "var x;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : x\n"
         "Bytecode:\n"
         "    0 : 01       NIL                     ; var @ 1\n"
         "    1 : 08 00    DEFINE_GLOBAL [0]       ; var @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "var x = 42;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
@@ -536,18 +602,21 @@ BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized)
         "Bytecode:\n"
         "    0 : 00 00    CONSTANT [0]            ; 42 @ 1\n"
         "    2 : 08 01    DEFINE_GLOBAL [1]       ; var @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "var x; { var x; x; x = 42; } x;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : x\n"
@@ -564,6 +633,8 @@ BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces)
         "   12 : 04       POP                     ; } @ 1\n"
         "   13 : 07 00    GET_GLOBAL [0]          ; x @ 1\n"
         "   15 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
@@ -571,7 +642,7 @@ BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "{ var x; var x; }");
     };
 
@@ -588,7 +659,7 @@ BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "{ var x = x; }");
     };
 
@@ -604,12 +675,13 @@ BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw)
 BOOST_AUTO_TEST_CASE(if_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "if (true) nil;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -620,18 +692,21 @@ BOOST_AUTO_TEST_CASE(if_will_compile)
         "    6 : 04       POP                     ; ; @ 1\n"
         "    7 : 19 00 01 JUMP +1 -> 11           ; if @ 1\n"
         "   10 : 04       POP                     ; if @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(if_else_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "if (true) nil; else nil;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -644,18 +719,21 @@ BOOST_AUTO_TEST_CASE(if_else_will_compile)
         "   10 : 04       POP                     ; if @ 1\n"
         "   11 : 01       NIL                     ; nil @ 1\n"
         "   12 : 04       POP                     ; ; @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(if_block_will_create_a_scope)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "{ var x = 42; if (true) { var x = 14; } x; }");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
@@ -672,18 +750,21 @@ BOOST_AUTO_TEST_CASE(if_block_will_create_a_scope)
         "   14 : 05 00    GET_LOCAL [0]           ; x @ 1\n"
         "   16 : 04       POP                     ; ; @ 1\n"
         "   17 : 04       POP                     ; } @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(for_loops_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "for (var x = 0; x != 3; x = x + 1) nil;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 0\n"
@@ -709,18 +790,21 @@ BOOST_AUTO_TEST_CASE(for_loops_will_compile)
         "   28 : 1b 00 11 LOOP -17 -> 14          ; for @ 1\n"
         "   31 : 04       POP                     ; for @ 1\n"
         "   32 : 04       POP                     ; for @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "for (;;) nil;");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "Bytecode:\n"
@@ -733,18 +817,21 @@ BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank)
         "   12 : 04       POP                     ; ; @ 1\n"
         "   13 : 1b 00 09 LOOP -9 -> 7            ; for @ 1\n"
         "   16 : 04       POP                     ; for @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(gc_heap, interned_strings, "{ var x = 42; for (var x = 0; x != 3; x = x + 1) nil; }");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : 42\n"
@@ -773,6 +860,8 @@ BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local)
         "   33 : 04       POP                     ; for @ 1\n"
         "   34 : 04       POP                     ; for @ 1\n"
         "   35 : 04       POP                     ; } @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
@@ -780,7 +869,7 @@ BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "for (print x;;) nil;");
     };
 
@@ -796,9 +885,10 @@ BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw)
 BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun f() {}\n"
         "f();\n"
         "{ fun g() {} }\n"
@@ -807,6 +897,7 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn f>\n"
@@ -830,15 +921,18 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile)
         "Bytecode:\n"
         "    0 : 01       NIL                     ; fun @ 3\n"
         "    1 : 21       RETURN                  ; fun @ 3\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun f(x) { x; }\n"
         "f(42);\n"
     );
@@ -846,6 +940,7 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn f>\n"
@@ -865,15 +960,18 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile)
         "    2 : 04       POP                     ; ; @ 1\n"
         "    3 : 01       NIL                     ; fun @ 1\n"
         "    4 : 21       RETURN                  ; fun @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(function_return_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun f(x) { return x; }\n"
         "f(42);\n"
     );
@@ -881,6 +979,7 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn f>\n"
@@ -900,15 +999,18 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile)
         "    2 : 21       RETURN                  ; return @ 1\n"
         "    3 : 01       NIL                     ; fun @ 1\n"
         "    4 : 21       RETURN                  ; fun @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun f() { return; }\n"
         "f();\n"
     );
@@ -916,6 +1018,7 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn f>\n"
@@ -933,13 +1036,15 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
         "    1 : 21       RETURN                  ; return @ 1\n"
         "    2 : 01       NIL                     ; fun @ 1\n"
         "    3 : 21       RETURN                  ; fun @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(return_outside_function_will_throw)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
 
     BOOST_CHECK_THROW(compile(gc_heap, interned_strings, "return;"), std::runtime_error);
     try {
@@ -952,15 +1057,13 @@ BOOST_AUTO_TEST_CASE(return_outside_function_will_throw)
 BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_name)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
-    const auto chunk = compile(
-        gc_heap, interned_strings,
-        "fun f() { f; }\n"
-    );
+    motts::lox::Interned_strings interned_strings{gc_heap};
+    const auto chunk = compile(gc_heap, interned_strings, "fun f() { f; }\n");
 
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn f>\n"
@@ -975,15 +1078,18 @@ BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_n
         "    2 : 04       POP                     ; ; @ 1\n"
         "    3 : 01       NIL                     ; fun @ 1\n"
         "    4 : 21       RETURN                  ; fun @ 1\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun outer() {\n"
         "    var x = 42;\n"
         "    fun middle() {\n"
@@ -1000,6 +1106,7 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn outer>\n"
@@ -1045,15 +1152,18 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
         "    7 : 18       PRINT                   ; print @ 6\n"
         "    8 : 01       NIL                     ; fun @ 4\n"
         "    9 : 21       RETURN                  ; fun @ 4\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returned)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "fun outer() {\n"
         "    var x = 42;\n"
         "    fun middle() {\n"
@@ -1072,6 +1182,7 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : <fn outer>\n"
@@ -1123,15 +1234,18 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "    7 : 18       PRINT                   ; print @ 6\n"
         "    8 : 01       NIL                     ; fun @ 4\n"
         "    9 : 21       RETURN                  ; fun @ 4\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(class_will_compile)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Klass {\n"
         "    method() {}\n"
         "}\n"
@@ -1143,6 +1257,7 @@ BOOST_AUTO_TEST_CASE(class_will_compile)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Klass\n"
@@ -1175,15 +1290,18 @@ BOOST_AUTO_TEST_CASE(class_will_compile)
         "Bytecode:\n"
         "    0 : 01       NIL                     ; method @ 2\n"
         "    1 : 21       RETURN                  ; method @ 2\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(class_name_can_be_used_in_methods)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class GlobalClass {\n"
         "    method() {\n"
         "        GlobalClass;\n"
@@ -1201,6 +1319,7 @@ BOOST_AUTO_TEST_CASE(class_name_can_be_used_in_methods)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : GlobalClass\n"
@@ -1241,15 +1360,18 @@ BOOST_AUTO_TEST_CASE(class_name_can_be_used_in_methods)
         "    2 : 04       POP                     ; ; @ 9\n"
         "    3 : 01       NIL                     ; method @ 8\n"
         "    4 : 21       RETURN                  ; method @ 8\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(property_access_can_be_chained)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Klass {}\n"
         "var globalFoo = Klass();\n"
         "globalFoo.bar = Klass();\n"
@@ -1271,6 +1393,7 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Klass\n"
@@ -1355,15 +1478,18 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained)
         // }
         "   16 : 01       NIL                     ; fun @ 11\n"
         "   17 : 21       RETURN                  ; fun @ 11\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Klass {\n"
         "    method() {\n"
         "        fun inner() {\n"
@@ -1378,6 +1504,7 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Klass\n"
@@ -1422,15 +1549,18 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
         // }
         "    3 : 01       NIL                     ; fun @ 3\n"
         "    4 : 21       RETURN                  ; fun @ 3\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(class_init_method_will_implicitly_return_instance)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Klass {\n"
         "    init() {\n"
         "        this.property = 42;\n"
@@ -1442,6 +1572,7 @@ BOOST_AUTO_TEST_CASE(class_init_method_will_implicitly_return_instance)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Klass\n"
@@ -1469,6 +1600,8 @@ BOOST_AUTO_TEST_CASE(class_init_method_will_implicitly_return_instance)
         "    9 : 21       RETURN                  ; return @ 4\n"
         "   10 : 05 00    GET_LOCAL [0]           ; this @ 2\n"
         "   12 : 21       RETURN                  ; init @ 2\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
@@ -1476,9 +1609,10 @@ BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(
-            gc_heap, interned_strings,
+            gc_heap,
+            interned_strings,
             "class Klass {\n"
             "    init() {\n"
             "        return 42;\n"
@@ -1498,9 +1632,10 @@ BOOST_AUTO_TEST_CASE(returning_value_in_class_init_will_throw)
 BOOST_AUTO_TEST_CASE(classes_can_inherit_from_classes)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Parent {}\n"
         "class Child < Parent {}\n"
     );
@@ -1508,6 +1643,7 @@ BOOST_AUTO_TEST_CASE(classes_can_inherit_from_classes)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Parent\n"
@@ -1523,6 +1659,8 @@ BOOST_AUTO_TEST_CASE(classes_can_inherit_from_classes)
         "    9 : 04       POP                     ; Parent @ 2\n"
         "   10 : 04       POP                     ; super @ 2\n"
         "   11 : 08 01    DEFINE_GLOBAL [1]       ; class @ 2\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
@@ -1530,11 +1668,8 @@ BOOST_AUTO_TEST_CASE(class_inheriting_from_itself_will_throw)
 {
     const auto expect_to_throw = [] {
         motts::lox::GC_heap gc_heap;
-        motts::lox::Interned_strings interned_strings {gc_heap};
-        compile(
-            gc_heap, interned_strings,
-            "class Klass < Klass {}\n"
-        );
+        motts::lox::Interned_strings interned_strings{gc_heap};
+        compile(gc_heap, interned_strings, "class Klass < Klass {}\n");
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
@@ -1548,9 +1683,10 @@ BOOST_AUTO_TEST_CASE(class_inheriting_from_itself_will_throw)
 BOOST_AUTO_TEST_CASE(subclass_can_access_super)
 {
     motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings {gc_heap};
+    motts::lox::Interned_strings interned_strings{gc_heap};
     const auto chunk = compile(
-        gc_heap, interned_strings,
+        gc_heap,
+        interned_strings,
         "class Parent {\n"
         "    method() {}\n"
         "}\n"
@@ -1564,6 +1700,7 @@ BOOST_AUTO_TEST_CASE(subclass_can_access_super)
     std::ostringstream os;
     os << chunk;
 
+    // clang-format off
     const auto expected =
         "Constants:\n"
         "    0 : Parent\n"
@@ -1609,5 +1746,7 @@ BOOST_AUTO_TEST_CASE(subclass_can_access_super)
         "    8 : 04       POP                     ; ; @ 6\n"
         "    9 : 01       NIL                     ; method @ 5\n"
         "   10 : 21       RETURN                  ; method @ 5\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }

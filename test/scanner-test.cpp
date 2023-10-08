@@ -1,8 +1,9 @@
 #define BOOST_TEST_MODULE Scanner Tests
-#include <boost/test/unit_test.hpp>
 
 #include <sstream>
 #include <stdexcept>
+
+#include <boost/test/unit_test.hpp>
 
 #include "../src/scanner.hpp"
 
@@ -16,10 +17,12 @@ BOOST_AUTO_TEST_CASE(token_types_can_be_printed)
 
 BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw)
 {
-    union Invalid_token_type {
+    union Invalid_token_type
+    {
         motts::lox::Token_type as_token_type;
         int as_int;
     };
+
     Invalid_token_type invalid_token_type;
     invalid_token_type.as_int = 276'709; // Don't panic.
     std::ostringstream os;
@@ -30,12 +33,13 @@ BOOST_AUTO_TEST_CASE(printing_invalid_token_types_will_throw)
 BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"(){},.-+;/*"};
+    motts::lox::Token_iterator token_iter{"(){},.-+;/*"};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: LEFT_PAREN, lexeme: (, line: 1 }\n"
         "Token { type: RIGHT_PAREN, lexeme: ), line: 1 }\n"
@@ -48,59 +52,70 @@ BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize)
         "Token { type: SEMICOLON, lexeme: ;, line: 1 }\n"
         "Token { type: SLASH, lexeme: /, line: 1 }\n"
         "Token { type: STAR, lexeme: *, line: 1 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(tokens_track_what_line_they_came_from)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"one\ntwo\nthree\n"};
+    motts::lox::Token_iterator token_iter{"one\ntwo\nthree\n"};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
         "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n"
         "Token { type: IDENTIFIER, lexeme: three, line: 3 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"// line comment\nnext line\n"};
+    motts::lox::Token_iterator token_iter{"// line comment\nnext line\n"};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: IDENTIFIER, lexeme: next, line: 2 }\n"
         "Token { type: IDENTIFIER, lexeme: line, line: 2 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(whitespace_is_skipped_and_ignored)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"one\r\n\t two"};
+    motts::lox::Token_iterator token_iter{"one\r\n\t two"};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
         "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(double_quoted_strings_tokenize)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"\"123 and ( { ,\""};
+    motts::lox::Token_iterator token_iter{"\"123 and ( { ,\""};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
@@ -112,7 +127,7 @@ BOOST_AUTO_TEST_CASE(double_quoted_strings_tokenize)
 BOOST_AUTO_TEST_CASE(strings_can_be_multiline)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"\"123\nand\""};
+    motts::lox::Token_iterator token_iter{"\"123\nand\""};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
@@ -129,14 +144,13 @@ BOOST_AUTO_TEST_CASE(unterminated_strings_will_throw)
 BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {
-        "and break class continue else false for fun if nil or print return super this true var while"
-    };
+    motts::lox::Token_iterator token_iter{"and break class continue else false for fun if nil or print return super this true var while"};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: AND, lexeme: and, line: 1 }\n"
         "Token { type: BREAK, lexeme: break, line: 1 }\n"
@@ -156,18 +170,21 @@ BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords)
         "Token { type: TRUE, lexeme: true, line: 1 }\n"
         "Token { type: VAR, lexeme: var, line: 1 }\n"
         "Token { type: WHILE, lexeme: while, line: 1 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 
 BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter {"! != = == > >= < <="};
+    motts::lox::Token_iterator token_iter{"! != = == > >= < <="};
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';
     }
 
+    // clang-format off
     const auto expected =
         "Token { type: BANG, lexeme: !, line: 1 }\n"
         "Token { type: BANG_EQUAL, lexeme: !=, line: 1 }\n"
@@ -177,6 +194,8 @@ BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize)
         "Token { type: GREATER_EQUAL, lexeme: >=, line: 1 }\n"
         "Token { type: LESS, lexeme: <, line: 1 }\n"
         "Token { type: LESS_EQUAL, lexeme: <=, line: 1 }\n";
+    // clang-format on
+
     BOOST_TEST(os.str() == expected);
 }
 

@@ -6,7 +6,7 @@
 #include "memory.hpp"
 #include "object-fwd.hpp"
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     // This variant will be the size of two CPU words and is safe to pass around by value.
     using Dynamic_type_value = std::variant<
@@ -25,8 +25,7 @@ namespace motts { namespace lox
         GC_ptr<Function>,
         GC_ptr<Instance>,
         GC_ptr<Native_fn>,
-        GC_ptr<const std::string>
-    > ;
+        GC_ptr<const std::string>>;
 
     std::ostream& operator<<(std::ostream&, Dynamic_type_value);
 
@@ -43,10 +42,10 @@ namespace motts { namespace lox
         }
 
         template<typename T>
-            auto operator()(T) const
-            {
-                return true;
-            }
+        auto operator()(T) const
+        {
+            return true;
+        }
     };
 
     struct Mark_objects_visitor
@@ -54,20 +53,20 @@ namespace motts { namespace lox
         GC_heap& gc_heap;
 
         Mark_objects_visitor(GC_heap& gc_heap_arg)
-            : gc_heap {gc_heap_arg}
+            : gc_heap{gc_heap_arg}
         {
         }
 
         template<typename T>
-            auto operator()(GC_ptr<T> object_type)
-            {
-                mark(gc_heap, object_type);
-            }
+        auto operator()(GC_ptr<T> object_type)
+        {
+            mark(gc_heap, object_type);
+        }
 
         template<typename T>
-            auto operator()(T)
-            {
-                // No-op.
-            }
+        auto operator()(T)
+        {
+            // No-op.
+        }
     };
-}}
+}

@@ -1,0 +1,47 @@
+Language: Cpp
+BasedOnStyle: LLVM
+AccessModifierOffset: -2
+AlignAfterOpenBracket: BlockIndent
+AlignEscapedNewlines: DontAlign
+AlignOperands: DontAlign # Bug? Output `<<` and quote `"` will still align. Boo.
+AlignTrailingComments: false
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: Yes
+BinPackArguments: false
+BinPackParameters: false
+BraceWrapping:
+    AfterClass: true
+    AfterControlStatement: MultiLine
+    AfterEnum: true
+    AfterFunction: true
+    AfterNamespace: true
+    AfterStruct: true
+    AfterUnion: true
+    AfterExternBlock: true
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+ColumnLimit: 140
+QualifierAlignment: Left
+PackConstructorInitializers: Never
+FixNamespaceComments: false
+IncludeBlocks: Regroup
+IncludeCategories:
+    - Regex: '^<.+/' # Angle bracket with slash is probably 3rd party.
+      Priority: 2
+    - Regex: '^<' # Otherwise, angle bracket is probably std lib.
+      Priority: 1
+    - Regex: '^"' # Quote is local project header.
+      Priority: 3
+IndentCaseLabels: true
+IndentWidth: 4
+KeepEmptyLinesAtTheStartOfBlocks: false
+NamespaceIndentation: All
+PointerAlignment: Left
+SeparateDefinitionBlocks: Always
+SpaceAfterCStyleCast: true
+SpaceAfterLogicalNot: true
+SpaceAfterTemplateKeyword: false
+SpacesInContainerLiterals: false

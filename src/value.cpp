@@ -13,7 +13,7 @@ namespace
         std::ostream& os;
 
         Print_visitor(std::ostream& os_arg)
-            : os {os_arg}
+            : os{os_arg}
         {
         }
 
@@ -69,11 +69,11 @@ namespace
     };
 }
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     std::ostream& operator<<(std::ostream& os, Dynamic_type_value value)
     {
         std::visit(Print_visitor{os}, value);
         return os;
     }
-}}
+}

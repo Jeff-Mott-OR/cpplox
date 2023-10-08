@@ -7,13 +7,13 @@
 
 #include "compiler.hpp"
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     Lox::Lox(std::ostream& cout_arg, std::ostream& cerr_arg, std::istream& cin_arg, bool debug_arg)
-        : debug {debug_arg},
-          cout {cout_arg},
-          cerr {cerr_arg},
-          cin {cin_arg}
+        : debug{debug_arg},
+          cout{cout_arg},
+          cerr{cerr_arg},
+          cin{cin_arg}
     {
     }
 
@@ -22,7 +22,7 @@ namespace motts { namespace lox
         // Immediately invoked lambdas to encapsulate initialization of const variables and to dispose objects the RAII way.
         const auto bytecode = [&] {
             const auto source = [&] {
-                std::ifstream file_stream {file_path};
+                std::ifstream file_stream{file_path};
                 file_stream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
                 return std::string{std::istreambuf_iterator<char>{file_stream}, {}};
             }();
@@ -51,4 +51,4 @@ namespace motts { namespace lox
             }
         }
     }
-}}
+}

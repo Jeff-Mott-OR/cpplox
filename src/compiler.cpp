@@ -31,7 +31,7 @@ namespace
         GC_heap& gc_heap;
         Interned_strings& interned_strings;
         Token_iterator token_iter;
-        unsigned int scope_depth {0};
+        unsigned int scope_depth{0};
 
         struct Function_chunk
         {
@@ -40,21 +40,23 @@ namespace
             struct Tracked_local
             {
                 std::string_view name;
-                unsigned int depth {0};
-                bool initialized {true};
-                bool is_captured {false};
+                unsigned int depth{0};
+                bool initialized{true};
+                bool is_captured{false};
             };
+
             std::vector<Tracked_local> tracked_locals;
             std::vector<Chunk::Tracked_upvalue> tracked_upvalues;
 
-            bool is_class_init_method {false};
+            bool is_class_init_method{false};
         };
+
         std::vector<Function_chunk*> function_chunks;
 
         Compiler(GC_heap& gc_heap_arg, Interned_strings& interned_strings_arg, std::string_view source)
-            : gc_heap {gc_heap_arg},
-              interned_strings {interned_strings_arg},
-              token_iter {source}
+            : gc_heap{gc_heap_arg},
+              interned_strings{interned_strings_arg},
+              token_iter{source}
         {
         }
 
@@ -62,9 +64,7 @@ namespace
         {
             Function_chunk root_chunk;
             function_chunks.push_back(&root_chunk);
-            const auto _ = gsl::finally([&] {
-                function_chunks.pop_back();
-            });
+            const auto _ = gsl::finally([&] { function_chunks.pop_back(); });
 
             Token_iterator token_iter_end;
             while (token_iter != token_iter_end) {
@@ -85,36 +85,35 @@ namespace
         }
 
         template<Opcode local_opcode, Opcode upvalue_opcode, Opcode global_opcode>
-            void emit_getter_setter(const Chunk::Token& identifier_token)
-            {
-                const auto maybe_local_iter = std::find_if(
-                    function_chunks.back()->tracked_locals.crbegin(), function_chunks.back()->tracked_locals.crend(),
-                    [&] (const auto& tracked_local) {
-                        return tracked_local.name == *identifier_token.lexeme;
-                    }
-                );
-                if (maybe_local_iter != function_chunks.back()->tracked_locals.crend()) {
-                    const auto local_iter = maybe_local_iter.base() - 1;
+        void emit_getter_setter(const Chunk::Token& identifier_token)
+        {
+            const auto maybe_local_iter = std::find_if(
+                function_chunks.back()->tracked_locals.crbegin(),
+                function_chunks.back()->tracked_locals.crend(),
+                [&](const auto& tracked_local) { return tracked_local.name == *identifier_token.lexeme; }
+            );
+            if (maybe_local_iter != function_chunks.back()->tracked_locals.crend()) {
+                const auto local_iter = maybe_local_iter.base() - 1;
 
-                    if (! local_iter->initialized) {
-                        std::ostringstream os;
-                        os << "[Line " << identifier_token.line << "] Error at \"" << *identifier_token.lexeme
-                            << "\": Cannot read local variable in its own initializer.";
-                        throw std::runtime_error{os.str()};
-                    }
+                if (! local_iter->initialized) {
+                    std::ostringstream os;
+                    os << "[Line " << identifier_token.line << "] Error at \"" << *identifier_token.lexeme
+                       << "\": Cannot read local variable in its own initializer.";
+                    throw std::runtime_error{os.str()};
+                }
 
-                    const auto tracked_local_stack_index = local_iter - function_chunks.back()->tracked_locals.cbegin();
-                    function_chunks.back()->chunk.emit<local_opcode>(tracked_local_stack_index, identifier_token);
+                const auto tracked_local_stack_index = local_iter - function_chunks.back()->tracked_locals.cbegin();
+                function_chunks.back()->chunk.emit<local_opcode>(tracked_local_stack_index, identifier_token);
+            } else {
+                const auto maybe_upvalue_iter = track_upvalue(*identifier_token.lexeme);
+                if (maybe_upvalue_iter != function_chunks.back()->tracked_upvalues.cend()) {
+                    const auto tracked_upvalue_index = maybe_upvalue_iter - function_chunks.back()->tracked_upvalues.cbegin();
+                    function_chunks.back()->chunk.emit<upvalue_opcode>(tracked_upvalue_index, identifier_token);
                 } else {
-                    const auto maybe_upvalue_iter = track_upvalue(*identifier_token.lexeme);
-                    if (maybe_upvalue_iter != function_chunks.back()->tracked_upvalues.cend()) {
-                        const auto tracked_upvalue_index = maybe_upvalue_iter - function_chunks.back()->tracked_upvalues.cbegin();
-                        function_chunks.back()->chunk.emit<upvalue_opcode>(tracked_upvalue_index, identifier_token);
-                    } else {
-                        function_chunks.back()->chunk.emit<global_opcode>(identifier_token.lexeme, identifier_token);
-                    }
+                    function_chunks.back()->chunk.emit<global_opcode>(identifier_token.lexeme, identifier_token);
                 }
             }
+        }
 
         void emit_getter(const Chunk::Token& identifier_token)
         {
@@ -133,19 +132,12 @@ namespace
 
         Chunk::Token make_owning_token(const Token& scanner_token)
         {
-            return Chunk::Token{
-                scanner_token.type,
-                interned_strings.get(scanner_token.lexeme),
-                scanner_token.line
-            };
+            return Chunk::Token{scanner_token.type, interned_strings.get(scanner_token.lexeme), scanner_token.line};
         }
 
         void pop_top_scope_depth(const Chunk::Token& source_map_token)
         {
-            while (
-                ! function_chunks.back()->tracked_locals.empty() &&
-                function_chunks.back()->tracked_locals.back().depth == scope_depth
-            ) {
+            while (! function_chunks.back()->tracked_locals.empty() && function_chunks.back()->tracked_locals.back().depth == scope_depth) {
                 if (function_chunks.back()->tracked_locals.back().is_captured) {
                     function_chunks.back()->chunk.emit<Opcode::close_upvalue>(source_map_token);
                 } else {
@@ -161,15 +153,16 @@ namespace
             assert(! is_global_scope() && "We don't track locals in the global scope.");
 
             const auto maybe_redeclared_iter = std::find_if(
-                function_chunks.back()->tracked_locals.cbegin(), function_chunks.back()->tracked_locals.cend(),
-                [&] (const auto& tracked_local) {
+                function_chunks.back()->tracked_locals.cbegin(),
+                function_chunks.back()->tracked_locals.cend(),
+                [&](const auto& tracked_local) {
                     return tracked_local.depth == scope_depth && tracked_local.name == *identifier_token.lexeme;
                 }
             );
             if (maybe_redeclared_iter != function_chunks.back()->tracked_locals.cend()) {
                 std::ostringstream os;
                 os << "[Line " << identifier_token.line << "] Error at \"" << *identifier_token.lexeme
-                    << "\": Identifier with this name already declared in this scope.";
+                   << "\": Identifier with this name already declared in this scope.";
                 throw std::runtime_error{os.str()};
             }
 
@@ -180,10 +173,9 @@ namespace
         {
             for (auto enclosing_fn_iter = function_chunks.rbegin() + 1; enclosing_fn_iter != function_chunks.rend(); ++enclosing_fn_iter) {
                 const auto maybe_enclosing_local_iter = std::find_if(
-                    (*enclosing_fn_iter)->tracked_locals.rbegin(), (*enclosing_fn_iter)->tracked_locals.rend(),
-                    [&] (const auto& tracked_local) {
-                        return tracked_local.name == identifier_name;
-                    }
+                    (*enclosing_fn_iter)->tracked_locals.rbegin(),
+                    (*enclosing_fn_iter)->tracked_locals.rend(),
+                    [&](const auto& tracked_local) { return tracked_local.name == identifier_name; }
                 );
 
                 if (maybe_enclosing_local_iter != (*enclosing_fn_iter)->tracked_locals.crend()) {
@@ -191,16 +183,20 @@ namespace
 
                     // First the "direct" capture level that points to an enclosing stack local.
                     auto enclosing_upvalue_index = [&] {
-                        const auto enclosing_local_index = maybe_enclosing_local_iter.base() - 1 - (*enclosing_fn_iter)->tracked_locals.cbegin();
-                        const Chunk::Tracked_upvalue new_tracked_upvalue {gsl::narrow<unsigned int>(enclosing_local_index), true};
+                        const auto enclosing_local_index =
+                            maybe_enclosing_local_iter.base() - 1 - (*enclosing_fn_iter)->tracked_locals.cbegin();
+                        const Chunk::Tracked_upvalue new_tracked_upvalue{gsl::narrow<unsigned int>(enclosing_local_index), true};
 
                         const auto directly_capturing_fn_iter = enclosing_fn_iter.base();
                         const auto maybe_existing_upvalue_iter = std::find(
-                            (*directly_capturing_fn_iter)->tracked_upvalues.cbegin(), (*directly_capturing_fn_iter)->tracked_upvalues.cend(),
+                            (*directly_capturing_fn_iter)->tracked_upvalues.cbegin(),
+                            (*directly_capturing_fn_iter)->tracked_upvalues.cend(),
                             new_tracked_upvalue
                         );
                         if (maybe_existing_upvalue_iter != (*directly_capturing_fn_iter)->tracked_upvalues.cend()) {
-                            return gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - (*directly_capturing_fn_iter)->tracked_upvalues.cbegin());
+                            return gsl::narrow<unsigned int>(
+                                maybe_existing_upvalue_iter - (*directly_capturing_fn_iter)->tracked_upvalues.cbegin()
+                            );
                         } else {
                             (*directly_capturing_fn_iter)->tracked_upvalues.push_back(new_tracked_upvalue);
                             return gsl::narrow<unsigned int>((*directly_capturing_fn_iter)->tracked_upvalues.size() - 1);
@@ -208,21 +204,24 @@ namespace
                     }();
 
                     // Then walk back down the nested functions of indirect capture levels that point to an enclosing upvalue.
-                    for (
-                        auto indirectly_capturing_fn_iter = enclosing_fn_iter.base() + 1;
-                        indirectly_capturing_fn_iter != function_chunks.cend();
-                        ++indirectly_capturing_fn_iter
-                    ) {
-                        const Chunk::Tracked_upvalue new_tracked_upvalue {gsl::narrow<unsigned int>(enclosing_upvalue_index), false};
+                    for (auto indirectly_capturing_fn_iter = enclosing_fn_iter.base() + 1;
+                         indirectly_capturing_fn_iter != function_chunks.cend();
+                         ++indirectly_capturing_fn_iter)
+                    {
+                        const Chunk::Tracked_upvalue new_tracked_upvalue{gsl::narrow<unsigned int>(enclosing_upvalue_index), false};
                         const auto maybe_existing_upvalue_iter = std::find(
-                            (*indirectly_capturing_fn_iter)->tracked_upvalues.cbegin(), (*indirectly_capturing_fn_iter)->tracked_upvalues.cend(),
+                            (*indirectly_capturing_fn_iter)->tracked_upvalues.cbegin(),
+                            (*indirectly_capturing_fn_iter)->tracked_upvalues.cend(),
                             new_tracked_upvalue
                         );
                         if (maybe_existing_upvalue_iter != (*indirectly_capturing_fn_iter)->tracked_upvalues.cend()) {
-                            enclosing_upvalue_index = gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - (*indirectly_capturing_fn_iter)->tracked_upvalues.cbegin());
+                            enclosing_upvalue_index = gsl::narrow<unsigned int>(
+                                maybe_existing_upvalue_iter - (*indirectly_capturing_fn_iter)->tracked_upvalues.cbegin()
+                            );
                         } else {
                             (*indirectly_capturing_fn_iter)->tracked_upvalues.push_back(new_tracked_upvalue);
-                            enclosing_upvalue_index = gsl::narrow<unsigned int>((*indirectly_capturing_fn_iter)->tracked_upvalues.size() - 1);
+                            enclosing_upvalue_index =
+                                gsl::narrow<unsigned int>((*indirectly_capturing_fn_iter)->tracked_upvalues.size() - 1);
                         }
                     }
 
@@ -257,6 +256,7 @@ namespace
                     ++token_iter;
                     compile_assignment_precedence_expression();
                     ensure_token_is(*token_iter++, Token_type::right_paren);
+
                     break;
                 }
 
@@ -268,12 +268,17 @@ namespace
                 case Token_type::number: {
                     const auto number_value = boost::lexical_cast<double>(token_iter->lexeme);
                     function_chunks.back()->chunk.emit_constant(number_value, make_owning_token(*token_iter++));
+
                     break;
                 }
 
                 case Token_type::string: {
-                    const std::string_view quote_marks_trimmed {token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
-                    function_chunks.back()->chunk.emit_constant(interned_strings.get(quote_marks_trimmed), make_owning_token(*token_iter++));
+                    const std::string_view quote_marks_trimmed{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
+                    function_chunks.back()->chunk.emit_constant(
+                        interned_strings.get(quote_marks_trimmed),
+                        make_owning_token(*token_iter++)
+                    );
+
                     break;
                 }
 
@@ -410,10 +415,9 @@ namespace
             // Left expression.
             compile_addition_precedence_expression();
 
-            while (
-                token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal ||
-                token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal
-            ) {
+            while (token_iter->type == Token_type::less || token_iter->type == Token_type::less_equal
+                   || token_iter->type == Token_type::greater || token_iter->type == Token_type::greater_equal)
+            {
                 const auto comparison_token = make_owning_token(*token_iter++);
 
                 // Right expression.
@@ -430,6 +434,7 @@ namespace
                     case Token_type::less_equal:
                         function_chunks.back()->chunk.emit<Opcode::greater>(comparison_token);
                         function_chunks.back()->chunk.emit<Opcode::not_>(comparison_token);
+
                         break;
 
                     case Token_type::greater:
@@ -439,6 +444,7 @@ namespace
                     case Token_type::greater_equal:
                         function_chunks.back()->chunk.emit<Opcode::less>(comparison_token);
                         function_chunks.back()->chunk.emit<Opcode::not_>(comparison_token);
+
                         break;
                 }
             }
@@ -466,6 +472,7 @@ namespace
                     case Token_type::bang_equal:
                         function_chunks.back()->chunk.emit<Opcode::equal>(equality_token);
                         function_chunks.back()->chunk.emit<Opcode::not_>(equality_token);
+
                         break;
                 }
             }
@@ -538,19 +545,15 @@ namespace
                     if (property_name_tokens.empty()) {
                         if (variable_name_token.lexeme == "this") {
                             throw std::runtime_error{
-                                "[Line " + std::to_string(equal_token.line) + "] Error at \"=\": Invalid assignment target."
-                            };
+                                "[Line " + std::to_string(equal_token.line) + "] Error at \"=\": Invalid assignment target."};
                         }
 
                         emit_setter(make_owning_token(variable_name_token));
                     } else {
                         emit_getter(make_owning_token(variable_name_token));
 
-                        for (
-                            auto property_name_iter = property_name_tokens.cbegin();
-                            property_name_iter != property_name_tokens.cend() - 1;
-                            ++property_name_iter
-                        ) {
+                        for (auto property_name_iter = property_name_tokens.cbegin(); property_name_iter != property_name_tokens.cend() - 1;
+                             ++property_name_iter) {
                             const auto property_name_token = make_owning_token(*property_name_iter);
                             function_chunks.back()->chunk.emit<Opcode::get_property>(property_name_token.lexeme, property_name_token);
                         }
@@ -572,9 +575,7 @@ namespace
 
             // Improve the error message a user sees for an invalid assignment.
             if (token_iter->type == Token_type::equal) {
-                throw std::runtime_error{
-                    "[Line " + std::to_string(token_iter->line) + "] Error at \"=\": Invalid assignment target."
-                };
+                throw std::runtime_error{"[Line " + std::to_string(token_iter->line) + "] Error at \"=\": Invalid assignment target."};
             }
             ensure_token_is(*token_iter, Token_type::semicolon);
 
@@ -583,7 +584,7 @@ namespace
 
         unsigned int compile_function_rest(const Chunk::Token& source_map_token)
         {
-            unsigned int param_count {0};
+            unsigned int param_count{0};
 
             ensure_token_is(*token_iter++, Token_type::left_paren);
             if (! advance_if_match(Token_type::right_paren)) {
@@ -604,7 +605,10 @@ namespace
 
             // A default return value.
             if (function_chunks.back()->is_class_init_method) {
-                function_chunks.back()->chunk.emit<Opcode::get_local>(0, make_owning_token(Token{Token_type::this_, "this", source_map_token.line}));
+                function_chunks.back()->chunk.emit<Opcode::get_local>(
+                    0,
+                    make_owning_token(Token{Token_type::this_, "this", source_map_token.line})
+                );
             } else {
                 function_chunks.back()->chunk.emit<Opcode::nil>(source_map_token);
             }
@@ -715,22 +719,24 @@ namespace
                 case Token_type::return_: {
                     if (function_chunks.size() == 1) {
                         throw std::runtime_error{
-                            "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return from top-level code."
-                        };
+                            "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return from top-level code."};
                     }
 
                     const auto return_token = make_owning_token(*token_iter++);
                     if (advance_if_match(Token_type::semicolon)) {
                         if (function_chunks.back()->is_class_init_method) {
-                            function_chunks.back()->chunk.emit<Opcode::get_local>(0, make_owning_token(Token{Token_type::this_, "this", return_token.line}));
+                            function_chunks.back()->chunk.emit<Opcode::get_local>(
+                                0,
+                                make_owning_token(Token{Token_type::this_, "this", return_token.line})
+                            );
                         } else {
                             function_chunks.back()->chunk.emit<Opcode::nil>(return_token);
                         }
                     } else {
                         if (function_chunks.back()->is_class_init_method) {
                             throw std::runtime_error{
-                                "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return a value from an initializer."
-                            };
+                                "[Line " + std::to_string(token_iter->line)
+                                + "] Error at \"return\": Can't return a value from an initializer."};
                         }
 
                         compile_assignment_precedence_expression();
@@ -789,8 +795,7 @@ namespace
 
                         if (superclass_name_token.lexeme == class_name_token.lexeme) {
                             throw std::runtime_error{
-                                "[Line " + std::to_string(superclass_name_token.line) + "] Error: A class can't inherit from itself."
-                            };
+                                "[Line " + std::to_string(superclass_name_token.line) + "] Error: A class can't inherit from itself."};
                         }
 
                         if (is_global_scope()) {
@@ -826,9 +831,11 @@ namespace
 
                         Function_chunk function_chunk;
                         function_chunks.push_back(&function_chunk);
+                        const auto _ = gsl::finally([&] { function_chunks.pop_back(); });
                         if (*method_name_token.lexeme == "init") {
                             function_chunk.is_class_init_method = true;
                         }
+
                         track_local(make_owning_token(Token{Token_type::this_, "this", method_name_token.line}));
                         const auto param_count = compile_function_rest(method_name_token);
 
@@ -839,8 +846,6 @@ namespace
                             method_name_token
                         );
                         enclosing_chunk.emit<Opcode::method>(method_name_token.lexeme, method_name_token);
-
-                        function_chunks.pop_back();
                     }
                     ensure_token_is(*token_iter++, Token_type::right_brace);
 
@@ -860,18 +865,21 @@ namespace
                     ensure_token_is(*token_iter, Token_type::identifier);
                     const auto fun_name_token = make_owning_token(*token_iter++);
 
-                    Function_chunk function_chunk;
-                    function_chunks.push_back(&function_chunk);
-                    track_local(fun_name_token);
-                    const auto param_count = compile_function_rest(fun_token);
+                    {
+                        Function_chunk function_chunk;
+                        function_chunks.push_back(&function_chunk);
+                        const auto _ = gsl::finally([&] { function_chunks.pop_back(); });
 
-                    (*(function_chunks.end() - 2))->chunk.emit_closure(
-                        gc_heap.make<Function>({fun_name_token.lexeme, param_count, std::move(function_chunk.chunk)}),
-                        function_chunk.tracked_upvalues,
-                        fun_token
-                    );
+                        track_local(fun_name_token);
+                        const auto param_count = compile_function_rest(fun_token);
 
-                    function_chunks.pop_back();
+                        (*(function_chunks.end() - 2))
+                            ->chunk.emit_closure(
+                                gc_heap.make<Function>({fun_name_token.lexeme, param_count, std::move(function_chunk.chunk)}),
+                                function_chunk.tracked_upvalues,
+                                fun_token
+                            );
+                    }
 
                     if (is_global_scope()) {
                         function_chunks.back()->chunk.emit<Opcode::define_global>(fun_name_token.lexeme, fun_token);
@@ -911,10 +919,10 @@ namespace
     };
 }
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     Chunk compile(GC_heap& gc_heap, Interned_strings& interned_strings, std::string_view source)
     {
         return Compiler{gc_heap, interned_strings, source}.compile();
     }
-}}
+}

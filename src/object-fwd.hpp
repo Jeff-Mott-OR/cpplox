@@ -1,6 +1,6 @@
 #pragma once
 
-namespace motts { namespace lox
+namespace motts::lox
 {
     struct Bound_method;
     struct Class;
@@ -9,4 +9,4 @@ namespace motts { namespace lox
     struct Instance;
     struct Native_fn;
     class Upvalue;
-}}
+}
