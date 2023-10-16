@@ -32,15 +32,13 @@ A gentle, friendly introduction to Lox:
     fun returnFunction() {
         var outside = "outside";
 
-        fun inner() {
+        return fun() {
             print outside;
-        }
-
-        return inner;
+        };
     }
 
-    var fn = returnFunction();
-    fn();
+    var innerFn = returnFunction();
+    innerFn();
 
     class Breakfast {
         init(meat, bread) {

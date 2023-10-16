@@ -926,6 +926,41 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile)
     BOOST_TEST(os.str() == expected);
 }
 
+BOOST_AUTO_TEST_CASE(function_expr_and_invocation_will_compile)
+{
+    motts::lox::GC_heap gc_heap;
+    motts::lox::Interned_strings interned_strings{gc_heap};
+    const auto chunk = compile(
+        gc_heap,
+        interned_strings,
+        "var f = fun () {};\n"
+        "f();\n"
+    );
+
+    std::ostringstream os;
+    os << chunk;
+
+    // clang-format off
+    const auto expected =
+        "Constants:\n"
+        "    0 : <fn (anonymous)>\n"
+        "    1 : f\n"
+        "Bytecode:\n"
+        "    0 : 1f 00 00 CLOSURE [0] (0)         ; fun @ 1\n"
+        "    3 : 08 01    DEFINE_GLOBAL [1]       ; var @ 1\n"
+        "    5 : 07 01    GET_GLOBAL [1]          ; f @ 2\n"
+        "    7 : 1c 00    CALL (0)                ; f @ 2\n"
+        "    9 : 04       POP                     ; ; @ 2\n"
+        "[<fn (anonymous)> chunk]\n"
+        "Constants:\n"
+        "Bytecode:\n"
+        "    0 : 01       NIL                     ; fun @ 1\n"
+        "    1 : 21       RETURN                  ; fun @ 1\n";
+    // clang-format on
+
+    BOOST_TEST(os.str() == expected);
+}
+
 BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile)
 {
     motts::lox::GC_heap gc_heap;

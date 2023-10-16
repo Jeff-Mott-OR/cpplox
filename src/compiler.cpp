@@ -246,6 +246,26 @@ namespace
                     break;
                 }
 
+                case Token_type::fun: {
+                    Function_chunk function_chunk;
+                    function_chunks.push_back(&function_chunk);
+                    const auto _ = gsl::finally([&] { function_chunks.pop_back(); });
+
+                    const auto fun_token = make_owning_token(*token_iter++);
+                    const auto param_count = compile_function_rest(fun_token);
+
+                    (*(function_chunks.end() - 2))
+                        ->chunk.emit_closure(
+                            gc_heap.make<Function>(
+                                {interned_strings.get(std::string_view{""}), param_count, std::move(function_chunk.chunk)}
+                            ),
+                            function_chunk.tracked_upvalues,
+                            fun_token
+                        );
+
+                    break;
+                }
+
                 case Token_type::identifier:
                 case Token_type::this_: {
                     emit_getter(make_owning_token(*token_iter++));
