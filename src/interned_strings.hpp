@@ -18,6 +18,7 @@ namespace motts::lox
         Interned_strings(GC_heap&);
         ~Interned_strings();
 
+        GC_ptr<const std::string> get(const char*);
         GC_ptr<const std::string> get(std::string_view);
         GC_ptr<const std::string> get(std::string&&);
     };

@@ -15,7 +15,7 @@ set(BOOST_INCLUDE_LIBRARIES algorithm convert process program_options test)
 FetchContent_Declare(
     Boost
     GIT_REPOSITORY https://github.com/boostorg/boost.git
-    GIT_TAG boost-1.80.0
+    GIT_TAG boost-1.83.0
     GIT_SHALLOW ON
 )
 
@@ -23,7 +23,7 @@ set(BENCHMARK_ENABLE_TESTING FALSE)
 FetchContent_Declare(
     Google_Benchmark
     GIT_REPOSITORY https://github.com/google/benchmark.git
-    GIT_TAG v1.7.1
+    GIT_TAG v1.8.3
     GIT_SHALLOW ON
 )
 
@@ -36,7 +36,7 @@ FetchContent_Declare(
 
 FetchContent_Declare(
     Crafting_Interpreters
-    URL https://github.com/munificent/craftinginterpreters/archive/d2800ebca6ab6d56f698ad0eef8202a91821eb04.zip
+    URL https://github.com/munificent/craftinginterpreters/archive/01e6f5b8f3e5dfa65674c2f9cf4700d73ab41cf8.zip
 )
 
 FetchContent_MakeAvailable(Boost Google_Benchmark Microsoft_GSL Crafting_Interpreters)

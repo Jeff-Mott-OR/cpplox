@@ -79,7 +79,7 @@ When targeting `bench`, use Docker's `--progress=plain` option to see the result
 
     --build-arg CC=<compiler>
 
-The compiler can be one of: `gcc` or `clang`. Defaults to `gcc`.
+The compiler can be one of: `gcc` or `clang`. Defaults to `clang`.
 
 ## Use REPL in container shell
 

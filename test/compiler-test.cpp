@@ -36,10 +36,8 @@ BOOST_AUTO_TEST_CASE(chunks_can_be_printed)
     motts::lox::Interned_strings interned_strings{gc_heap};
 
     motts::lox::Chunk chunk;
-    chunk.emit_constant(42.0, motts::lox::Chunk::Token{motts::lox::Token_type::number, interned_strings.get(std::string_view{"42"}), 1});
-    chunk.emit<motts::lox::Opcode::nil>(
-        motts::lox::Chunk::Token{motts::lox::Token_type::nil, interned_strings.get(std::string_view{"nil"}), 2}
-    );
+    chunk.emit_constant(42.0, motts::lox::Chunk::Token{motts::lox::Token_type::number, interned_strings.get("42"), 1});
+    chunk.emit<motts::lox::Opcode::nil>(motts::lox::Chunk::Token{motts::lox::Token_type::nil, interned_strings.get("nil"), 2});
 
     std::ostringstream os;
     os << chunk;

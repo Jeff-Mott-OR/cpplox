@@ -1,16 +1,24 @@
-ARG CC=gcc
+ARG CC=clang
 
 FROM ubuntu:22.04 AS base
 
-    RUN apt update && apt install -y cmake git ninja-build
+    RUN apt update && apt install -y cmake git ninja-build software-properties-common
 
 FROM base AS base-clang
 
-    RUN apt update && apt install -y clang
+    RUN apt update && apt install -y gpg lsb-release wget
+    RUN wget https://apt.llvm.org/llvm.sh
+    RUN chmod +x llvm.sh
+    RUN ./llvm.sh 17
+    ENV CC=clang-17
+    ENV CXX=clang++-17
 
 FROM base AS base-gcc
 
-    RUN apt update && apt install -y build-essential
+    RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+    RUN apt update && apt install -y g++-13
+    ENV CC=gcc-13
+    ENV CXX=g++-13
 
 FROM base-$CC AS deps
 

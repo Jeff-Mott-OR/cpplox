@@ -30,6 +30,6 @@ namespace motts::lox
         void run(const Chunk&);
 
       private:
-        void run(GC_ptr<Closure>, std::vector<Dynamic_type_value>::size_type stack_begin_index);
+        void run(GC_ptr<Closure>, std::size_t stack_begin_index);
     };
 }

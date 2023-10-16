@@ -10,13 +10,9 @@
 #include "object.hpp"
 #include "scanner.hpp"
 
-// Not exported (internal linkage).
-namespace
+namespace motts::lox
 {
-    // Allow the internal linkage section to access names.
-    using namespace motts::lox;
-
-    void ensure_token_is(const Token& token, Token_type expected)
+    static void ensure_token_is(const Token& token, Token_type expected)
     {
         if (token.type != expected) {
             std::ostringstream os;
@@ -256,9 +252,7 @@ namespace
 
                     (*(function_chunks.end() - 2))
                         ->chunk.emit_closure(
-                            gc_heap.make<Function>(
-                                {interned_strings.get(std::string_view{""}), param_count, std::move(function_chunk.chunk)}
-                            ),
+                            gc_heap.make<Function>({interned_strings.get(""), param_count, std::move(function_chunk.chunk)}),
                             function_chunk.tracked_upvalues,
                             fun_token
                         );
@@ -937,10 +931,7 @@ namespace
             }
         }
     };
-}
 
-namespace motts::lox
-{
     Chunk compile(GC_heap& gc_heap, Interned_strings& interned_strings, std::string_view source)
     {
         return Compiler{gc_heap, interned_strings, source}.compile();

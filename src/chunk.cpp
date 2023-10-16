@@ -52,12 +52,12 @@ namespace motts::lox
         reinterpret_cast<std::uint16_t&>(bytecode_.at(jump_begin_index_ - 2)) = jump_distance_big_endian;
     }
 
-    Chunk::Constants_vector::size_type Chunk::insert_constant(Dynamic_type_value value)
+    std::size_t Chunk::insert_constant(Dynamic_type_value value)
     {
         const auto maybe_duplicate_iter = std::find(constants_.cbegin(), constants_.cend(), value);
         if (maybe_duplicate_iter != constants_.cend()) {
             const auto constant_index = maybe_duplicate_iter - constants_.cbegin();
-            return gsl::narrow<Constants_vector::size_type>(constant_index);
+            return gsl::narrow<std::size_t>(constant_index);
         }
 
         const auto constant_index = constants_.size();
@@ -221,7 +221,7 @@ namespace motts::lox
         os << "Bytecode:\n";
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend();) {
             const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
-            const auto source_map_token = chunk.source_map_tokens().at(bytecode_index);
+            const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
             const auto opcode = static_cast<Opcode>(*bytecode_iter++);
 
             // Some opcodes such as closure will print multiple lines.

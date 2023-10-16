@@ -33,10 +33,10 @@ namespace motts::lox
     void trace_refs_trait(GC_heap& gc_heap, const Closure& closure)
     {
         mark(gc_heap, closure.function);
-        for (const auto& upvalue : closure.upvalues) {
+        for (const GC_ptr<Upvalue> upvalue : closure.upvalues) {
             mark(gc_heap, upvalue);
         }
-        for (const auto& upvalue : closure.open_upvalues) {
+        for (const GC_ptr<Upvalue> upvalue : closure.open_upvalues) {
             mark(gc_heap, upvalue);
         }
     }
@@ -45,7 +45,7 @@ namespace motts::lox
     void trace_refs_trait(GC_heap& gc_heap, const Function& function)
     {
         mark(gc_heap, function.name);
-        for (const auto& value : function.chunk.constants()) {
+        for (const Dynamic_type_value value : function.chunk.constants()) {
             std::visit(Mark_objects_visitor{gc_heap}, value);
         }
         for (const auto& source_map_token : function.chunk.source_map_tokens()) {
@@ -68,7 +68,7 @@ namespace motts::lox
         }
     }
 
-    Upvalue::Upvalue(std::vector<Dynamic_type_value>& stack_arg, std::vector<Dynamic_type_value>::size_type stack_index_arg)
+    Upvalue::Upvalue(std::vector<Dynamic_type_value>& stack_arg, std::size_t stack_index_arg)
         : value_{Open{stack_arg, stack_index_arg}}
     {
     }
@@ -79,7 +79,7 @@ namespace motts::lox
         value_ = Closed{open.stack.at(open.stack_index)};
     }
 
-    std::vector<Dynamic_type_value>::size_type Upvalue::stack_index() const
+    std::size_t Upvalue::stack_index() const
     {
         return std::get<Open>(value_).stack_index;
     }
@@ -90,7 +90,7 @@ namespace motts::lox
             return std::get<Closed>(value_).value;
         }
 
-        const auto& open = std::get<Open>(value_);
+        const auto open = std::get<Open>(value_);
         return open.stack.at(open.stack_index);
     }
 

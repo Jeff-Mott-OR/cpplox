@@ -2,12 +2,8 @@
 
 #include "object.hpp"
 
-// Not exported (internal linkage).
-namespace
+namespace motts::lox
 {
-    // Allow the internal linkage section to access names.
-    using namespace motts::lox;
-
     struct Print_visitor
     {
         std::ostream& os;
@@ -67,10 +63,7 @@ namespace
             os << *str;
         }
     };
-}
 
-namespace motts::lox
-{
     std::ostream& operator<<(std::ostream& os, Dynamic_type_value value)
     {
         std::visit(Print_visitor{os}, value);

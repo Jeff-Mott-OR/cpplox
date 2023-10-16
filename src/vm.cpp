@@ -8,43 +8,37 @@
 
 #include "object.hpp"
 
-// Not exported (internal linkage)
-namespace
+namespace motts::lox
 {
-    using namespace motts::lox;
-
-    Dynamic_type_value clock_native(std::span<Dynamic_type_value>)
+    static Dynamic_type_value clock_native(std::span<Dynamic_type_value>)
     {
         const auto now_time_point = std::chrono::system_clock::now().time_since_epoch();
         const auto now_seconds = std::chrono::duration_cast<std::chrono::seconds>(now_time_point).count();
         return gsl::narrow<double>(now_seconds);
     }
-}
 
-namespace motts::lox
-{
     VM::VM(GC_heap& gc_heap, Interned_strings& interned_strings, std::ostream& os, bool debug)
         : debug_{debug},
           os_{os},
           gc_heap_{gc_heap},
           interned_strings_{interned_strings}
     {
-        gc_heap_.on_mark_roots.push_back([&] {
-            for (const auto closure : call_frames_) {
+        gc_heap_.on_mark_roots.push_back([this] {
+            for (const GC_ptr<Closure> closure : call_frames_) {
                 mark(gc_heap_, closure);
             }
 
-            for (const auto root_value : stack_) {
-                std::visit(Mark_objects_visitor{gc_heap_}, root_value);
+            for (const Dynamic_type_value value : stack_) {
+                std::visit(Mark_objects_visitor{gc_heap_}, value);
             }
 
-            for (const auto [key, value] : globals_) {
+            for (const auto& [key, value] : globals_) {
                 mark(gc_heap_, key);
                 std::visit(Mark_objects_visitor{gc_heap_}, value);
             }
         });
 
-        globals_[interned_strings_.get(std::string_view{"clock"})] = gc_heap_.make<Native_fn>({clock_native});
+        globals_[interned_strings_.get("clock")] = gc_heap_.make<Native_fn>({clock_native});
     }
 
     VM::~VM()
@@ -58,13 +52,11 @@ namespace motts::lox
             os_ << "\n# Running chunk:\n\n" << chunk << '\n';
         }
 
-        const auto root_script_fn =
-            gc_heap_.make<Closure>(gc_heap_.make<Function>({interned_strings_.get(std::string_view{""}), 0, chunk}));
-
+        const auto root_script_fn = gc_heap_.make<Closure>(gc_heap_.make<Function>({interned_strings_.get(""), 0, chunk}));
         run(root_script_fn, 0);
     }
 
-    void VM::run(GC_ptr<Closure> closure, std::vector<Dynamic_type_value>::size_type stack_begin_index)
+    void VM::run(GC_ptr<Closure> closure, std::size_t stack_begin_index)
     {
         call_frames_.push_back(closure);
         const auto _ = gsl::finally([&] { call_frames_.pop_back(); });
@@ -74,8 +66,8 @@ namespace motts::lox
         const auto& constants = chunk.constants();
         const auto& source_map_tokens = chunk.source_map_tokens();
 
-        auto& open_upvalues = closure->open_upvalues;
         auto& upvalues = closure->upvalues;
+        auto& open_upvalues = closure->open_upvalues;
 
         const auto bytecode_begin = bytecode.cbegin();
         const auto bytecode_end = bytecode.cend();
@@ -96,8 +88,8 @@ namespace motts::lox
                 }
 
                 case Opcode::add: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (std::holds_alternative<double>(lhs) && std::holds_alternative<double>(rhs)) {
                         const auto result = std::get<double>(lhs) + std::get<double>(rhs);
@@ -120,7 +112,7 @@ namespace motts::lox
 
                 case Opcode::call: {
                     const auto arg_count = *bytecode_iter++;
-                    const auto maybe_callable = *(stack_.end() - arg_count - 1);
+                    const Dynamic_type_value maybe_callable = *(stack_.end() - arg_count - 1);
 
                     if (std::holds_alternative<GC_ptr<Closure>>(maybe_callable)) {
                         const auto closure = std::get<GC_ptr<Closure>>(maybe_callable);
@@ -135,7 +127,7 @@ namespace motts::lox
                         run(closure, stack_.size() - arg_count - 1);
                     } else if (std::holds_alternative<GC_ptr<Class>>(maybe_callable)) {
                         const auto klass = std::get<GC_ptr<Class>>(maybe_callable);
-                        const auto maybe_init_iter = klass->methods.find(interned_strings_.get(std::string_view{"init"}));
+                        const auto maybe_init_iter = klass->methods.find(interned_strings_.get("init"));
                         const auto arity = maybe_init_iter != klass->methods.cend() ? maybe_init_iter->second->function->arity : 0;
 
                         if (arity != arg_count) {
@@ -194,9 +186,9 @@ namespace motts::lox
                 }
 
                 case Opcode::close_upvalue: {
-                    // At compile-time, we lexically know we *might* capture an upvalue, then thus emit a close instruction instead of pop.
-                    // But at runtime, the closure function might be conditional and might never create an open upvalue.
-                    // So we need to check that we're not trying to close an upvalue that was never opened.
+                    // At compile-time, we lexically know we *might* capture an upvalue, and thus emit a close instruction instead of pop.
+                    // But at runtime, the closure function might be conditional and might never create an open upvalue,
+                    // so we need to check that we're not trying to close an upvalue that was never opened.
                     if (! open_upvalues.empty() && open_upvalues.back()->stack_index() == stack_.size() - 1) {
                         open_upvalues.back()->close();
                         open_upvalues.pop_back();
@@ -221,7 +213,7 @@ namespace motts::lox
                             const auto stack_index = stack_begin_index + enclosing_index;
 
                             const auto maybe_existing_upvalue_iter =
-                                std::find_if(open_upvalues.cbegin(), open_upvalues.cend(), [&](const auto open_upvalue) {
+                                std::find_if(open_upvalues.cbegin(), open_upvalues.cend(), [&](const GC_ptr<Upvalue> open_upvalue) {
                                     return open_upvalue->stack_index() == stack_index;
                                 });
 
@@ -235,7 +227,7 @@ namespace motts::lox
 
                                 // The enclosing closure keeps upvalue for auto-closing on scope exit.
                                 const auto sorted_insert_position =
-                                    std::find_if(open_upvalues.cbegin(), open_upvalues.cend(), [&](const auto open_upvalue) {
+                                    std::find_if(open_upvalues.cbegin(), open_upvalues.cend(), [&](const GC_ptr<Upvalue> open_upvalue) {
                                         return open_upvalue->stack_index() > stack_index;
                                     });
                                 open_upvalues.insert(sorted_insert_position, new_upvalue);
@@ -256,8 +248,8 @@ namespace motts::lox
                 }
 
                 case Opcode::divide: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
                         std::ostringstream os;
@@ -274,8 +266,8 @@ namespace motts::lox
                 }
 
                 case Opcode::equal: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     const auto result = lhs == rhs;
                     stack_.erase(stack_.cend() - 2, stack_.cend());
@@ -322,13 +314,15 @@ namespace motts::lox
                 case Opcode::get_property: {
                     const auto field_name_constant_index = *bytecode_iter++;
                     const auto field_name = std::get<GC_ptr<const std::string>>(constants[field_name_constant_index]);
-                    if (! std::holds_alternative<GC_ptr<Instance>>(stack_.back())) {
+
+                    const Dynamic_type_value maybe_instance = stack_.back();
+                    if (! std::holds_alternative<GC_ptr<Instance>>(maybe_instance)) {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme
                            << "\": Only instances have fields.";
                         throw std::runtime_error{os.str()};
                     }
-                    const auto instance = std::get<GC_ptr<Instance>>(stack_.back());
+                    const auto instance = std::get<GC_ptr<Instance>>(maybe_instance);
 
                     const auto maybe_field_iter = instance->fields.find(field_name);
                     if (maybe_field_iter != instance->fields.cend()) {
@@ -378,8 +372,8 @@ namespace motts::lox
                 }
 
                 case Opcode::greater: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
                         std::ostringstream os;
@@ -396,7 +390,7 @@ namespace motts::lox
                 }
 
                 case Opcode::inherit: {
-                    const auto maybe_parent_class = *(stack_.end() - 1);
+                    const Dynamic_type_value maybe_parent_class = *(stack_.end() - 1);
                     if (! std::holds_alternative<GC_ptr<Class>>(maybe_parent_class)) {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme
@@ -442,8 +436,8 @@ namespace motts::lox
                 }
 
                 case Opcode::less: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
                         std::ostringstream os;
@@ -472,8 +466,8 @@ namespace motts::lox
                 }
 
                 case Opcode::multiply: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
                         std::ostringstream os;
@@ -490,14 +484,16 @@ namespace motts::lox
                 }
 
                 case Opcode::negate: {
-                    if (! std::holds_alternative<double>(stack_.back())) {
+                    const Dynamic_type_value value = stack_.back();
+
+                    if (! std::holds_alternative<double>(value)) {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme
                            << "\": Operand must be a number.";
                         throw std::runtime_error{os.str()};
                     }
 
-                    const auto negated_value = -std::get<double>(stack_.back());
+                    const auto negated_value = -std::get<double>(value);
                     stack_.pop_back();
                     stack_.push_back(negated_value);
 
@@ -530,7 +526,7 @@ namespace motts::lox
                 }
 
                 case Opcode::return_: {
-                    for (auto upvalue : open_upvalues) {
+                    for (GC_ptr<Upvalue> upvalue : open_upvalues) {
                         upvalue->close();
                     }
                     stack_.erase(stack_.cbegin() + stack_begin_index, stack_.cend() - 1);
@@ -543,7 +539,7 @@ namespace motts::lox
                     const auto variable_name = std::get<GC_ptr<const std::string>>(constants[variable_name_constant_index]);
 
                     const auto global_iter = globals_.find(variable_name);
-                    if (global_iter == globals_.end()) {
+                    if (global_iter == globals_.cend()) {
                         throw std::runtime_error{
                             "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined variable \"" + *variable_name + "\"."};
                     }
@@ -563,7 +559,7 @@ namespace motts::lox
                     const auto field_name_constant_index = *bytecode_iter++;
                     const auto field_name = std::get<GC_ptr<const std::string>>(constants[field_name_constant_index]);
 
-                    const auto maybe_instance = *(stack_.cend() - 1);
+                    const Dynamic_type_value maybe_instance = *(stack_.cend() - 1);
                     if (! std::holds_alternative<GC_ptr<Instance>>(maybe_instance)) {
                         std::ostringstream os;
                         os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme
@@ -586,8 +582,8 @@ namespace motts::lox
                 }
 
                 case Opcode::subtract: {
-                    const auto rhs = *(stack_.cend() - 1);
-                    const auto lhs = *(stack_.cend() - 2);
+                    const Dynamic_type_value rhs = *(stack_.cend() - 1);
+                    const Dynamic_type_value lhs = *(stack_.cend() - 2);
 
                     if (! std::holds_alternative<double>(lhs) || ! std::holds_alternative<double>(rhs)) {
                         std::ostringstream os;

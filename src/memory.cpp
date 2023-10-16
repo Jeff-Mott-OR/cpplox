@@ -37,10 +37,9 @@ namespace motts::lox
 
         const auto not_marked_begin =
             std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto* control_block) { return control_block->marked; });
-
         std::for_each(not_marked_begin, all_ptrs_.end(), [&](const auto* control_block) {
-            for (const auto& fn : on_destroy_ptr) {
-                fn(*control_block);
+            for (const auto& on_destroy_fn : on_destroy_ptr) {
+                on_destroy_fn(*control_block);
             }
 
             n_allocated_bytes_ -= control_block->size();

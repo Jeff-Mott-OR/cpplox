@@ -8,9 +8,7 @@ namespace motts::lox
         gc_heap_.on_destroy_ptr.push_back([this](const auto& control_block) {
             const auto maybe_gc_str_iter = strings_by_ptr_.find(&control_block);
             if (maybe_gc_str_iter != strings_by_ptr_.cend()) {
-                const auto gc_str = maybe_gc_str_iter->second;
-
-                strings_by_chars_.erase(*gc_str);
+                strings_by_chars_.erase(*maybe_gc_str_iter->second);
                 strings_by_ptr_.erase(maybe_gc_str_iter);
             }
         });
@@ -19,6 +17,11 @@ namespace motts::lox
     Interned_strings::~Interned_strings()
     {
         gc_heap_.on_destroy_ptr.pop_back();
+    }
+
+    GC_ptr<const std::string> Interned_strings::get(const char* str)
+    {
+        return get(std::string_view{str});
     }
 
     GC_ptr<const std::string> Interned_strings::get(std::string_view str)

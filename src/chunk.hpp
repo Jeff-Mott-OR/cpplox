@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <ostream>
 #include <vector>
 
@@ -102,7 +103,7 @@ namespace motts::lox
             void to_next_opcode();
         };
 
-        Constants_vector::size_type insert_constant(Dynamic_type_value);
+        std::size_t insert_constant(Dynamic_type_value);
 
       public:
         // Read-only access.

@@ -33,8 +33,8 @@ namespace motts::lox
     struct Closure
     {
         GC_ptr<Function> function;
-        // An upvalue refers to a local variable in an enclosing function that the closure uses.
         std::vector<GC_ptr<Upvalue>> upvalues;
+
         // Following Lua, we’ll use "open upvalue" to refer to an upvalue that points to a local variable still on the stack.
         std::vector<GC_ptr<Upvalue>> open_upvalues;
 
@@ -77,7 +77,7 @@ namespace motts::lox
             // These two fields can be thought of as an iterator into the stack,
             // but iterators can be invalidated, so instead keep a stack reference and index.
             std::vector<Dynamic_type_value>& stack;
-            const std::vector<Dynamic_type_value>::size_type stack_index;
+            const std::size_t stack_index;
         };
 
         struct Closed
@@ -88,10 +88,10 @@ namespace motts::lox
         std::variant<Open, Closed> value_;
 
       public:
-        Upvalue(std::vector<Dynamic_type_value>& stack, std::vector<Dynamic_type_value>::size_type stack_index);
+        Upvalue(std::vector<Dynamic_type_value>& stack, std::size_t stack_index);
 
         void close();
-        std::vector<Dynamic_type_value>::size_type stack_index() const;
+        std::size_t stack_index() const;
         const Dynamic_type_value& value() const;
         Dynamic_type_value& value();
     };

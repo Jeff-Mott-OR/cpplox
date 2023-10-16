@@ -8,13 +8,13 @@ namespace motts::lox
 {
     class GC_heap;
 
-    // Every garbage collect-able object can be polymorphically "marked" and trace references.
+    // Every garbage collect-able object can be polymorphically marked and trace references.
     struct GC_control_block_base
     {
         bool marked{false};
 
         virtual ~GC_control_block_base() = default;
-        virtual void trace_refs(GC_heap&) = 0;
+        virtual void trace_refs(GC_heap&) const = 0;
         virtual std::size_t size() const = 0;
     };
 
@@ -39,7 +39,7 @@ namespace motts::lox
         {
         }
 
-        void trace_refs(GC_heap& gc_heap) override
+        void trace_refs(GC_heap& gc_heap) const override
         {
             trace_refs_trait(gc_heap, value);
         }
@@ -149,14 +149,11 @@ namespace motts::lox
 }
 
 // The hash of GC_ptrs is the hash of the underlying control block pointers.
-namespace std
+template<typename User_value_type>
+struct std::hash<motts::lox::GC_ptr<User_value_type>>
 {
-    template<typename User_value_type>
-    struct hash<motts::lox::GC_ptr<User_value_type>>
+    std::size_t operator()(motts::lox::GC_ptr<User_value_type> gc_ptr) const
     {
-        std::size_t operator()(motts::lox::GC_ptr<User_value_type> gc_ptr) const
-        {
-            return std::hash<motts::lox::GC_control_block_base*>{}(gc_ptr.control_block);
-        }
-    };
-}
+        return std::hash<motts::lox::GC_control_block_base*>{}(gc_ptr.control_block);
+    }
+};
