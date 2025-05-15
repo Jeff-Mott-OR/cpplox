@@ -12,11 +12,10 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 
 set(BOOST_INCLUDE_LIBRARIES algorithm convert process program_options test)
+set(BOOST_ENABLE_CMAKE ON)
 FetchContent_Declare(
     Boost
-    GIT_REPOSITORY https://github.com/boostorg/boost.git
-    GIT_TAG boost-1.83.0
-    GIT_SHALLOW ON
+    URL https://github.com/boostorg/boost/releases/download/boost-1.83.0/boost-1.83.0.tar.xz
 )
 
 set(BENCHMARK_ENABLE_TESTING FALSE)
@@ -61,14 +60,18 @@ if(NOT DEPS_ONLY)
         "${CMAKE_CURRENT_SOURCE_DIR}/src/vm.cpp"
     )
 
+    # Define as a static library. This will let us link with our main REPL program or with a test harness program.
     add_library(cpploxbc_lib STATIC ${cpploxbc_sources})
     target_link_libraries(cpploxbc_lib PUBLIC Boost::algorithm Boost::convert Microsoft.GSL::GSL)
     target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
+    # Our main REPL program.
     add_executable(cpploxbc src/main.cpp)
     target_link_libraries(cpploxbc PUBLIC cpploxbc_lib Boost::program_options)
-    set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE) # LTO
+    # Link-time optimization.
+    set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    # Statically link std library, for faster start-up.
     target_link_options(cpploxbc PUBLIC -static)
 
     if(ENABLE_TESTING)

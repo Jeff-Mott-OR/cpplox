@@ -4,19 +4,14 @@
 
 namespace motts::lox
 {
-    GC_heap::~GC_heap()
+    void GC_heap::mark(GC_control_block_base& control_block)
     {
-        for (const auto* control_block : all_ptrs_) {
-            delete control_block;
+        if (control_block.marked) {
+            return;
         }
-    }
 
-    void GC_heap::mark(GC_control_block_base* control_block)
-    {
-        if (control_block && ! control_block->marked) {
-            control_block->marked = true;
-            gray_worklist_.push_back(control_block);
-        }
+        control_block.marked = true;
+        gray_worklist_.push_back(&control_block);
     }
 
     void GC_heap::collect_garbage()
@@ -36,18 +31,16 @@ namespace motts::lox
         gray_worklist_.shrink_to_fit();
 
         const auto not_marked_begin =
-            std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto* control_block) { return control_block->marked; });
-        std::for_each(not_marked_begin, all_ptrs_.end(), [&](const auto* control_block) {
+            std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto& control_block) { return control_block->marked; });
+        std::for_each(not_marked_begin, all_ptrs_.end(), [&](const auto& control_block) {
             for (const auto& on_destroy_fn : on_destroy_ptr) {
                 on_destroy_fn(*control_block);
             }
-
             n_allocated_bytes_ -= control_block->size();
-            delete control_block;
         });
         all_ptrs_.erase(not_marked_begin, all_ptrs_.end());
 
-        for (auto* control_block : all_ptrs_) {
+        for (auto& control_block : all_ptrs_) {
             control_block->marked = false;
         }
     }

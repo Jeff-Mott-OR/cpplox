@@ -57,7 +57,7 @@ namespace motts::lox
     X(var) \
     X(while_)
 
-    enum class Token_type
+    enum struct Token_type
     {
 #define X(name) name,
         MOTTS_LOX_TOKEN_TYPE_NAMES

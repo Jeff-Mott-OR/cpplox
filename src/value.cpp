@@ -30,7 +30,7 @@ namespace motts::lox
 
         auto operator()(GC_ptr<Function> fn)
         {
-            os << "<fn " << (fn->name->empty() ? "(anonymous)" : *fn->name) << '>';
+            os << "<fn " << (! fn->name || fn->name->empty() ? "(anonymous)" : *fn->name) << '>';
         }
 
         auto operator()(GC_ptr<Bound_method> bound_method)

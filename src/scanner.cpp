@@ -11,10 +11,11 @@ namespace motts::lox
     std::ostream& operator<<(std::ostream& os, Token_type token_type)
     {
         // Immediately invoked lambda lets me return from the switch rather than assign and break.
-        const char* name = [&] {
+        const char* token_name = [&] {
             switch (token_type) {
-                default:
+                default: {
                     throw std::logic_error{"Unexpected token type."};
+                }
 
 #define X(name) \
     case Token_type::name: \
@@ -25,7 +26,7 @@ namespace motts::lox
         }();
 
         // Names should print as uppercase without trailing underscores.
-        std::string name_str{name};
+        std::string name_str{token_name};
         boost::trim_right_if(name_str, boost::is_any_of("_"));
         boost::to_upper(name_str);
 
@@ -82,7 +83,7 @@ namespace motts::lox
 
     bool Token_iterator::operator==(const Token_iterator& rhs) const
     {
-        // For now this token type comparison is good enough since
+        // For now this token type comparison is good enough, since
         // all we ever need to check is whether we're at token type EOF.
         return token_.type == rhs.token_.type;
     }
@@ -92,13 +93,15 @@ namespace motts::lox
         return ! (lhs == rhs);
     }
 
+    // Advance the source iterators to capture the next token.
     Token Token_iterator::scan_token()
     {
         while (token_end_ != source_end_) {
+            // Start the next token where the previous token left off.
             token_begin_ = token_end_;
             const auto next_char = *token_end_++;
 
-            if (std::isalpha(next_char) || next_char == '_') {
+            if (std::isalpha(next_char) || '_' == next_char) {
                 return scan_identifier_token();
             }
 
@@ -173,52 +176,35 @@ namespace motts::lox
 
     Token Token_iterator::scan_identifier_token()
     {
-        while (token_end_ != source_end_ && (std::isalnum(*token_end_) || *token_end_ == '_')) {
+        while (token_end_ != source_end_ && (std::isalnum(*token_end_) || '_' == *token_end_)) {
             ++token_end_;
         }
 
         // Check if this identifier is a keyword.
         const auto token_type = [&] {
             // string_view lets us use == with a c-string.
-            std::string_view token_lexeme{token_begin_, token_end_};
+            const std::string_view token_lexeme{token_begin_, token_end_};
 
-            if (token_lexeme == "and")
-                return Token_type::and_;
-            if (token_lexeme == "break")
-                return Token_type::break_;
-            if (token_lexeme == "class")
-                return Token_type::class_;
-            if (token_lexeme == "continue")
-                return Token_type::continue_;
-            if (token_lexeme == "else")
-                return Token_type::else_;
-            if (token_lexeme == "false")
-                return Token_type::false_;
-            if (token_lexeme == "for")
-                return Token_type::for_;
-            if (token_lexeme == "fun")
-                return Token_type::fun;
-            if (token_lexeme == "if")
-                return Token_type::if_;
-            if (token_lexeme == "nil")
-                return Token_type::nil;
-            if (token_lexeme == "or")
-                return Token_type::or_;
-            if (token_lexeme == "print")
-                return Token_type::print;
-            if (token_lexeme == "return")
-                return Token_type::return_;
-            if (token_lexeme == "super")
-                return Token_type::super;
-            if (token_lexeme == "this")
-                return Token_type::this_;
-            if (token_lexeme == "true")
-                return Token_type::true_;
-            if (token_lexeme == "var")
-                return Token_type::var;
-            if (token_lexeme == "while")
-                return Token_type::while_;
+            if (token_lexeme == "and") return Token_type::and_;
+            if (token_lexeme == "break") return Token_type::break_;
+            if (token_lexeme == "class") return Token_type::class_;
+            if (token_lexeme == "continue") return Token_type::continue_;
+            if (token_lexeme == "else") return Token_type::else_;
+            if (token_lexeme == "false") return Token_type::false_;
+            if (token_lexeme == "for") return Token_type::for_;
+            if (token_lexeme == "fun") return Token_type::fun;
+            if (token_lexeme == "if") return Token_type::if_;
+            if (token_lexeme == "nil") return Token_type::nil;
+            if (token_lexeme == "or") return Token_type::or_;
+            if (token_lexeme == "print") return Token_type::print;
+            if (token_lexeme == "return") return Token_type::return_;
+            if (token_lexeme == "super") return Token_type::super;
+            if (token_lexeme == "this") return Token_type::this_;
+            if (token_lexeme == "true") return Token_type::true_;
+            if (token_lexeme == "var") return Token_type::var;
+            if (token_lexeme == "while") return Token_type::while_;
 
+            // Otherwise, just a generic non-keyword identifier.
             return Token_type::identifier;
         }();
 

@@ -27,7 +27,7 @@ namespace motts::lox
         VM(GC_heap&, Interned_strings&, std::ostream&, bool debug = false);
         ~VM();
 
-        void run(const Chunk&);
+        void run(GC_ptr<Function>);
 
       private:
         void run(GC_ptr<Closure>, std::size_t stack_begin_index);

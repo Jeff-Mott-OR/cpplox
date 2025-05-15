@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <ostream>
 #include <vector>
 
@@ -18,8 +19,8 @@ namespace motts::lox
         virtual std::size_t size() const = 0;
     };
 
-    // I don't want user code to be required to extend some GC class to implement my virtual methods, so instead
-    // I'll let them specialize a function template, and I'll implement `trace_refs` for them to invoke the correct specialization.
+    // I don't want user code to be required to extend my GC class, so instead I'll let them specialize a
+    // function template, and I'll implement the virtual trace_refs for them to invoke the specialization.
     template<typename User_value_type>
     void trace_refs_trait(GC_heap&, const User_value_type&)
     {
@@ -28,7 +29,7 @@ namespace motts::lox
 
     // Generate a concrete derived control block type for each user value type.
     // It will hold the user value together with the base marked flag,
-    // and it will invoke the correct `trace_refs_trait` specialization.
+    // and it will invoke the correct trace_refs_trait specialization.
     template<typename User_value_type>
     struct GC_control_block : GC_control_block_base
     {
@@ -50,10 +51,10 @@ namespace motts::lox
         }
     };
 
-    // In user code, a concrete derived control block would annoyingly require a lot of `value` accesses,
-    // such as `foo_cb_ptr->value.bar_cb_ptr->value.baz_cb_ptr->value`.
-    // So this is a user-friendly wrapper around control block pointers with the same size and cost as a regular pointer.
-    // With this wrapper, user code can instead write `*foo_gc_ptr->bar_gc_ptr->baz_gc_ptr`.
+    // In user code, a concrete derived control block would annoyingly require
+    // a lot of `value` accesses, such as `foo->value.bar->value.baz->value`.
+    // So this is a user-friendly wrapper around control block pointers with the same size and cost
+    // as a regular pointer. With this wrapper, user code can instead write `*foo->bar->baz`.
     template<typename User_value_type>
     struct GC_ptr
     {
@@ -102,7 +103,7 @@ namespace motts::lox
 
     class GC_heap
     {
-        std::vector<GC_control_block_base*> all_ptrs_;
+        std::vector<std::unique_ptr<GC_control_block_base>> all_ptrs_;
         std::vector<GC_control_block_base*> gray_worklist_;
         std::size_t n_allocated_bytes_{0};
 
@@ -116,23 +117,25 @@ namespace motts::lox
 
         GC_heap() = default;
 
-        // This is a resource owning class, so disable copying.
+        // Non-copyable. This is a resource owning class.
         GC_heap(const GC_heap&) = delete;
+        GC_heap& operator=(const GC_heap&) = delete;
 
         // Move your value into a heap allocated and tracked control block.
         template<typename User_value_type>
         GC_ptr<User_value_type> make(User_value_type&& value)
         {
-            auto* control_block = new GC_control_block<User_value_type>{std::move(value)};
-            all_ptrs_.push_back(control_block);
-            n_allocated_bytes_ += sizeof(*control_block);
-            return {control_block};
+            auto control_block = std::make_unique<GC_control_block<User_value_type>>(std::move(value));
+            const GC_ptr<User_value_type> gc_ptr{control_block.get()};
+
+            n_allocated_bytes_ += control_block->size();
+            all_ptrs_.push_back(std::move(control_block));
+
+            return gc_ptr;
         }
 
-        ~GC_heap();
-
         // Mark as reachable, and queue to trace references.
-        void mark(GC_control_block_base*);
+        void mark(GC_control_block_base&);
 
         // Mark all roots, trace all references, and delete anything that isn't reachable.
         void collect_garbage();
@@ -144,7 +147,9 @@ namespace motts::lox
     template<typename User_value_type>
     void mark(GC_heap& gc_heap, GC_ptr<User_value_type> gc_ptr)
     {
-        gc_heap.mark(gc_ptr.control_block);
+        if (gc_ptr) {
+            gc_heap.mark(*gc_ptr.control_block);
+        }
     }
 }
 

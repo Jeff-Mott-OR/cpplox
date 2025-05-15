@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE(single_character_punctuation_tokenize)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: LEFT_PAREN, lexeme: (, line: 1 }\n"
         "Token { type: RIGHT_PAREN, lexeme: ), line: 1 }\n"
         "Token { type: LEFT_BRACE, lexeme: {, line: 1 }\n"
@@ -67,13 +67,22 @@ BOOST_AUTO_TEST_CASE(tokens_track_what_line_they_came_from)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
         "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n"
         "Token { type: IDENTIFIER, lexeme: three, line: 3 }\n";
     // clang-format on
 
     BOOST_TEST(os.str() == expected);
+}
+
+BOOST_AUTO_TEST_CASE(token_lexemes_are_nonowning)
+{
+    const auto* string_owner = "lexeme";
+    motts::lox::Token_iterator token_iter{string_owner};
+    const auto token = *token_iter;
+
+    BOOST_TEST(&*(token.lexeme.cbegin()) == string_owner);
 }
 
 BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment)
@@ -86,7 +95,7 @@ BOOST_AUTO_TEST_CASE(two_consecutive_slashes_means_line_comment)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: IDENTIFIER, lexeme: next, line: 2 }\n"
         "Token { type: IDENTIFIER, lexeme: line, line: 2 }\n";
     // clang-format on
@@ -104,7 +113,7 @@ BOOST_AUTO_TEST_CASE(whitespace_is_skipped_and_ignored)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: IDENTIFIER, lexeme: one, line: 1 }\n"
         "Token { type: IDENTIFIER, lexeme: two, line: 2 }\n";
     // clang-format on
@@ -151,7 +160,7 @@ BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: AND, lexeme: and, line: 1 }\n"
         "Token { type: BREAK, lexeme: break, line: 1 }\n"
         "Token { type: CLASS, lexeme: class, line: 1 }\n"
@@ -185,7 +194,7 @@ BOOST_AUTO_TEST_CASE(multi_character_punctuation_tokenize)
     }
 
     // clang-format off
-    const auto expected =
+    const auto* expected =
         "Token { type: BANG, lexeme: !, line: 1 }\n"
         "Token { type: BANG_EQUAL, lexeme: !=, line: 1 }\n"
         "Token { type: EQUAL, lexeme: =, line: 1 }\n"

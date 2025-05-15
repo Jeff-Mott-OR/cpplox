@@ -16,10 +16,11 @@ namespace motts::lox
 {
     std::ostream& operator<<(std::ostream& os, Opcode opcode)
     {
-        const char* name = [&] {
+        const char* opcode_name = [&] {
             switch (opcode) {
-                default:
+                default: {
                     throw std::logic_error{"Unexpected opcode."};
+                }
 
 #define X(name) \
     case Opcode::name: \
@@ -30,7 +31,7 @@ namespace motts::lox
         }();
 
         // Names should print as uppercase without trailing underscores.
-        std::string name_str{name};
+        std::string name_str{opcode_name};
         boost::trim_right_if(name_str, boost::is_any_of("_"));
         boost::to_upper(name_str);
 
@@ -39,7 +40,7 @@ namespace motts::lox
         return os;
     }
 
-    Chunk::Jump_backpatch::Jump_backpatch(Bytecode_vector& bytecode)
+    Chunk::Jump_backpatch::Jump_backpatch(std::vector<std::uint8_t>& bytecode)
         : bytecode_{bytecode},
           jump_begin_index_{bytecode.size()}
     {
@@ -66,162 +67,138 @@ namespace motts::lox
         return constant_index;
     }
 
-    template<Opcode opcode>
-    void Chunk::emit(const Token& source_map_token)
+    void Chunk::emit(std::uint8_t byte, const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
-        source_map_tokens_.push_back(source_map_token);
+        bytecode_.push_back(byte);
+        source_map_tokens_.push_back(token);
+    }
+
+    template<Opcode opcode>
+    void Chunk::emit(const Source_map_token& token)
+    {
+        emit(gsl::narrow<std::uint8_t>(opcode), token);
     }
 
     // Explicit instantiation of the opcodes allowed with this templated member function.
-    template void Chunk::emit<Opcode::add>(const Token&);
-    template void Chunk::emit<Opcode::close_upvalue>(const Token&);
-    template void Chunk::emit<Opcode::divide>(const Token&);
-    template void Chunk::emit<Opcode::equal>(const Token&);
-    template void Chunk::emit<Opcode::false_>(const Token&);
-    template void Chunk::emit<Opcode::greater>(const Token&);
-    template void Chunk::emit<Opcode::inherit>(const Token&);
-    template void Chunk::emit<Opcode::less>(const Token&);
-    template void Chunk::emit<Opcode::multiply>(const Token&);
-    template void Chunk::emit<Opcode::negate>(const Token&);
-    template void Chunk::emit<Opcode::nil>(const Token&);
-    template void Chunk::emit<Opcode::not_>(const Token&);
-    template void Chunk::emit<Opcode::pop>(const Token&);
-    template void Chunk::emit<Opcode::print>(const Token&);
-    template void Chunk::emit<Opcode::return_>(const Token&);
-    template void Chunk::emit<Opcode::subtract>(const Token&);
-    template void Chunk::emit<Opcode::true_>(const Token&);
+    template void Chunk::emit<Opcode::add>(const Source_map_token&);
+    template void Chunk::emit<Opcode::close_upvalue>(const Source_map_token&);
+    template void Chunk::emit<Opcode::divide>(const Source_map_token&);
+    template void Chunk::emit<Opcode::equal>(const Source_map_token&);
+    template void Chunk::emit<Opcode::false_>(const Source_map_token&);
+    template void Chunk::emit<Opcode::greater>(const Source_map_token&);
+    template void Chunk::emit<Opcode::inherit>(const Source_map_token&);
+    template void Chunk::emit<Opcode::less>(const Source_map_token&);
+    template void Chunk::emit<Opcode::multiply>(const Source_map_token&);
+    template void Chunk::emit<Opcode::negate>(const Source_map_token&);
+    template void Chunk::emit<Opcode::nil>(const Source_map_token&);
+    template void Chunk::emit<Opcode::not_>(const Source_map_token&);
+    template void Chunk::emit<Opcode::pop>(const Source_map_token&);
+    template void Chunk::emit<Opcode::print>(const Source_map_token&);
+    template void Chunk::emit<Opcode::return_>(const Source_map_token&);
+    template void Chunk::emit<Opcode::subtract>(const Source_map_token&);
+    template void Chunk::emit<Opcode::true_>(const Source_map_token&);
 
     template<Opcode opcode>
-    void Chunk::emit(GC_ptr<const std::string> identifier_name, const Token& source_map_token)
+    void Chunk::emit(GC_ptr<const std::string> identifier_name, const Source_map_token& token)
     {
         const auto constant_index = insert_constant(identifier_name);
 
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(constant_index));
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(opcode), token);
+        emit(gsl::narrow<std::uint8_t>(constant_index), token);
     }
 
-    template void Chunk::emit<Opcode::class_>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::define_global>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::get_global>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::get_property>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::get_super>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::method>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::set_global>(GC_ptr<const std::string>, const Token&);
-    template void Chunk::emit<Opcode::set_property>(GC_ptr<const std::string>, const Token&);
+    template void Chunk::emit<Opcode::class_>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::define_global>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::get_global>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::get_property>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::get_super>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::method>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::set_global>(GC_ptr<const std::string>, const Source_map_token&);
+    template void Chunk::emit<Opcode::set_property>(GC_ptr<const std::string>, const Source_map_token&);
 
     template<Opcode opcode>
-    void Chunk::emit(unsigned int index, const Token& source_map_token)
+    void Chunk::emit(unsigned int index, const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(opcode));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(index));
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(opcode), token);
+        emit(gsl::narrow<std::uint8_t>(index), token);
     }
 
-    template void Chunk::emit<Opcode::get_local>(unsigned int, const Token&);
-    template void Chunk::emit<Opcode::get_upvalue>(unsigned int, const Token&);
-    template void Chunk::emit<Opcode::set_local>(unsigned int, const Token&);
-    template void Chunk::emit<Opcode::set_upvalue>(unsigned int, const Token&);
+    template void Chunk::emit<Opcode::get_local>(unsigned int, const Source_map_token&);
+    template void Chunk::emit<Opcode::get_upvalue>(unsigned int, const Source_map_token&);
+    template void Chunk::emit<Opcode::set_local>(unsigned int, const Source_map_token&);
+    template void Chunk::emit<Opcode::set_upvalue>(unsigned int, const Source_map_token&);
 
-    void Chunk::emit_call(unsigned int arg_count, const Token& source_map_token)
+    void Chunk::emit_call(unsigned int arg_count, const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::call));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(arg_count));
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(Opcode::call), token);
+        emit(gsl::narrow<std::uint8_t>(arg_count), token);
     }
 
-    void Chunk::emit_closure(GC_ptr<Function> fn, const std::vector<Tracked_upvalue>& tracked_upvalues, const Token& source_map_token)
+    void Chunk::emit_closure(GC_ptr<Function> fn, const std::vector<Tracked_upvalue>& tracked_upvalues, const Source_map_token& token)
     {
         const auto fn_constant_index = insert_constant(fn);
 
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::closure));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(fn_constant_index));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalues.size()));
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(Opcode::closure), token);
+        emit(gsl::narrow<std::uint8_t>(fn_constant_index), token);
+        emit(gsl::narrow<std::uint8_t>(tracked_upvalues.size()), token);
 
         for (const auto& tracked_upvalue : tracked_upvalues) {
-            bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalue.is_direct_capture ? 1 : 0));
-            bytecode_.push_back(gsl::narrow<std::uint8_t>(tracked_upvalue.enclosing_index));
-
-            source_map_tokens_.push_back(source_map_token);
-            source_map_tokens_.push_back(source_map_token);
+            // To match clox opcodes (which isn't necessarily important to do),
+            // a `1` means parent local, and a `0` means parent upvalue.
+            if (const auto* upvalue = std::get_if<Upvalue_index>(&tracked_upvalue)) {
+                emit(1, token);
+                emit(gsl::narrow<std::uint8_t>(upvalue->enclosing_locals_index), token);
+            } else {
+                const auto& upupvalue = std::get<UpUpvalue_index>(tracked_upvalue);
+                emit(0, token);
+                emit(gsl::narrow<std::uint8_t>(upupvalue.enclosing_upvalues_index), token);
+            }
         }
     }
 
-    void Chunk::emit_constant(Dynamic_type_value value, const Token& source_map_token)
+    void Chunk::emit_constant(Dynamic_type_value value, const Source_map_token& token)
     {
         const auto constant_index = insert_constant(value);
 
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::constant));
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(constant_index));
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(Opcode::constant), token);
+        emit(gsl::narrow<std::uint8_t>(constant_index), token);
     }
 
-    Chunk::Jump_backpatch Chunk::emit_jump(const Token& source_map_token)
+    Chunk::Jump_backpatch Chunk::emit_jump(const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::jump));
-        bytecode_.push_back(0);
-        bytecode_.push_back(0);
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(Opcode::jump), token);
+        emit(0, token);
+        emit(0, token);
 
         return Jump_backpatch{bytecode_};
     }
 
-    Chunk::Jump_backpatch Chunk::emit_jump_if_false(const Token& source_map_token)
+    Chunk::Jump_backpatch Chunk::emit_jump_if_false(const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::jump_if_false));
-        bytecode_.push_back(0);
-        bytecode_.push_back(0);
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
+        emit(gsl::narrow<std::uint8_t>(Opcode::jump_if_false), token);
+        emit(0, token);
+        emit(0, token);
 
         return Jump_backpatch{bytecode_};
     }
 
-    void Chunk::emit_loop(unsigned int loop_begin_bytecode_index, const Token& source_map_token)
+    void Chunk::emit_loop(unsigned int loop_begin_bytecode_index, const Source_map_token& token)
     {
-        bytecode_.push_back(gsl::narrow<std::uint8_t>(Opcode::loop));
-        bytecode_.push_back(0);
-        bytecode_.push_back(0);
+        emit(gsl::narrow<std::uint8_t>(Opcode::loop), token);
+        emit(0, token);
+        emit(0, token);
 
         const auto jump_distance = gsl::narrow<std::uint16_t>(bytecode_.size() - loop_begin_bytecode_index);
         const auto jump_distance_big_endian = boost::endian::native_to_big(jump_distance);
         reinterpret_cast<std::uint16_t&>(*(bytecode_.end() - 2)) = jump_distance_big_endian;
-
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
-        source_map_tokens_.push_back(source_map_token);
     }
 
     std::ostream& operator<<(std::ostream& os, const Chunk& chunk)
     {
-        os << "Constants:\n";
-        for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend(); ++constant_iter) {
-            const auto constant_index = constant_iter - chunk.constants().cbegin();
-            os << std::setw(5) << std::right << constant_index << " : " << *constant_iter << '\n';
-        }
-
         os << "Bytecode:\n";
         for (auto bytecode_iter = chunk.bytecode().cbegin(); bytecode_iter != chunk.bytecode().cend();) {
             const auto bytecode_index = bytecode_iter - chunk.bytecode().cbegin();
-            const auto& source_map_token = chunk.source_map_tokens().at(bytecode_index);
+            const auto& token = chunk.source_map_tokens().at(bytecode_index);
             const auto opcode = static_cast<Opcode>(*bytecode_iter++);
 
             // Some opcodes such as closure will print multiple lines.
@@ -329,8 +306,17 @@ namespace motts::lox
 
             lines.push_back(std::move(line).str());
             for (const auto& line : lines) {
-                os << std::setw(40) << std::setfill(' ') << std::left << line << " ; " << *source_map_token.lexeme << " @ "
-                   << source_map_token.line << '\n';
+                os << std::setw(40) << std::setfill(' ') << std::left << line << " ; " << *token.lexeme << " @ " << token.line << '\n';
+            }
+        }
+
+        os << "Constants:\n";
+        if (chunk.constants().empty()) {
+            os << "    -\n";
+        } else {
+            for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend(); ++constant_iter) {
+                const auto constant_index = constant_iter - chunk.constants().cbegin();
+                os << std::setw(5) << std::right << constant_index << " : " << *constant_iter << '\n';
             }
         }
 
@@ -342,10 +328,5 @@ namespace motts::lox
         }
 
         return os;
-    }
-
-    bool operator==(Chunk::Tracked_upvalue lhs, Chunk::Tracked_upvalue rhs)
-    {
-        return lhs.is_direct_capture == rhs.is_direct_capture && lhs.enclosing_index == rhs.enclosing_index;
     }
 }

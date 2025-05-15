@@ -6,36 +6,32 @@
 
 #include "../src/memory.hpp"
 
-// Not exported (internal linkage).
-namespace
+struct Destruct_tracer
 {
-    struct Destruct_tracer
+    std::ostream* os;
+    const char* name;
+
+    Destruct_tracer(std::ostream& os_arg, const char* name_arg = "Destruct_tracer")
+        : os{&os_arg},
+          name{name_arg}
     {
-        std::ostream* os;
-        const char* name;
+    }
 
-        Destruct_tracer(std::ostream& os_arg, const char* name_arg = "Destruct_tracer")
-            : os{&os_arg},
-              name{name_arg}
-        {
-        }
+    // Skip tracing of moved-from temporaries.
+    Destruct_tracer(Destruct_tracer&& other)
+        : os{other.os},
+          name{other.name}
+    {
+        other.os = nullptr;
+    }
 
-        // We don't care about moved-from temporaries.
-        Destruct_tracer(Destruct_tracer&& other)
-            : os{other.os},
-              name{other.name}
-        {
-            other.os = nullptr;
+    ~Destruct_tracer()
+    {
+        if (os) {
+            *os << '~' << name << '\n';
         }
-
-        ~Destruct_tracer()
-        {
-            if (os) {
-                *os << '~' << name << '\n';
-            }
-        }
-    };
-}
+    }
+};
 
 // Tell the garbage collector how to trace references of a `Destruct_tracer`.
 template<>
