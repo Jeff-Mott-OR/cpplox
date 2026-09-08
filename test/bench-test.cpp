@@ -88,4 +88,28 @@ MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(
 // MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_string_equality_clox, "_deps/crafting_interpreters-src/build/clox", "bench/string_equality.lox")
 MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_string_equality_node, "node", "bench/string_equality.js")
 
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_trees_cpploxbc, "cpploxbc", "bench/trees.lox")
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(
+    bench_trees_jlox,
+    "java -cp _deps/crafting_interpreters-src/build/java com.craftinginterpreters.lox.Lox",
+    "bench/trees.lox"
+)
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_trees_clox, "_deps/crafting_interpreters-src/build/clox", "bench/trees.lox")
+
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_zoo_cpploxbc, "cpploxbc", "bench/zoo.lox")
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(
+    bench_zoo_jlox,
+    "java -cp _deps/crafting_interpreters-src/build/java com.craftinginterpreters.lox.Lox",
+    "bench/zoo.lox"
+)
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_zoo_clox, "_deps/crafting_interpreters-src/build/clox", "bench/zoo.lox")
+
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_zoo_batch_cpploxbc, "cpploxbc", "bench/zoo_batch.lox")
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(
+    bench_zoo_batch_jlox,
+    "java -cp _deps/crafting_interpreters-src/build/java com.craftinginterpreters.lox.Lox",
+    "bench/zoo_batch.lox"
+)
+MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_zoo_batch_clox, "_deps/crafting_interpreters-src/build/clox", "bench/zoo_batch.lox")
+
 BENCHMARK_MAIN();

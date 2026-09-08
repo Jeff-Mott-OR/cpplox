@@ -70,4 +70,37 @@ static void bench_string_equality(benchmark::State& state)
 
 BENCHMARK(bench_string_equality);
 
+static void bench_trees(benchmark::State& state)
+{
+    for (auto _ : state) {
+        std::ostringstream os;
+        motts::lox::Lox lox{os};
+        run_file(lox, "../src/test/lox/bench/trees.lox");
+    }
+}
+
+BENCHMARK(bench_trees);
+
+static void bench_zoo(benchmark::State& state)
+{
+    for (auto _ : state) {
+        std::ostringstream os;
+        motts::lox::Lox lox{os};
+        run_file(lox, "../src/test/lox/bench/zoo.lox");
+    }
+}
+
+BENCHMARK(bench_zoo);
+
+static void bench_zoo_batch(benchmark::State& state)
+{
+    for (auto _ : state) {
+        std::ostringstream os;
+        motts::lox::Lox lox{os};
+        run_file(lox, "../src/test/lox/bench/zoo_batch.lox");
+    }
+}
+
+BENCHMARK(bench_zoo_batch);
+
 BENCHMARK_MAIN();
