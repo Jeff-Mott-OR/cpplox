@@ -158,6 +158,7 @@ namespace motts::lox
         void emit_call(unsigned int arg_count, const Source_map_token&);
         void emit_closure(GC_ptr<Function>, const std::vector<Tracked_upvalue>&, const Source_map_token&);
         void emit_constant(Dynamic_type_value, const Source_map_token&);
+        void emit_invoke(GC_ptr<const std::string> identifier_name, unsigned int arg_count, const Source_map_token&);
 
         // Use returned backpatch to update the bytecode distance.
         // Example usage:

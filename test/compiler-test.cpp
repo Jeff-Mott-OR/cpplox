@@ -1606,10 +1606,9 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
         // Klass().method()();
         "    9 : 07 00    GET_GLOBAL [0]          ; Klass @ 9\n"
         "   11 : 1c 00    CALL (0)                ; Klass @ 9\n"
-        "   13 : 0c 02    GET_PROPERTY [2]        ; method @ 9\n"
-        "   15 : 1c 00    CALL (0)                ; method @ 9\n"
-        "   17 : 1c 00    CALL (0)                ; method @ 9\n"
-        "   19 : 04       POP                     ; ; @ 9\n"
+        "   13 : 1d 02 00 INVOKE [2] (0)          ; method @ 9\n"
+        "   16 : 1c 00    CALL (0)                ; method @ 9\n"
+        "   18 : 04       POP                     ; ; @ 9\n"
         "Constants:\n"
         "    0 : Klass\n"
         "    1 : <fn method>\n"

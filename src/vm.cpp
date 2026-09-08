@@ -333,7 +333,14 @@ namespace motts::lox
 
                     const auto maybe_field_iter = instance->fields.find(field_name);
                     if (maybe_field_iter != instance->fields.cend()) {
-                        stack_.push_back(maybe_field_iter->second);
+                        const auto maybe_closure = std::get_if<GC_ptr<Closure>>(&maybe_field_iter->second);
+                        if (maybe_closure) {
+                            const auto new_bound_method = gc_heap_.make<Bound_method>({instance, *maybe_closure});
+                            stack_.push_back(new_bound_method);
+                        } else {
+                            stack_.push_back(maybe_field_iter->second);
+                        }
+
                         break;
                     }
 
@@ -410,6 +417,54 @@ namespace motts::lox
                     stack_.push_back(child);
 
                     break;
+                }
+
+                case Opcode::invoke: {
+                    const auto field_name_constant_index = *bytecode_iter++;
+                    const auto field_name = std::get<GC_ptr<const std::string>>(constants[field_name_constant_index]);
+                    const auto arg_count = *bytecode_iter++;
+                    auto instance = std::get<GC_ptr<Instance>>(*(stack_.end() - arg_count - 1));
+
+                    const auto maybe_field_iter = instance->fields.find(field_name);
+                    if (maybe_field_iter != instance->fields.cend()) {
+                        const auto maybe_closure = std::get_if<GC_ptr<Closure>>(&maybe_field_iter->second);
+                        if (maybe_closure) {
+                            run(*maybe_closure, stack_.size() - arg_count - 1);
+                            break;
+                        }
+
+                        const auto maybe_bound_method = std::get_if<GC_ptr<Bound_method>>(&maybe_field_iter->second);
+                        if (maybe_bound_method) {
+                            const auto bound_method = *maybe_bound_method;
+                            *(stack_.end() - arg_count - 1) = bound_method->instance;
+                            run(bound_method->method, stack_.size() - arg_count - 1);
+
+                            break;
+                        }
+
+                        std::ostringstream os;
+                        os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme << "\": "
+                           << "Can only call functions and classes.";
+                        throw std::runtime_error{os.str()};
+                    }
+
+                    const auto maybe_method_iter = instance->klass->methods.find(field_name);
+                    if (maybe_method_iter != instance->klass->methods.cend()) {
+                        const auto method = maybe_method_iter->second;
+                        if (method->function->arity != arg_count) {
+                            std::ostringstream os;
+                            os << "[Line " << source_map_token.line << "] Error at \"" << *source_map_token.lexeme << "\": "
+                               << "Expected " << method->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                            throw std::runtime_error{os.str()};
+                        }
+
+                        run(method, stack_.size() - arg_count - 1);
+
+                        break;
+                    }
+
+                    throw std::runtime_error{
+                        "[Line " + std::to_string(source_map_token.line) + "] Error: Undefined property \"" + *field_name + "\"."};
                 }
 
                 case Opcode::jump:

@@ -164,6 +164,15 @@ namespace motts::lox
         emit(gsl::narrow<std::uint8_t>(constant_index), token);
     }
 
+    void Chunk::emit_invoke(GC_ptr<const std::string> identifier_name, unsigned int arg_count, const Source_map_token& token)
+    {
+        const auto constant_index = insert_constant(identifier_name);
+
+        emit(gsl::narrow<std::uint8_t>(Opcode::invoke), token);
+        emit(gsl::narrow<std::uint8_t>(constant_index), token);
+        emit(gsl::narrow<std::uint8_t>(arg_count), token);
+    }
+
     Chunk::Jump_backpatch Chunk::emit_jump(const Source_map_token& token)
     {
         emit(gsl::narrow<std::uint8_t>(Opcode::jump), token);
@@ -238,6 +247,17 @@ namespace motts::lox
                     const auto arg_count = *bytecode_iter++;
                     line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count) << "    " << opcode << " ("
                          << std::setbase(10) << static_cast<int>(arg_count) << ')';
+
+                    break;
+                }
+
+                case Opcode::invoke: {
+                    const auto lookup_index = *bytecode_iter++;
+                    const auto arg_count = *bytecode_iter++;
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(lookup_index) << ' ' << std::setw(2)
+                         << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count) << ' ' << opcode << " ["
+                         << std::setbase(10) << static_cast<int>(lookup_index) << "] (" << std::setbase(10) << static_cast<int>(arg_count)
+                         << ')';
 
                     break;
                 }

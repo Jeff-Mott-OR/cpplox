@@ -1219,8 +1219,7 @@ BOOST_AUTO_TEST_CASE(methods_bind_and_can_be_called)
     fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
     fn_main->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
     fn_main->chunk.emit<Opcode::get_local>(0, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("method"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("method"), 0, Token{interned_strings.get("instance"), 1});
 
     vm.run(fn_main);
 
@@ -1249,8 +1248,7 @@ BOOST_AUTO_TEST_CASE(this_can_be_captured_in_closure)
     fn_main->chunk.emit_closure(fn_method, {}, Token{interned_strings.get("method"), 1});
     fn_main->chunk.emit<Opcode::method>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
     fn_main->chunk.emit_call(0, Token{interned_strings.get("Klass"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("method"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("method"), 0, Token{interned_strings.get("method"), 1});
     fn_main->chunk.emit_call(0, Token{interned_strings.get("method"), 1});
 
     vm.run(fn_main);
@@ -1323,14 +1321,11 @@ BOOST_AUTO_TEST_CASE(class_methods_can_inherit)
 
     fn_main->chunk.emit_call(0, Token{interned_strings.get("Child"), 1});
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("childMethod"), Token{interned_strings.get("childMethod"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("childMethod"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("childMethod"), 0, Token{interned_strings.get("childMethod"), 1});
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("parentMethod1"), Token{interned_strings.get("parentMethod1"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("parentMethod1"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("parentMethod1"), 0, Token{interned_strings.get("parentMethod1"), 1});
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("parentMethod2"), Token{interned_strings.get("parentMethod2"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("parentMethod2"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("parentMethod2"), 0, Token{interned_strings.get("parentMethod2"), 1});
 
     vm.run(fn_main);
 
@@ -1393,8 +1388,7 @@ BOOST_AUTO_TEST_CASE(super_calls_will_run)
     fn_main->chunk.emit<Opcode::close_upvalue>(Token{interned_strings.get("Parent"), 1});
 
     fn_main->chunk.emit_call(0, Token{interned_strings.get("Child"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
-    fn_main->chunk.emit_call(0, Token{interned_strings.get("method"), 1});
+    fn_main->chunk.emit_invoke(interned_strings.get("method"), 0, Token{interned_strings.get("method"), 1});
 
     vm.run(fn_main);
 

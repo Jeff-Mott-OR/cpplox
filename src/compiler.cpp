@@ -325,25 +325,40 @@ namespace motts::lox
             compile_primary_expression();
 
             while (token_iter->type == Token_type::left_paren || token_iter->type == Token_type::dot) {
-                if (advance_if_match(Token_type::left_paren)) {
-                    auto arg_count = 0;
-                    if (! advance_if_match(Token_type::right_paren)) {
-                        do {
-                            compile_assignment_precedence_expression();
-                            ++arg_count;
-                        } while (advance_if_match(Token_type::comma));
-                        ensure_token_is(*token_iter++, Token_type::right_paren);
-                    }
-                    function_chunks.back()->chunk.emit_call(arg_count, callee_token);
-                }
-
                 if (advance_if_match(Token_type::dot)) {
                     ensure_token_is(*token_iter, Token_type::identifier);
                     const auto property_name_token = source_map_token(*token_iter++);
-                    function_chunks.back()->chunk.emit<Opcode::get_property>(property_name_token.lexeme, property_name_token);
+
+                    if (advance_if_match(Token_type::left_paren)) {
+                        const auto arg_count = compile_call_rest();
+                        function_chunks.back()->chunk.emit_invoke(property_name_token.lexeme, arg_count, property_name_token);
+                    } else {
+                        function_chunks.back()->chunk.emit<Opcode::get_property>(property_name_token.lexeme, property_name_token);
+                    }
                     callee_token = property_name_token;
                 }
+
+                if (advance_if_match(Token_type::left_paren)) {
+                    const auto arg_count = compile_call_rest();
+                    function_chunks.back()->chunk.emit_call(arg_count, callee_token);
+                }
             }
+        }
+
+        int compile_call_rest()
+        {
+            if (advance_if_match(Token_type::right_paren)) {
+                return 0;
+            }
+
+            auto arg_count = 0;
+            do {
+                compile_assignment_precedence_expression();
+                ++arg_count;
+            } while (advance_if_match(Token_type::comma));
+            ensure_token_is(*token_iter++, Token_type::right_paren);
+
+            return arg_count;
         }
 
         void compile_unary_precedence_expression()
