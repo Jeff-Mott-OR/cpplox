@@ -63,39 +63,40 @@ A gentle, friendly introduction to Lox:
 
 ## Build
 
-    docker build --tag=cpplox --target=build .
+    docker build --tag=cpploximg --target=build .
 
 ### Options:
 
-    --tag=<name>
+`--tag=<name>` The tag can be whatever name you want for your image.
 
-The tag can be whatever name you want for your image.
+`--target=<stage>` The stage can be one of: `deps`, `build`, `test`, `bench`, `perf`, or `debug`.
 
-    --target=<stage>
-
-The stage can be one of: `deps`, `build`, `test`, `bench`, or `debug`.
-
-When targeting `bench`, use Docker's `--progress=plain` option to see the results.
-
-    --build-arg CC=<compiler>
-
-The compiler can be one of: `gcc` or `clang`. Defaults to `clang`.
+`--build-arg CC=<compiler>` The compiler can be one of: `gcc` or `clang`. Defaults to `clang`.
 
 ## Use REPL in container shell
 
-    docker run -it cpplox
+    docker run -it --rm cpploximg
+
     > print "Hello, Lox!";
 
 ## Run a script outside the container
 
-In this example, I mount `$(pwd)/test/lox` into the container as `/project/host`, and I run a Lox script from that mounted folder.
+In this example, I mount `$(pwd)/test/lox` into the container as `/host`, and I run a Lox script from that mounted folder.
 
-    docker run -it -v $(pwd)/test/lox:/project/host:ro cpplox ./cpploxbc /project/host/hello.lox
+    docker run -it --rm -v $(pwd)/test/lox:/host:ro cpploximg ./cpploxbc /host/hello.lox
 
 ## Development
 
-Docker will cache stages such as the build stage, but a change to a single source file will re-run the entire build stage. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from a container.
+Docker will re-run the entire build stage when a single source changes. To get incremental builds -- very handy during development -- we can mount our host files and run cmake from within a container.
 
-    docker run -it -v $(pwd):/project/src:ro cpplox bash
+    docker run -it --rm -v $(pwd):/project/src:ro cpploximg bash
     # cmake --build .
     # ctest
+
+# Profile
+
+The perf target will *prepare* the project and tools, then you must run in a container with privileged access.
+
+    docker run -it --privileged --rm cpploximg bash
+    # ./perf record -g ./perf_test
+    # ./perf report -g graph,0.5,caller
