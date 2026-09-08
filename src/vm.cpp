@@ -683,6 +683,10 @@ namespace motts::lox
                 }
             }
 
+                // Dumping the ever-changing stack is only needed for tests to verify correct behavior.
+                // But we're in a hot loop, and even this simple and usually false boolean check makes a difference.
+                // Wrap it in an NDEBUG macro so we can exclude this code in optimized builds but include it in test environments.
+#ifndef NDEBUG
             if (debug_) {
                 os_ << "# Stack:\n";
                 for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
@@ -691,6 +695,7 @@ namespace motts::lox
                 }
                 os_ << '\n';
             }
+#endif
         }
     }
 

@@ -5,17 +5,6 @@
 
 #include "../src/lox.hpp"
 
-static void bench_static_lib_run_empty_file(benchmark::State& state)
-{
-    for (auto _ : state) {
-        std::ostringstream os;
-        motts::lox::Lox lox{os};
-        run_file(lox, "../src/test/lox/empty_file.lox");
-    }
-}
-
-BENCHMARK(bench_static_lib_run_empty_file);
-
 #define MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(TEST_NAME, EXECUTABLE, TEST_FILE) \
     static void TEST_NAME(benchmark::State& state) \
     { \
@@ -30,8 +19,6 @@ BENCHMARK(bench_static_lib_run_empty_file);
         } \
     } \
     BENCHMARK(TEST_NAME);
-
-MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_empty_file_cpploxbc, "cpploxbc", "empty_file.lox")
 
 MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_binary_trees_cpploxbc, "cpploxbc", "bench/binary_trees.lox")
 MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(

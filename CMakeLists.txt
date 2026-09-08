@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.21)
 project(Project)
 
 option(DEPS_ONLY "Fetch dependencies only" FALSE)
-option(ENABLE_TESTING "Build and run tests" FALSE)
+option(ENABLE_BENCH "Build and run benchmarks" FALSE)
 option(ENABLE_PERF "Build for perf recording" FALSE)
+option(ENABLE_TEST "Build and run tests" FALSE)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -64,20 +65,36 @@ if(NOT DEPS_ONLY)
     # Define as a static library. This will let us link with our main REPL program or with a test harness program.
     add_library(cpploxbc_lib STATIC ${cpploxbc_sources})
     target_link_libraries(cpploxbc_lib PUBLIC Boost::algorithm Boost::convert Microsoft.GSL::GSL)
+    set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
     # Our main REPL program.
     add_executable(cpploxbc src/main.cpp)
     target_link_libraries(cpploxbc PUBLIC cpploxbc_lib Boost::program_options)
-    # Link-time optimization.
     set_property(TARGET cpploxbc PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     # Statically link std library, for faster start-up.
     target_link_options(cpploxbc PUBLIC -static)
 endif()
 
-if(ENABLE_TESTING)
+if(ENABLE_BENCH)
+    add_executable(bench_test test/bench-test.cpp)
+    target_link_libraries(bench_test PUBLIC cpploxbc_lib benchmark::benchmark Boost::process)
+    set_property(TARGET bench_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if(ENABLE_PERF)
+    target_compile_options(cpploxbc PUBLIC -g -fno-omit-frame-pointer)
+    target_compile_options(cpploxbc_lib PUBLIC -g -fno-omit-frame-pointer)
+
+    add_executable(perf_test test/perf-test.cpp)
+    target_link_libraries(perf_test PUBLIC cpploxbc_lib benchmark::benchmark)
+    set_property(TARGET perf_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
+if(ENABLE_TEST)
     enable_testing()
+    target_compile_options(cpploxbc_lib PUBLIC -UNDEBUG)
 
     file(GLOB clang_format_files "${CMAKE_CURRENT_SOURCE_DIR}/src/*.[hc]pp" "${CMAKE_CURRENT_SOURCE_DIR}/test/*.[hc]pp")
     add_test(
@@ -104,38 +121,32 @@ if(ENABLE_TESTING)
         )
     endif()
 
-    add_executable(bench_test test/bench-test.cpp)
-    target_link_libraries(bench_test PUBLIC cpploxbc_lib benchmark::benchmark Boost::process)
-
     add_executable(cli_test test/cli-test.cpp)
     target_link_libraries(cli_test PUBLIC Boost::process Boost::unit_test_framework)
     add_test(NAME cli_test COMMAND cli_test)
 
     add_executable(compiler_test test/compiler-test.cpp)
     target_link_libraries(compiler_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+    set_property(TARGET compiler_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME compiler_test COMMAND compiler_test)
 
     add_executable(interned_strings_test test/interned_strings-test.cpp)
     target_link_libraries(interned_strings_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+    set_property(TARGET interned_strings_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME interned_strings_test COMMAND interned_strings_test)
 
     add_executable(memory_test test/memory-test.cpp)
     target_link_libraries(memory_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+    set_property(TARGET memory_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME memory_test COMMAND memory_test)
 
     add_executable(scanner_test test/scanner-test.cpp)
     target_link_libraries(scanner_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+    set_property(TARGET scanner_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME scanner_test COMMAND scanner_test)
 
     add_executable(vm_test test/vm-test.cpp)
     target_link_libraries(vm_test PUBLIC cpploxbc_lib Boost::unit_test_framework)
+    set_property(TARGET vm_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME vm_test COMMAND vm_test)
-endif()
-
-if(ENABLE_PERF)
-    target_compile_options(cpploxbc PUBLIC -g -fno-omit-frame-pointer)
-    target_compile_options(cpploxbc_lib PUBLIC -g -fno-omit-frame-pointer)
-
-    add_executable(perf_test test/perf-test.cpp)
-    target_link_libraries(perf_test PUBLIC cpploxbc_lib benchmark::benchmark)
 endif()

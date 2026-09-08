@@ -69,7 +69,7 @@ A gentle, friendly introduction to Lox:
 
 `--tag=<name>` The tag can be whatever name you want for your image.
 
-`--target=<stage>` The stage can be one of: `deps`, `build`, `test`, `bench`, `perf`, or `debug`.
+`--target=<stage>` The stage can be one of: `deps`, `build`, `bench`, `perf`, `test`, or `debug`.
 
 `--build-arg CC=<compiler>` The compiler can be one of: `gcc` or `clang`. Defaults to `clang`.
 
