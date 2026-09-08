@@ -31,5 +31,6 @@ namespace motts::lox
 
       private:
         void run(GC_ptr<Closure>, std::size_t stack_begin_index);
+        void maybe_collect_garbage();
     };
 }

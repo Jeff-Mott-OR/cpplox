@@ -64,7 +64,7 @@ namespace motts::lox
         }
     };
 
-    std::ostream& operator<<(std::ostream& os, Dynamic_type_value value)
+    std::ostream& operator<<(std::ostream& os, const Dynamic_type_value& value)
     {
         std::visit(Print_visitor{os}, value);
         return os;

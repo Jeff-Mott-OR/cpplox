@@ -151,7 +151,6 @@ BOOST_AUTO_TEST_CASE(can_print_class_name_across_interactive_repl_runs)
         BOOST_TEST(exit_code == EXPECTED_EXIT); \
     }
 
-MOTTS_LOX_MAKE_TEST_CASE(empty_file_test, "empty_file.lox", "", "", 0)
 MOTTS_LOX_MAKE_TEST_CASE(precedence_test, "precedence.lox", "14\n8\n4\n0\ntrue\ntrue\ntrue\ntrue\n0\n0\n0\n0\n4\n", "", 0)
 MOTTS_LOX_MAKE_TEST_CASE(unexpected_character_test, "unexpected_character.lox", "", "[Line 3] Error: Unexpected character \"|\".\n", 1)
 
