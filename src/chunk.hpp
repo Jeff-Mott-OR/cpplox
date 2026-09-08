@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
+#include <span>
 #include <variant>
 #include <vector>
 
@@ -71,11 +72,6 @@ namespace motts::lox
         unsigned int line;
     };
 
-    // Wrapping an int in another type let's us distinguish between them in a variant.
-    // Alternatively, we could have used a boolean to discriminate the int's meaning, but this lets us
-    // use the type system to ensure correctness, and it still compiles to the same binary.
-    // An upvalue is an index into the parent scope's list of locals,
-    // and upupvalue is an index into the parent scope's list of upvalues.
     struct Upvalue_index
     {
         unsigned int enclosing_locals_index;
@@ -90,6 +86,12 @@ namespace motts::lox
         bool operator==(const UpUpvalue_index&) const = default;
     };
 
+    // Wrapping an int in another type let's us distinguish between them in a variant.
+    // Alternatively, we could have used a boolean to discriminate the int's meaning,
+    // but a variant lets us use the type system to ensure correctness,
+    // and it still compiles to the same binary.
+    // An upvalue is an index into the parent scope's list of locals,
+    // and upupvalue is an index into the parent scope's list of upvalues.
     using Tracked_upvalue = std::variant<Upvalue_index, UpUpvalue_index>;
 
     // A chunk of bytecode.
@@ -103,25 +105,29 @@ namespace motts::lox
         // remember the position of the jump instruction and to apply the patch.
         class Jump_backpatch
         {
+            // WARNING! Holds a non-owning reference to bytecode vector.
+            // If the owning chunk is moved from, then the member vector will also move,
+            // and this reference will be invalid.
             std::vector<std::uint8_t>& bytecode_;
             const std::size_t jump_begin_index_;
 
           public:
-            // At the moment of construction, the chunk's bytecode vector is expected to end with two dummy bytes.
-            // The constructor will remember the position of those two dummy bytes.
+            // At the moment of construction, the chunk's bytecode vector is expected to end
+            // with two placeholder jump distance bytes.
+            // The constructor will remember the position of those two bytes.
             Jump_backpatch(std::vector<std::uint8_t>& bytecode);
 
-            // Calculate the jump distance from the dummy bytes to the current end of the bytecode.
-            // The dummy bytes will be patched with the distance calculated.
+            // Calculate the jump distance from the placeholder bytes to the current end of the bytecode.
+            // The placeholder bytes will be patched with the calculated distance.
             void to_next_opcode();
         };
 
+        // Emit a raw byte.
+        void emit(std::uint8_t, const Source_map_token&);
+
         // Insert into the constants vector, with deduplication.
         // Returns the index into the constants vector of the inserted value.
-        std::size_t insert_constant(Dynamic_type_value);
-
-        // A private helper to emit a raw byte.
-        void emit(std::uint8_t, const Source_map_token&);
+        std::size_t insert_constant(const Dynamic_type_value&);
 
       public:
         // Read-only access.
@@ -141,23 +147,30 @@ namespace motts::lox
         }
 
         // This template is for simple single-byte opcodes. The cpp file will instantiate the compatible opcodes.
-        // Example usage: chunk.emit<Opcode::nil>(token); chunk.emit<Opcode::add>(token);
+        // Example usage:
+        //     chunk.emit<Opcode::nil>(token);
+        //     chunk.emit<Opcode::add>(token);
         template<Opcode>
         void emit(const Source_map_token&);
 
-        // This template is for the *_global/class/method/*_property opcodes. The cpp file will instantiate the compatible opcodes.
-        // Example usage: chunk.emit<Opcode::define_global>(global_name, token); chunk.emit<Opcode::get_property>(property_name, token);
+        // This template is for the *_global/class/method/*_property opcodes.
+        // The cpp file will instantiate the compatible opcodes.
+        // Example usage:
+        //     chunk.emit<Opcode::define_global>(global_name, token);
+        //     chunk.emit<Opcode::get_property>(property_name, token);
         template<Opcode>
         void emit(GC_ptr<const std::string> identifier_name, const Source_map_token&);
 
         // This template is for the *_local/*_upvalue opcodes. The cpp file will instantiate the compatible opcodes.
-        // Example usage: chunk.emit<Opcode::get_local>(2, token); chunk.emit<Opcode::set_upvalue>(7, token);
+        // Example usage:
+        //     chunk.emit<Opcode::get_local>(2, token);
+        //     chunk.emit<Opcode::set_upvalue>(7, token);
         template<Opcode>
         void emit(unsigned int index, const Source_map_token&);
 
         void emit_call(unsigned int arg_count, const Source_map_token&);
-        void emit_closure(GC_ptr<Function>, const std::vector<Tracked_upvalue>&, const Source_map_token&);
-        void emit_constant(Dynamic_type_value, const Source_map_token&);
+        void emit_closure(GC_ptr<Function>, std::span<const Tracked_upvalue>, const Source_map_token&);
+        void emit_constant(const Dynamic_type_value&, const Source_map_token&);
         void emit_invoke(GC_ptr<const std::string> identifier_name, unsigned int arg_count, const Source_map_token&);
 
         // Use returned backpatch to update the bytecode distance.

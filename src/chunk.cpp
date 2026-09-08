@@ -1,12 +1,12 @@
 #include "chunk.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
-#include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
 #include <gsl/gsl>
 
@@ -16,7 +16,7 @@ namespace motts::lox
 {
     std::ostream& operator<<(std::ostream& os, Opcode opcode)
     {
-        const char* opcode_name = [&] {
+        const auto opcode_name = [&] {
             switch (opcode) {
                 default: {
                     throw std::logic_error{"Unexpected opcode."};
@@ -24,18 +24,15 @@ namespace motts::lox
 
 #define X(name) \
     case Opcode::name: \
-        return #name;
+        return std::string_view{#name};
                     MOTTS_LOX_OPCODE_NAMES
 #undef X
             }
         }();
 
         // Names should print as uppercase without trailing underscores.
-        std::string name_str{opcode_name};
-        boost::trim_right_if(name_str, boost::is_any_of("_"));
-        boost::to_upper(name_str);
-
-        os << name_str;
+        const auto trimmed_end_iter = *(opcode_name.cend() - 1) == '_' ? opcode_name.cend() - 1 : opcode_name.cend();
+        std::transform(opcode_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) { return std::toupper(c); });
 
         return os;
     }
@@ -53,7 +50,13 @@ namespace motts::lox
         reinterpret_cast<std::uint16_t&>(bytecode_.at(jump_begin_index_ - 2)) = jump_distance_big_endian;
     }
 
-    std::size_t Chunk::insert_constant(Dynamic_type_value value)
+    void Chunk::emit(std::uint8_t byte, const Source_map_token& token)
+    {
+        bytecode_.push_back(byte);
+        source_map_tokens_.push_back(token);
+    }
+
+    std::size_t Chunk::insert_constant(const Dynamic_type_value& value)
     {
         const auto maybe_duplicate_iter = std::find(constants_.cbegin(), constants_.cend(), value);
         if (maybe_duplicate_iter != constants_.cend()) {
@@ -65,12 +68,6 @@ namespace motts::lox
         constants_.push_back(value);
 
         return constant_index;
-    }
-
-    void Chunk::emit(std::uint8_t byte, const Source_map_token& token)
-    {
-        bytecode_.push_back(byte);
-        source_map_tokens_.push_back(token);
     }
 
     template<Opcode opcode>
@@ -134,7 +131,7 @@ namespace motts::lox
         emit(gsl::narrow<std::uint8_t>(arg_count), token);
     }
 
-    void Chunk::emit_closure(GC_ptr<Function> fn, const std::vector<Tracked_upvalue>& tracked_upvalues, const Source_map_token& token)
+    void Chunk::emit_closure(GC_ptr<Function> fn, std::span<const Tracked_upvalue> tracked_upvalues, const Source_map_token& token)
     {
         const auto fn_constant_index = insert_constant(fn);
 
@@ -145,7 +142,7 @@ namespace motts::lox
         for (const auto& tracked_upvalue : tracked_upvalues) {
             // To match clox opcodes (which isn't necessarily important to do),
             // a `1` means parent local, and a `0` means parent upvalue.
-            if (const auto* upvalue = std::get_if<Upvalue_index>(&tracked_upvalue)) {
+            if (const auto upvalue = std::get_if<Upvalue_index>(&tracked_upvalue)) {
                 emit(1, token);
                 emit(gsl::narrow<std::uint8_t>(upvalue->enclosing_locals_index), token);
             } else {
@@ -156,7 +153,7 @@ namespace motts::lox
         }
     }
 
-    void Chunk::emit_constant(Dynamic_type_value value, const Source_map_token& token)
+    void Chunk::emit_constant(const Dynamic_type_value& value, const Source_map_token& token)
     {
         const auto constant_index = insert_constant(value);
 
@@ -342,8 +339,8 @@ namespace motts::lox
 
         // Recursively traverse nested functions.
         for (const auto value : chunk.constants()) {
-            if (std::holds_alternative<GC_ptr<Function>>(value)) {
-                os << '[' << value << " chunk]\n" << std::get<GC_ptr<Function>>(value)->chunk;
+            if (const auto fn_value = std::get_if<GC_ptr<Function>>(&value)) {
+                os << '[' << value << " chunk]\n" << (*fn_value)->chunk;
             }
         }
 

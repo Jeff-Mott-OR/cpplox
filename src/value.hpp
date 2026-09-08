@@ -8,7 +8,6 @@
 
 namespace motts::lox
 {
-    // This variant will be the size of two CPU words and is safe to pass around by value.
     using Dynamic_type_value = std::variant<
         // `nullptr_t` should be first so it will be picked as the default constructed value.
         // All others can be listed in any order.
@@ -27,7 +26,7 @@ namespace motts::lox
         GC_ptr<Native_fn>,
         GC_ptr<const std::string>>;
 
-    std::ostream& operator<<(std::ostream&, Dynamic_type_value);
+    std::ostream& operator<<(std::ostream&, const Dynamic_type_value&);
 
     struct Is_truthy_visitor
     {

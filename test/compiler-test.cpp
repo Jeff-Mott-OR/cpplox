@@ -60,10 +60,9 @@ BOOST_AUTO_TEST_CASE(number_literals_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "42;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -82,10 +81,9 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "nil;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -101,12 +99,15 @@ BOOST_AUTO_TEST_CASE(nil_literals_compile)
 
 BOOST_AUTO_TEST_CASE(invalid_expressions_will_throw)
 {
-    motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings{gc_heap};
-    BOOST_CHECK_THROW(compile(gc_heap, interned_strings, "?"), std::runtime_error);
-
-    try {
+    const auto expect_to_throw = [] {
+        motts::lox::GC_heap gc_heap;
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "?");
+    };
+
+    BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
+    try {
+        expect_to_throw();
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error: Unexpected character \"?\".");
     }
@@ -117,10 +118,9 @@ BOOST_AUTO_TEST_CASE(true_false_literals_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "true; false;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -141,10 +141,9 @@ BOOST_AUTO_TEST_CASE(string_literals_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "\"hello\";");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -163,10 +162,9 @@ BOOST_AUTO_TEST_CASE(addition_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "28 + 14;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -192,7 +190,6 @@ BOOST_AUTO_TEST_CASE(invalid_addition_will_throw)
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
-
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
@@ -205,10 +202,9 @@ BOOST_AUTO_TEST_CASE(print_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "print 42;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -227,10 +223,9 @@ BOOST_AUTO_TEST_CASE(plus_minus_star_slash_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "1 + 2 - 3 * 5 / 7;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -261,10 +256,9 @@ BOOST_AUTO_TEST_CASE(parens_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "1 + (2 - 3) * 5 / 7;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -295,10 +289,9 @@ BOOST_AUTO_TEST_CASE(numeric_negation_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "-1 + -1;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -321,10 +314,9 @@ BOOST_AUTO_TEST_CASE(boolean_negation_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "!true;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -344,10 +336,9 @@ BOOST_AUTO_TEST_CASE(expression_statements_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "42;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -366,10 +357,9 @@ BOOST_AUTO_TEST_CASE(comparisons_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "1 > 2; 3 >= 5; 7 == 11; 13 != 17; 19 <= 23; 29 < 31;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -429,10 +419,9 @@ BOOST_AUTO_TEST_CASE(boolean_and_with_short_circuit_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "true and false;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -454,10 +443,9 @@ BOOST_AUTO_TEST_CASE(boolean_or_with_short_circuit_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "true or false;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -480,10 +468,9 @@ BOOST_AUTO_TEST_CASE(global_assignment_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "x = 42;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -504,10 +491,9 @@ BOOST_AUTO_TEST_CASE(global_identifier_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "x;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -568,10 +554,9 @@ BOOST_AUTO_TEST_CASE(blocks_as_statements_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "{ 42; }");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -590,10 +575,9 @@ BOOST_AUTO_TEST_CASE(var_declaration_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "var x;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -612,10 +596,9 @@ BOOST_AUTO_TEST_CASE(var_declarations_can_be_initialized)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "var x = 42;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -635,10 +618,9 @@ BOOST_AUTO_TEST_CASE(vars_will_be_local_inside_braces)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "var x; { var x; x; x = 42; } x;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -671,7 +653,6 @@ BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw)
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
-
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
@@ -688,7 +669,6 @@ BOOST_AUTO_TEST_CASE(using_local_var_in_own_initializer_will_throw)
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
-
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
@@ -701,10 +681,9 @@ BOOST_AUTO_TEST_CASE(if_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "if (true) nil;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -728,10 +707,9 @@ BOOST_AUTO_TEST_CASE(if_else_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "if (true) nil; else nil;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -757,10 +735,9 @@ BOOST_AUTO_TEST_CASE(if_block_will_create_a_scope)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "{ var x = 42; if (true) { var x = 14; } x; }");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -789,10 +766,9 @@ BOOST_AUTO_TEST_CASE(for_loops_will_compile)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "for (var x = 0; x != 3; x = x + 1) nil;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -830,10 +806,9 @@ BOOST_AUTO_TEST_CASE(for_loop_init_condition_increment_can_be_blank)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "for (;;) nil;");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -859,10 +834,9 @@ BOOST_AUTO_TEST_CASE(for_loop_vars_will_be_local)
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "{ var x = 42; for (var x = 0; x != 3; x = x + 1) nil; }");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -907,7 +881,6 @@ BOOST_AUTO_TEST_CASE(non_var_statements_in_for_loop_init_will_throw)
     };
 
     BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
-
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
@@ -926,10 +899,9 @@ BOOST_AUTO_TEST_CASE(function_declaration_and_invocation_will_compile)
         "f();\n"
         "{ fun g() {} }\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -972,10 +944,9 @@ BOOST_AUTO_TEST_CASE(function_expr_and_invocation_will_compile)
         "var f = fun () {};\n"
         "f();\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1009,10 +980,9 @@ BOOST_AUTO_TEST_CASE(function_parameters_arguments_will_compile)
         "fun f(x) { x; }\n"
         "f(42);\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1050,10 +1020,9 @@ BOOST_AUTO_TEST_CASE(function_return_will_compile)
         "fun f(x) { return x; }\n"
         "f(42);\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1091,10 +1060,9 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
         "fun f() { return; }\n"
         "f();\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1122,12 +1090,15 @@ BOOST_AUTO_TEST_CASE(empty_return_will_return_nil)
 
 BOOST_AUTO_TEST_CASE(return_outside_function_will_throw)
 {
-    motts::lox::GC_heap gc_heap;
-    motts::lox::Interned_strings interned_strings{gc_heap};
-
-    BOOST_CHECK_THROW(compile(gc_heap, interned_strings, "return;"), std::runtime_error);
-    try {
+    const auto expect_to_throw = [] {
+        motts::lox::GC_heap gc_heap;
+        motts::lox::Interned_strings interned_strings{gc_heap};
         compile(gc_heap, interned_strings, "return;");
+    };
+
+    BOOST_CHECK_THROW(expect_to_throw(), std::runtime_error);
+    try {
+        expect_to_throw();
     } catch (const std::exception& error) {
         BOOST_TEST(error.what() == "[Line 1] Error at \"return\": Can't return from top-level code.");
     }
@@ -1138,10 +1109,9 @@ BOOST_AUTO_TEST_CASE(function_body_will_have_local_access_to_original_function_n
     motts::lox::GC_heap gc_heap;
     motts::lox::Interned_strings interned_strings{gc_heap};
     const auto root_fn = compile(gc_heap, interned_strings, "fun f() { f; }\n");
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1183,10 +1153,9 @@ BOOST_AUTO_TEST_CASE(inner_functions_can_capture_enclosing_local_variables)
         "    middle();\n"
         "}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1260,10 +1229,9 @@ BOOST_AUTO_TEST_CASE(closed_variables_stay_alive_even_after_function_has_returne
         "var closure = outer();\n"
         "closure();"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1336,10 +1304,9 @@ BOOST_AUTO_TEST_CASE(class_will_compile)
         "instance.property = 42;\n"
         "instance.property;\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1400,10 +1367,9 @@ BOOST_AUTO_TEST_CASE(class_name_can_be_used_in_methods)
         "    }\n"
         "}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1476,10 +1442,9 @@ BOOST_AUTO_TEST_CASE(property_access_can_be_chained)
         "    f();\n"
         "}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1588,10 +1553,9 @@ BOOST_AUTO_TEST_CASE(class_methods_can_access_and_capture_this)
         "}\n"
         "Klass().method()();\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1657,10 +1621,9 @@ BOOST_AUTO_TEST_CASE(class_init_method_will_implicitly_return_instance)
         "    }\n"
         "}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1729,10 +1692,9 @@ BOOST_AUTO_TEST_CASE(classes_can_inherit_from_classes)
         "class Parent {}\n"
         "class Child < Parent {}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =
@@ -1787,10 +1749,9 @@ BOOST_AUTO_TEST_CASE(subclass_can_access_super)
         "    }\n"
         "}\n"
     );
-    const auto& chunk = root_fn->chunk;
 
     std::ostringstream os;
-    os << chunk;
+    os << root_fn->chunk;
 
     // clang-format off
     const auto* expected =

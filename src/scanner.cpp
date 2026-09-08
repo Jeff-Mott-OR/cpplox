@@ -1,17 +1,17 @@
 #include "scanner.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <iterator>
 #include <stdexcept>
 #include <string>
-
-#include <boost/algorithm/string.hpp>
 
 namespace motts::lox
 {
     std::ostream& operator<<(std::ostream& os, Token_type token_type)
     {
         // Immediately invoked lambda lets me return from the switch rather than assign and break.
-        const char* token_name = [&] {
+        const auto token_name = [&] {
             switch (token_type) {
                 default: {
                     throw std::logic_error{"Unexpected token type."};
@@ -19,18 +19,15 @@ namespace motts::lox
 
 #define X(name) \
     case Token_type::name: \
-        return #name;
+        return std::string_view{#name};
                     MOTTS_LOX_TOKEN_TYPE_NAMES
 #undef X
             }
         }();
 
         // Names should print as uppercase without trailing underscores.
-        std::string name_str{token_name};
-        boost::trim_right_if(name_str, boost::is_any_of("_"));
-        boost::to_upper(name_str);
-
-        os << name_str;
+        const auto trimmed_end_iter = *(token_name.cend() - 1) == '_' ? token_name.cend() - 1 : token_name.cend();
+        std::transform(token_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) { return std::toupper(c); });
 
         return os;
     }
@@ -83,8 +80,8 @@ namespace motts::lox
 
     bool Token_iterator::operator==(const Token_iterator& rhs) const
     {
-        // For now this token type comparison is good enough, since
-        // all we ever need to check is whether we're at token type EOF.
+        // For now this token type comparison is good enough,
+        // since all we ever need to check is whether we're at token type EOF.
         return token_.type == rhs.token_.type;
     }
 

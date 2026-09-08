@@ -89,7 +89,7 @@ namespace motts::lox
             return closed->value;
         }
 
-        const auto open = std::get<Open>(value_);
+        const auto& open = std::get<Open>(value_);
         return open.stack.at(open.stack_index);
     }
 
