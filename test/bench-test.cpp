@@ -84,7 +84,8 @@ MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(
     "java -cp _deps/crafting_interpreters-src/build/java com.craftinginterpreters.lox.Lox",
     "bench/string_equality.lox"
 )
-MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_string_equality_clox, "_deps/crafting_interpreters-src/build/clox", "bench/string_equality.lox")
+// https://github.com/munificent/craftinginterpreters/issues/1093
+// MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_string_equality_clox, "_deps/crafting_interpreters-src/build/clox", "bench/string_equality.lox")
 MOTTS_LOX_MAKE_SPAWN_PROCESS_BENCH(bench_string_equality_node, "node", "bench/string_equality.js")
 
 BENCHMARK_MAIN();
