@@ -613,8 +613,7 @@ namespace motts::lox
             }
 
             // Run the garbage collector only occassionally based on how fast the allocation size grows.
-            // 4K is (semi) arbitrarily chosen. Could be tuned with performance testing.
-            if (gc_heap_.size() - gc_heap_last_collect_size_ > 4096) {
+            if (gc_heap_.size() - gc_heap_last_collect_size_ > 1024 * 1024) {
                 if (debug_) {
                     os_ << "# Collecting garbage: " << gc_heap_.size() << " bytes -> ";
                 }
