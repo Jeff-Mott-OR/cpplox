@@ -65,7 +65,11 @@ if(NOT DEPS_ONLY)
     # Define as a static library. This will let us link with our main REPL program or with a test harness program.
     add_library(cpploxbc_lib STATIC ${cpploxbc_sources})
     target_link_libraries(cpploxbc_lib PUBLIC Boost::algorithm Boost::convert Microsoft.GSL::GSL)
-    set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    # LTO will inline and remove the VM opcode functions,
+    # but the perf tool needs those function to exist to include them in the report.
+    if(NOT ENABLE_PERF)
+        set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
     target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
