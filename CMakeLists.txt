@@ -70,7 +70,7 @@ if(NOT DEPS_ONLY)
     if(NOT ENABLE_PERF)
         set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     endif()
-    target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
+    target_compile_features(cpploxbc_lib PUBLIC cxx_std_23)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
     # Our main REPL program.

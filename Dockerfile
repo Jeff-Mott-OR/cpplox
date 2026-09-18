@@ -10,17 +10,17 @@ FROM base AS base-clang
     RUN apt update && apt install -y gpg lsb-release wget
     RUN wget https://apt.llvm.org/llvm.sh
     RUN chmod +x llvm.sh
-    RUN ./llvm.sh 17
-    ENV CC=clang-17
-    ENV CXX=clang++-17
-    RUN ln -s /usr/lib/llvm-17/bin/llvm-objdump objdump
+    RUN ./llvm.sh 19
+    ENV CC=clang-19
+    ENV CXX=clang++-19
+    RUN ln -s /usr/lib/llvm-19/bin/llvm-objdump objdump
 
 FROM base AS base-gcc
 
     RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-    RUN apt update && apt install -y g++-13
-    ENV CC=gcc-13
-    ENV CXX=g++-13
+    RUN apt update && apt install -y g++-15
+    ENV CC=gcc-15
+    ENV CXX=g++-15
     RUN ln -s /usr/bin/objdump
 
 FROM base-$CC AS deps
