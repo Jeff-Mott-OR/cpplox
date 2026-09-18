@@ -2,7 +2,17 @@
 
 This is a bytecode compiler and virtual machine interpreter for the Lox programming language. Lox is dynamically typed, garbage collected, with first-class function closures, and classes and inheritance.
 
-A gentle, friendly introduction to Lox:
+### What sets this apart from other implementations?
+
+- Dockerfile for reproducible environment of compilers, tools, and builds.
+- Extensive unit and functional tests using Boost Test, and a Valgrind test to verify zero memory leaks.
+- Comparative benchmarks against jlox, clox, and node, using Google Benchmark.
+- Perf profiling tools and setup, following from [CppCon Chandler Carruth Tuning C++](https://www.youtube.com/watch?v=nXaxk27zwlk).
+- Embraced C++-isms, such as writing the token scanner as a forward iterator, which allows my compiler to use the familiar deref-increment pattern (`token = *token_iter++`).
+- Simple dependency container and argument passing. No globals or singletons.
+- Mark-and-sweep garbage collector is independent and relies only on the std library. It uses a smart-pointer style (`gc_ptr = gc_heap.make<string>("Hello")`), no inheritance required on collectable types, and I used function callback listeners to mark roots.
+
+### A gentle, friendly introduction to Lox:
 
     print "Hello, world!";
 
@@ -93,10 +103,9 @@ Docker will re-run the entire build stage when a single source changes. To get i
     # cmake --build .
     # ctest
 
-# Profile
+## Profile
 
 The perf target will *prepare* the project and tools, then you must run in a container with privileged access.
 
     docker run -it --privileged --rm cpploximg bash
-    # ./perf record -g ./perf_test
-    # ./perf report -g graph,0.5,caller
+    # ./perf record -g ./perf_test && ./perf report -g graph,0.5,caller
