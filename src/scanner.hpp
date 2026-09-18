@@ -5,64 +5,66 @@
 
 namespace motts::lox
 {
-// X-macro technique to re-use this list in multiple places.
-#define MOTTS_LOX_TOKEN_TYPE_NAMES \
-    X(eof) \
-\
-    /* Single-character tokens */ \
-    X(left_paren) \
-    X(right_paren) \
-    X(left_brace) \
-    X(right_brace) \
-    X(comma) \
-    X(dot) \
-    X(minus) \
-    X(plus) \
-    X(semicolon) \
-    X(slash) \
-    X(star) \
-\
-    /* One or two character tokens */ \
-    X(bang) \
-    X(bang_equal) \
-    X(equal) \
-    X(equal_equal) \
-    X(greater) \
-    X(greater_equal) \
-    X(less) \
-    X(less_equal) \
-\
-    /* Literals */ \
-    X(identifier) \
-    X(number) \
-    X(string) \
-\
-    /* Keywords */ \
-    X(and_) \
-    X(break_) \
-    X(class_) \
-    X(continue_) \
-    X(else_) \
-    X(false_) \
-    X(for_) \
-    X(fun) \
-    X(if_) \
-    X(nil) \
-    X(or_) \
-    X(print) \
-    X(return_) \
-    X(super) \
-    X(this_) \
-    X(true_) \
-    X(var) \
-    X(while_)
+    // clang-format off
+    // X-macro technique to re-use this list in multiple places.
+    #define MOTTS_LOX_TOKEN_TYPE_NAMES \
+        X(eof) \
+        \
+        /* Single-character tokens */ \
+        X(left_paren) \
+        X(right_paren) \
+        X(left_brace) \
+        X(right_brace) \
+        X(comma) \
+        X(dot) \
+        X(minus) \
+        X(plus) \
+        X(semicolon) \
+        X(slash) \
+        X(star) \
+        \
+        /* One or two character tokens */ \
+        X(bang) \
+        X(bang_equal) \
+        X(equal) \
+        X(equal_equal) \
+        X(greater) \
+        X(greater_equal) \
+        X(less) \
+        X(less_equal) \
+        \
+        /* Literals */ \
+        X(identifier) \
+        X(number) \
+        X(string) \
+        \
+        /* Keywords */ \
+        X(and_) \
+        X(break_) \
+        X(class_) \
+        X(continue_) \
+        X(else_) \
+        X(false_) \
+        X(for_) \
+        X(fun) \
+        X(if_) \
+        X(nil) \
+        X(or_) \
+        X(print) \
+        X(return_) \
+        X(super) \
+        X(this_) \
+        X(true_) \
+        X(var) \
+        X(while_)
 
     enum struct Token_type
     {
-#define X(name) name,
+        #define X(name) name,
         MOTTS_LOX_TOKEN_TYPE_NAMES
-#undef X
+        #undef X
     };
+    // clang-format on
 
     std::ostream& operator<<(std::ostream&, Token_type);
 

@@ -64,8 +64,16 @@ FROM bench AS perf
 
 FROM perf AS test
 
-    RUN apt update && apt install -y clang-format cppcheck valgrind
+    RUN apt update && apt install -y cppcheck valgrind
+
+    # Get clang-format from llvm rather than apt to get newer version.
     COPY .clang-format /project/src
+    RUN apt update && apt install -y gpg lsb-release wget
+    RUN wget https://apt.llvm.org/llvm.sh
+    RUN chmod +x llvm.sh
+    RUN ./llvm.sh 19 all
+    RUN ln -s /usr/lib/llvm-19/bin/clang-format
+
     RUN cmake ../src -GNinja -DENABLE_TEST=TRUE
     RUN cmake --build .
     RUN ctest --verbose --output-on-failure

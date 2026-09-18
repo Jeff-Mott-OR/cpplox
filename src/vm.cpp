@@ -227,19 +227,21 @@ namespace motts::lox
                     break;
             }
 
-                // Dumping the ever-changing stack is only needed for tests to verify correct behavior.
-                // But we're in a hot loop, and even this simple and usually false boolean check makes a difference.
-                // Wrap it in an NDEBUG macro so we can exclude this code in optimized builds but include it in test environments.
-#ifndef NDEBUG
-            if (debug_) {
-                os_ << "# Stack:\n";
-                for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
-                    const auto stack_index = stack_iter.base() - 1 - stack_.cbegin();
-                    os_ << std::setw(5) << std::setfill(' ') << std::right << stack_index << " : " << *stack_iter << '\n';
+                // clang-format off
+            // Dumping the ever-changing stack is only needed for tests to verify correct behavior.
+            // But we're in a hot loop, and even this simple and usually false boolean check makes a difference.
+            // Wrap it in an NDEBUG macro so we can exclude this code in optimized builds but include it in test environments.
+            #ifndef NDEBUG
+                if (debug_) {
+                    os_ << "# Stack:\n";
+                    for (auto stack_iter = stack_.crbegin(); stack_iter != stack_.crend(); ++stack_iter) {
+                        const auto stack_index = stack_iter.base() - 1 - stack_.cbegin();
+                        os_ << std::setw(5) << std::setfill(' ') << std::right << stack_index << " : " << *stack_iter << '\n';
+                    }
+                    os_ << '\n';
                 }
-                os_ << '\n';
-            }
-#endif
+            #endif
+            // clang-format on
         }
     }
 
@@ -271,27 +273,32 @@ namespace motts::lox
             const auto result = *maybe_double_lhs + *maybe_double_rhs;
 
             // Hot loop micro-optimization: Assign directly to stack
-            // In principle, I'm popping the two operands off the stack and pushing the result on.
-            // I, the human, know that the stack has capacity, because I popped two values just before.
-            // But the compiler doesn't know that, and push_back needs to check the capacity first.
-            // So instead I can assign the result over the first operand in the -2 stack slot,
-            // and then pop off the remaining second operand.
+            // In principle, I'm popping the two operands off the stack and pushing the result on. I, the human, know
+            // that the stack has capacity, because I popped two values just before. But the compiler doesn't know that,
+            // and push_back needs to check the capacity first. So instead I can assign the result over the first
+            // operand in the -2 stack slot, and then pop off the remaining second operand.
             *(stack_.end() - 2) = result;
             stack_.pop_back();
-        } else if (const auto maybe_string_lhs = std::get_if<GC_ptr<const std::string>>(&lhs),
-                   maybe_string_rhs = std::get_if<GC_ptr<const std::string>>(&rhs);
-                   maybe_string_lhs && maybe_string_rhs)
+
+            return;
+        }
+
+        if (const auto maybe_string_lhs = std::get_if<GC_ptr<const std::string>>(&lhs),
+            maybe_string_rhs = std::get_if<GC_ptr<const std::string>>(&rhs);
+            maybe_string_lhs && maybe_string_rhs)
         {
             auto result = **maybe_string_lhs + **maybe_string_rhs;
             // See hot loop micro-optimization: Assign directly to stack
             *(stack_.end() - 2) = interned_strings_.get(std::move(result));
             stack_.pop_back();
-        } else {
-            std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be two numbers or two strings.";
-            throw std::runtime_error{os.str()};
+
+            return;
         }
+
+        std::ostringstream os;
+        os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+           << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be two numbers or two strings.";
+        throw std::runtime_error{os.str()};
     }
 
     void VM::opcode_call(
@@ -308,9 +315,9 @@ namespace motts::lox
 
             if (closure->function->arity != arg_count) {
                 std::ostringstream os;
-                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-                   << "\": "
-                   << "Expected " << closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+                   << *source_map_tokens[bytecode_index].lexeme << "\": " << "Expected " << closure->function->arity
+                   << " arguments but got " << static_cast<int>(arg_count) << '.';
                 throw std::runtime_error{os.str()};
             }
 
@@ -325,9 +332,9 @@ namespace motts::lox
 
             if (unbound_closure->function->arity != arg_count) {
                 std::ostringstream os;
-                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-                   << "\": "
-                   << "Expected " << unbound_closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+                   << *source_map_tokens[bytecode_index].lexeme << "\": " << "Expected "
+                   << unbound_closure->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
                 throw std::runtime_error{os.str()};
             }
 
@@ -341,7 +348,7 @@ namespace motts::lox
 
         if (const auto maybe_class = std::get_if<GC_ptr<Class>>(&maybe_callable)) {
             // _When_ to run the collector is an important question.
-            // Clox does so before allocating new objects, so for now I'll do the same.
+            // Clox does before allocating new objects, so for now I'll do the same.
             maybe_collect_garbage();
 
             const auto& klass = *maybe_class;
@@ -350,16 +357,15 @@ namespace motts::lox
 
             if (arity != arg_count) {
                 std::ostringstream os;
-                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-                   << "\": "
-                   << "Expected " << arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+                   << *source_map_tokens[bytecode_index].lexeme << "\": " << "Expected " << arity
+                   << " arguments but got " << static_cast<int>(arg_count) << '.';
                 throw std::runtime_error{os.str()};
             }
 
-            // If there's no init method, then we'd pop the class and push the instance,
-            // so assigning the instance into the class slot has the same effect.
-            // But if there's an init method, then we need to prepare the stack like a bound method,
-            // which means putting the "this" instance in the class slot before the arguments.
+            // If there's no init method, then we'd pop the class and push the instance, so assigning the instance into
+            // the class slot has the same effect. But if there's an init method, then we need to prepare the stack like
+            // a bound method, which means putting the "this" instance in the class slot before the arguments.
             // Either way, the instance ends up in the same slot where the class was.
             *(stack_.end() - arg_count - 1) = gc_heap_.make<Instance>({klass});
 
@@ -380,8 +386,8 @@ namespace motts::lox
         }
 
         std::ostringstream os;
-        os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme << "\": "
-           << "Can only call functions and classes.";
+        os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+           << *source_map_tokens[bytecode_index].lexeme << "\": " << "Can only call functions and classes.";
         throw std::runtime_error{os.str()};
     }
 
@@ -392,14 +398,15 @@ namespace motts::lox
     {
         const auto class_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& class_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[class_name_constant_index]);
+        const auto& class_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[class_name_constant_index]);
         stack_.push_back(gc_heap_.make<Class>({class_name}));
     }
 
     void VM::opcode_close_upvalue(std::vector<GC_ptr<Upvalue>>& open_upvalues)
     {
-        // At compile-time, we lexically know we *might* capture an upvalue, and thus emit a close instruction instead of pop.
-        // But at runtime, the closure function might be conditional and might never create an open upvalue,
+        // At compile-time, we lexically know we *might* capture an upvalue, and thus emit a close instruction instead
+        // of pop. But at runtime, the closure function might be conditional and might never create an open upvalue,
         // so we need to check that we're not trying to close an upvalue that was never opened.
         if (! open_upvalues.empty() && open_upvalues.back()->stack_index() == stack_.size() - 1) {
             open_upvalues.back()->close();
@@ -474,8 +481,8 @@ namespace motts::lox
 
         if (! maybe_double_lhs || ! maybe_double_rhs) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be numbers.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be numbers.";
             throw std::runtime_error{os.str()};
         }
 
@@ -510,7 +517,8 @@ namespace motts::lox
     {
         const auto variable_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& variable_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
+        const auto& variable_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
         globals_[variable_name] = stack_.back();
         stack_.pop_back();
     }
@@ -525,18 +533,20 @@ namespace motts::lox
         const auto variable_name_constant_index = *bytecode_iter++;
 
         // Hot loop micro-optimization: Reinterpret variants
-        // In principle, I'm doing std::get on the variant value from constants, but std::get does a runtime check
-        // to ensure the variant holds the expected type. Instead, I will choose to trust the bytecode compiler,
-        // and so I used a reinterpret_cast to access the variant value in order to skip the runtime type check and summon dragons.
-        // I'm also assuming that the layout of the variant is value fist, tag last. If ever that assumption doesn't hold,
-        // then I'd expect the vm tests to fail loudly.
-        const auto& variable_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
+        // In principle, I'm doing std::get on the variant value from constants, but std::get does a runtime check to
+        // ensure the variant holds the expected type. Instead, I will choose to trust the bytecode compiler, and so I
+        // used a reinterpret_cast to access the variant value in order to skip the runtime type check and summon
+        // dragons. I'm also assuming that the layout of the variant is value fist, tag last. If ever that assumption
+        // doesn't hold, then I'd expect the vm tests to fail loudly.
+        const auto& variable_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
 
         const auto global_iter = globals_.find(variable_name);
         if (global_iter == globals_.cend()) {
             throw std::runtime_error{
-                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined variable \"" + *variable_name
-                + "\"."};
+                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined variable \""
+                + *variable_name + "\"."
+            };
         }
         stack_.push_back(global_iter->second);
     }
@@ -556,13 +566,14 @@ namespace motts::lox
     {
         const auto field_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& field_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
+        const auto& field_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
 
         const auto maybe_instance = std::get_if<GC_ptr<Instance>>(&stack_.back());
         if (! maybe_instance) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Only instances have fields.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Only instances have fields.";
             throw std::runtime_error{os.str()};
         }
         const auto& instance = *maybe_instance;
@@ -582,7 +593,9 @@ namespace motts::lox
         }
 
         throw std::runtime_error{
-            "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \"" + *field_name + "\"."};
+            "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \""
+            + *field_name + "\"."
+        };
     }
 
     void VM::opcode_get_super(
@@ -594,15 +607,17 @@ namespace motts::lox
     {
         const auto method_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& method_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[method_name_constant_index]);
+        const auto& method_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[method_name_constant_index]);
         const auto& superclass = std::get<GC_ptr<Class>>(*(stack_.cend() - 1));
         const auto& instance = std::get<GC_ptr<Instance>>(*(stack_.cend() - 2));
 
         const auto maybe_method_iter = superclass->methods.find(method_name);
         if (maybe_method_iter == superclass->methods.cend()) {
             throw std::runtime_error{
-                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \"" + *method_name
-                + "\"."};
+                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \""
+                + *method_name + "\"."
+            };
         }
 
         const auto new_bound_method = gc_heap_.make<Bound_method>({instance, maybe_method_iter->second});
@@ -628,8 +643,8 @@ namespace motts::lox
 
         if (! maybe_double_lhs || ! maybe_double_rhs) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be numbers.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be numbers.";
             throw std::runtime_error{os.str()};
         }
 
@@ -645,8 +660,8 @@ namespace motts::lox
         const auto maybe_parent_class = std::get_if<GC_ptr<Class>>(&*(stack_.end() - 1));
         if (! maybe_parent_class) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Superclass must be a class.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Superclass must be a class.";
             throw std::runtime_error{os.str()};
         }
         const auto& parent = *maybe_parent_class;
@@ -654,8 +669,8 @@ namespace motts::lox
         auto& child = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
         child->methods.insert(parent->methods.cbegin(), parent->methods.cend());
 
-        // The stack has parent above the child for inheritance, but now we push child
-        // back on top again so that the subsequent method opcodes will operate on child.
+        // The stack has parent above the child for inheritance,
+        // but now we push child back on top again so that the subsequent method opcodes will operate on child.
         stack_.push_back(child);
     }
 
@@ -669,7 +684,8 @@ namespace motts::lox
         const auto field_name_constant_index = *bytecode_iter++;
         const auto arg_count = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& field_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
+        const auto& field_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
         auto& instance = std::get<GC_ptr<Instance>>(*(stack_.end() - arg_count - 1));
 
         const auto maybe_field_iter = instance->fields.find(field_name);
@@ -677,7 +693,6 @@ namespace motts::lox
             const auto maybe_closure = std::get_if<GC_ptr<Closure>>(&maybe_field_iter->second);
             if (maybe_closure) {
                 run(*maybe_closure, stack_.size() - arg_count - 1);
-
                 return;
             }
 
@@ -693,9 +708,8 @@ namespace motts::lox
             }
 
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": "
-               << "Can only call functions and classes.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": " << "Can only call functions and classes.";
             throw std::runtime_error{os.str()};
         }
 
@@ -704,9 +718,9 @@ namespace motts::lox
             const auto& method = maybe_method_iter->second;
             if (method->function->arity != arg_count) {
                 std::ostringstream os;
-                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-                   << "\": "
-                   << "Expected " << method->function->arity << " arguments but got " << static_cast<int>(arg_count) << '.';
+                os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+                   << *source_map_tokens[bytecode_index].lexeme << "\": " << "Expected " << method->function->arity
+                   << " arguments but got " << static_cast<int>(arg_count) << '.';
                 throw std::runtime_error{os.str()};
             }
 
@@ -716,7 +730,9 @@ namespace motts::lox
         }
 
         throw std::runtime_error{
-            "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \"" + *field_name + "\"."};
+            "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \""
+            + *field_name + "\"."
+        };
     }
 
     void VM::opcode_jump_loop(const Opcode& opcode, std::vector<std::uint8_t>::const_iterator& bytecode_iter)
@@ -754,8 +770,8 @@ namespace motts::lox
 
         if (! maybe_double_lhs || ! maybe_double_rhs) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be numbers.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be numbers.";
             throw std::runtime_error{os.str()};
         }
 
@@ -773,7 +789,8 @@ namespace motts::lox
     {
         const auto method_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& method_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[method_name_constant_index]);
+        const auto& method_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[method_name_constant_index]);
         const auto& closure = std::get<GC_ptr<Closure>>(*(stack_.cend() - 1));
         auto& klass = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
 
@@ -788,8 +805,8 @@ namespace motts::lox
 
         if (! maybe_double_lhs || ! maybe_double_rhs) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be numbers.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be numbers.";
             throw std::runtime_error{os.str()};
         }
 
@@ -806,8 +823,8 @@ namespace motts::lox
 
         if (! maybe_double_value) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operand must be a number.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operand must be a number.";
             throw std::runtime_error{os.str()};
         }
 
@@ -854,13 +871,15 @@ namespace motts::lox
     {
         const auto variable_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& variable_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
+        const auto& variable_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[variable_name_constant_index]);
 
         const auto global_iter = globals_.find(variable_name);
         if (global_iter == globals_.cend()) {
             throw std::runtime_error{
-                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined variable \"" + *variable_name
-                + "\"."};
+                "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined variable \""
+                + *variable_name + "\"."
+            };
         }
         global_iter->second = stack_.back();
     }
@@ -880,13 +899,14 @@ namespace motts::lox
     {
         const auto field_name_constant_index = *bytecode_iter++;
         // See hot loop micro-optimization: Reinterpret variants
-        const auto& field_name = reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
+        const auto& field_name =
+            reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
 
         const auto maybe_instance = std::get_if<GC_ptr<Instance>>(&*(stack_.end() - 1));
         if (! maybe_instance) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Only instances have fields.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Only instances have fields.";
             throw std::runtime_error{os.str()};
         }
         auto& instance = *maybe_instance;
@@ -911,8 +931,8 @@ namespace motts::lox
 
         if (! maybe_double_lhs || ! maybe_double_rhs) {
             std::ostringstream os;
-            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \"" << *source_map_tokens[bytecode_index].lexeme
-               << "\": Operands must be numbers.";
+            os << "[Line " << source_map_tokens[bytecode_index].line << "] Error at \""
+               << *source_map_tokens[bytecode_index].lexeme << "\": Operands must be numbers.";
             throw std::runtime_error{os.str()};
         }
 

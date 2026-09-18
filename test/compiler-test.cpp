@@ -656,7 +656,9 @@ BOOST_AUTO_TEST_CASE(redeclared_local_vars_will_throw)
     try {
         expect_to_throw();
     } catch (const std::exception& error) {
-        BOOST_TEST(error.what() == "[Line 1] Error at \"x\": Identifier with this name already declared in this scope.");
+        BOOST_TEST(
+            error.what() == "[Line 1] Error at \"x\": Identifier with this name already declared in this scope."
+        );
     }
 }
 

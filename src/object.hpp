@@ -35,7 +35,8 @@ namespace motts::lox
         GC_ptr<Function> function;
         std::vector<GC_ptr<Upvalue>> upvalues;
 
-        // Following Lua, we’ll use "open upvalue" to refer to an upvalue that points to a local variable still on the stack.
+        // Following Lua, we’ll use "open upvalue" to refer to an upvalue
+        // that points to a local variable still on the stack.
         std::vector<GC_ptr<Upvalue>> open_upvalues;
 
         Closure(GC_ptr<Function>);
@@ -74,8 +75,8 @@ namespace motts::lox
     {
         struct Open
         {
-            // These two fields can be thought of as an iterator into the stack,
-            // but iterators can be invalidated, so instead keep a stack reference and index.
+            // These two fields can be thought of as an iterator into the stack, but iterators can be invalidated,
+            // so instead keep a stack reference and index.
             std::vector<Dynamic_type_value>& stack;
             const std::size_t stack_index;
         };

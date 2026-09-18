@@ -85,7 +85,7 @@ namespace motts::lox
 
     const Dynamic_type_value& Upvalue::value() const
     {
-        if (const auto* closed = std::get_if<Closed>(&value_)) {
+        if (const auto closed = std::get_if<Closed>(&value_)) {
             return closed->value;
         }
 

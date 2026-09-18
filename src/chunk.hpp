@@ -13,56 +13,56 @@
 
 namespace motts::lox
 {
-    // Internally, these opcodes could be listed in any order and work fine.
-    // But for the generated opcode values to match clox opcodes
-    // (which isn't necessarily important to do), then this order has to match clox.
-    // X-macro technique to re-use this list in multiple places.
-
-#define MOTTS_LOX_OPCODE_NAMES \
-    X(constant) \
-    X(nil) \
-    X(true_) \
-    X(false_) \
-    X(pop) \
-    X(get_local) \
-    X(set_local) \
-    X(get_global) \
-    X(define_global) \
-    X(set_global) \
-    X(get_upvalue) \
-    X(set_upvalue) \
-    X(get_property) \
-    X(set_property) \
-    X(get_super) \
-    X(equal) \
-    X(greater) \
-    X(less) \
-    X(add) \
-    X(subtract) \
-    X(multiply) \
-    X(divide) \
-    X(not_) \
-    X(negate) \
-    X(print) \
-    X(jump) \
-    X(jump_if_false) \
-    X(loop) \
-    X(call) \
-    X(invoke) \
-    X(super_invoke) \
-    X(closure) \
-    X(close_upvalue) \
-    X(return_) \
-    X(class_) \
-    X(inherit) \
-    X(method)
+    // clang-format off
+    // Internally, these opcodes could be listed in any order and work fine. But for the generated opcode values to match
+    // clox opcodes (which isn't necessarily important to do), then this order has to match clox. X-macro technique to
+    // re-use this list in multiple places.
+    #define MOTTS_LOX_OPCODE_NAMES \
+        X(constant) \
+        X(nil) \
+        X(true_) \
+        X(false_) \
+        X(pop) \
+        X(get_local) \
+        X(set_local) \
+        X(get_global) \
+        X(define_global) \
+        X(set_global) \
+        X(get_upvalue) \
+        X(set_upvalue) \
+        X(get_property) \
+        X(set_property) \
+        X(get_super) \
+        X(equal) \
+        X(greater) \
+        X(less) \
+        X(add) \
+        X(subtract) \
+        X(multiply) \
+        X(divide) \
+        X(not_) \
+        X(negate) \
+        X(print) \
+        X(jump) \
+        X(jump_if_false) \
+        X(loop) \
+        X(call) \
+        X(invoke) \
+        X(super_invoke) \
+        X(closure) \
+        X(close_upvalue) \
+        X(return_) \
+        X(class_) \
+        X(inherit) \
+        X(method)
 
     enum struct Opcode
     {
-#define X(name) name,
+        #define X(name) name,
         MOTTS_LOX_OPCODE_NAMES
-#undef X
+        #undef X
     };
+    // clang-format on
 
     std::ostream& operator<<(std::ostream&, Opcode);
 
@@ -86,12 +86,10 @@ namespace motts::lox
         bool operator==(const UpUpvalue_index&) const = default;
     };
 
-    // Wrapping an int in another type let's us distinguish between them in a variant.
-    // Alternatively, we could have used a boolean to discriminate the int's meaning,
-    // but a variant lets us use the type system to ensure correctness,
-    // and it still compiles to the same binary.
-    // An upvalue is an index into the parent scope's list of locals,
-    // and upupvalue is an index into the parent scope's list of upvalues.
+    // Wrapping an int in another type let's us distinguish between them in a variant. Alternatively, we could have used
+    // a boolean to discriminate the int's meaning, but a variant lets us use the type system to ensure correctness, and
+    // it still compiles to the same binary. An upvalue is an index into the parent scope's list of locals, and
+    // upupvalue is an index into the parent scope's list of upvalues.
     using Tracked_upvalue = std::variant<Upvalue_index, UpUpvalue_index>;
 
     // A chunk of bytecode.
@@ -101,32 +99,30 @@ namespace motts::lox
         std::vector<Dynamic_type_value> constants_;
         std::vector<Source_map_token> source_map_tokens_;
 
-        // When we need to patch previous bytecode with a jump distance, then use `Jump_backpatch` to
-        // remember the position of the jump instruction and to apply the patch.
+        // When we need to patch previous bytecode with a jump distance, then use `Jump_backpatch` to remember the
+        // position of the jump instruction and to apply the patch.
         class Jump_backpatch
         {
-            // WARNING! Holds a non-owning reference to bytecode vector.
-            // If the owning chunk is moved from, then the member vector will also move,
-            // and this reference will be invalid.
+            // WARNING! Holds a non-owning reference to bytecode vector. If the owning chunk is moved from, then the
+            // member vector will also move, and this reference will be invalid.
             std::vector<std::uint8_t>& bytecode_;
             const std::size_t jump_begin_index_;
 
           public:
-            // At the moment of construction, the chunk's bytecode vector is expected to end
-            // with two placeholder jump distance bytes.
-            // The constructor will remember the position of those two bytes.
+            // At the moment of construction, the chunk's bytecode vector is expected to end with two placeholder jump
+            // distance bytes. The constructor will remember the position of those two bytes.
             Jump_backpatch(std::vector<std::uint8_t>& bytecode);
 
-            // Calculate the jump distance from the placeholder bytes to the current end of the bytecode.
-            // The placeholder bytes will be patched with the calculated distance.
+            // Calculate the jump distance from the placeholder bytes to the current end of the bytecode. The
+            // placeholder bytes will be patched with the calculated distance.
             void to_next_opcode();
         };
 
         // Emit a raw byte.
         void emit(std::uint8_t, const Source_map_token&);
 
-        // Insert into the constants vector, with deduplication.
-        // Returns the index into the constants vector of the inserted value.
+        // Insert into the constants vector, with deduplication. Returns the index into the constants vector of the
+        // inserted value.
         std::size_t insert_constant(const Dynamic_type_value&);
 
       public:
@@ -153,8 +149,8 @@ namespace motts::lox
         template<Opcode>
         void emit(const Source_map_token&);
 
-        // This template is for the *_global/class/method/*_property opcodes.
-        // The cpp file will instantiate the compatible opcodes.
+        // This template is for the *_global/class/method/*_property opcodes. The cpp file will instantiate the
+        // compatible opcodes.
         // Example usage:
         //     chunk.emit<Opcode::define_global>(global_name, token);
         //     chunk.emit<Opcode::get_property>(property_name, token);

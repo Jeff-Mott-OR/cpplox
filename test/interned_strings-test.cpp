@@ -15,7 +15,10 @@ BOOST_AUTO_TEST_CASE(interned_string_views_make_owning_copy_and_dedup)
     const auto interned_str_gc_ptr = interned_strings.get(str_view);
 
     BOOST_TEST(*interned_str_gc_ptr == str_view);
-    BOOST_TEST(reinterpret_cast<const void*>(&*(interned_str_gc_ptr->cbegin())) != reinterpret_cast<const void*>(&*(str_view.cbegin())));
+    BOOST_TEST(
+        reinterpret_cast<const void*>(&*(interned_str_gc_ptr->cbegin()))
+        != reinterpret_cast<const void*>(&*(str_view.cbegin()))
+    );
 
     std::string_view str_view_2{"hello"};
     const auto interned_str_gc_ptr_2 = interned_strings.get(str_view_2);

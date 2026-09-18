@@ -19,11 +19,13 @@ namespace motts::lox
 
     void run_file(Lox& lox, const std::string& file_path)
     {
-        // Immediately invoked lambdas to encapsulate initialization of const variables and to dispose objects the RAII way.
+        // Immediately invoked lambdas to encapsulate initialization of const variables
+        // and to dispose objects the RAII way.
         const auto bytecode = [&] {
             const auto source = [&] {
                 std::ifstream file_stream{file_path};
                 file_stream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+
                 return std::string{std::istreambuf_iterator<char>{file_stream}, {}};
             }();
 

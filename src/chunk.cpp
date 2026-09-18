@@ -22,17 +22,21 @@ namespace motts::lox
                     throw std::logic_error{"Unexpected opcode."};
                 }
 
-#define X(name) \
-    case Opcode::name: \
-        return std::string_view{#name};
-                    MOTTS_LOX_OPCODE_NAMES
-#undef X
+                // clang-format off
+                #define X(name) \
+                    case Opcode::name: \
+                        return std::string_view{#name};
+                MOTTS_LOX_OPCODE_NAMES
+                #undef X
+                    // clang-format on
             }
         }();
 
         // Names should print as uppercase without trailing underscores.
         const auto trimmed_end_iter = *(opcode_name.cend() - 1) == '_' ? opcode_name.cend() - 1 : opcode_name.cend();
-        std::transform(opcode_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) { return std::toupper(c); });
+        std::transform(opcode_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) {
+            return std::toupper(c);
+        });
 
         return os;
     }
@@ -131,7 +135,11 @@ namespace motts::lox
         emit(gsl::narrow<std::uint8_t>(arg_count), token);
     }
 
-    void Chunk::emit_closure(GC_ptr<Function> fn, std::span<const Tracked_upvalue> tracked_upvalues, const Source_map_token& token)
+    void Chunk::emit_closure(
+        GC_ptr<Function> fn,
+        std::span<const Tracked_upvalue> tracked_upvalues,
+        const Source_map_token& token
+    )
     {
         const auto fn_constant_index = insert_constant(fn);
 
@@ -140,8 +148,8 @@ namespace motts::lox
         emit(gsl::narrow<std::uint8_t>(tracked_upvalues.size()), token);
 
         for (const auto& tracked_upvalue : tracked_upvalues) {
-            // To match clox opcodes (which isn't necessarily important to do),
-            // a `1` means parent local, and a `0` means parent upvalue.
+            // To match clox opcodes (which isn't necessarily important to do), a `1` means parent local, and a `0`
+            // means parent upvalue.
             if (const auto upvalue = std::get_if<Upvalue_index>(&tracked_upvalue)) {
                 emit(1, token);
                 emit(gsl::narrow<std::uint8_t>(upvalue->enclosing_locals_index), token);
@@ -161,7 +169,8 @@ namespace motts::lox
         emit(gsl::narrow<std::uint8_t>(constant_index), token);
     }
 
-    void Chunk::emit_invoke(GC_ptr<const std::string> identifier_name, unsigned int arg_count, const Source_map_token& token)
+    void
+    Chunk::emit_invoke(GC_ptr<const std::string> identifier_name, unsigned int arg_count, const Source_map_token& token)
     {
         const auto constant_index = insert_constant(identifier_name);
 
@@ -211,8 +220,8 @@ namespace motts::lox
             std::vector<std::string> lines;
             std::ostringstream line;
 
-            line << std::setw(5) << std::setfill(' ') << bytecode_index << " : " << std::setw(2) << std::setfill('0') << std::setbase(16)
-                 << static_cast<int>(opcode) << ' ';
+            line << std::setw(5) << std::setfill(' ') << bytecode_index << " : " << std::setw(2) << std::setfill('0')
+                 << std::setbase(16) << static_cast<int>(opcode) << ' ';
 
             switch (opcode) {
                 default: {
@@ -242,8 +251,8 @@ namespace motts::lox
 
                 case Opcode::call: {
                     const auto arg_count = *bytecode_iter++;
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count) << "    " << opcode << " ("
-                         << std::setbase(10) << static_cast<int>(arg_count) << ')';
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count)
+                         << "    " << opcode << " (" << std::setbase(10) << static_cast<int>(arg_count) << ')';
 
                     break;
                 }
@@ -251,10 +260,10 @@ namespace motts::lox
                 case Opcode::invoke: {
                     const auto lookup_index = *bytecode_iter++;
                     const auto arg_count = *bytecode_iter++;
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(lookup_index) << ' ' << std::setw(2)
-                         << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count) << ' ' << opcode << " ["
-                         << std::setbase(10) << static_cast<int>(lookup_index) << "] (" << std::setbase(10) << static_cast<int>(arg_count)
-                         << ')';
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(lookup_index)
+                         << ' ' << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(arg_count)
+                         << ' ' << opcode << " [" << std::setbase(10) << static_cast<int>(lookup_index) << "] ("
+                         << std::setbase(10) << static_cast<int>(arg_count) << ')';
 
                     break;
                 }
@@ -273,8 +282,8 @@ namespace motts::lox
                 case Opcode::set_property:
                 case Opcode::set_upvalue: {
                     const auto lookup_index = *bytecode_iter++;
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(lookup_index) << "    " << opcode
-                         << " [" << std::setbase(10) << static_cast<int>(lookup_index) << ']';
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(lookup_index)
+                         << "    " << opcode << " [" << std::setbase(10) << static_cast<int>(lookup_index) << ']';
 
                     break;
                 }
@@ -283,10 +292,10 @@ namespace motts::lox
                     const auto fn_constant_index = *bytecode_iter++;
                     const auto n_tracked_upvalues = *bytecode_iter++;
 
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(fn_constant_index) << ' '
-                         << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(n_tracked_upvalues) << ' ' << opcode
-                         << " [" << std::setbase(10) << static_cast<int>(fn_constant_index) << "] (" << static_cast<int>(n_tracked_upvalues)
-                         << ')';
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(fn_constant_index)
+                         << ' ' << std::setw(2) << std::setfill('0') << std::setbase(16)
+                         << static_cast<int>(n_tracked_upvalues) << ' ' << opcode << " [" << std::setbase(10)
+                         << static_cast<int>(fn_constant_index) << "] (" << static_cast<int>(n_tracked_upvalues) << ')';
 
                     for (auto n_tracked_upvalue = 0; n_tracked_upvalue != n_tracked_upvalues; ++n_tracked_upvalue) {
                         const auto is_direct_capture = *bytecode_iter++;
@@ -294,9 +303,9 @@ namespace motts::lox
 
                         lines.push_back(std::move(line).str());
                         line << "           " << std::setw(2) << std::setfill('0') << std::setbase(16)
-                             << static_cast<int>(is_direct_capture) << ' ' << std::setw(2) << std::setfill('0') << std::setbase(16)
-                             << static_cast<int>(enclosing_index) << " | " << (is_direct_capture ? "^" : "^^") << " ["
-                             << static_cast<int>(enclosing_index) << ']';
+                             << static_cast<int>(is_direct_capture) << ' ' << std::setw(2) << std::setfill('0')
+                             << std::setbase(16) << static_cast<int>(enclosing_index) << " | "
+                             << (is_direct_capture ? "^" : "^^") << " [" << static_cast<int>(enclosing_index) << ']';
                     }
 
                     break;
@@ -312,9 +321,10 @@ namespace motts::lox
                     const auto jump_distance_high_byte = *bytecode_iter++;
                     const auto jump_distance_low_byte = *bytecode_iter++;
 
-                    line << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(jump_distance_high_byte) << ' '
-                         << std::setw(2) << std::setfill('0') << std::setbase(16) << static_cast<int>(jump_distance_low_byte) << ' '
-                         << opcode << ' ' << (opcode == Opcode::loop ? '-' : '+') << std::setbase(10) << jump_distance << " -> "
+                    line << std::setw(2) << std::setfill('0') << std::setbase(16)
+                         << static_cast<int>(jump_distance_high_byte) << ' ' << std::setw(2) << std::setfill('0')
+                         << std::setbase(16) << static_cast<int>(jump_distance_low_byte) << ' ' << opcode << ' '
+                         << (opcode == Opcode::loop ? '-' : '+') << std::setbase(10) << jump_distance << " -> "
                          << jump_target;
 
                     break;
@@ -323,7 +333,8 @@ namespace motts::lox
 
             lines.push_back(std::move(line).str());
             for (const auto& line : lines) {
-                os << std::setw(40) << std::setfill(' ') << std::left << line << " ; " << *token.lexeme << " @ " << token.line << '\n';
+                os << std::setw(40) << std::setfill(' ') << std::left << line << " ; " << *token.lexeme << " @ "
+                   << token.line << '\n';
             }
         }
 
@@ -331,7 +342,9 @@ namespace motts::lox
         if (chunk.constants().empty()) {
             os << "    -\n";
         } else {
-            for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend(); ++constant_iter) {
+            for (auto constant_iter = chunk.constants().cbegin(); constant_iter != chunk.constants().cend();
+                 ++constant_iter)
+            {
                 const auto constant_index = constant_iter - chunk.constants().cbegin();
                 os << std::setw(5) << std::right << constant_index << " : " << *constant_iter << '\n';
             }

@@ -30,8 +30,9 @@ namespace motts::lox
         }
         gray_worklist_.shrink_to_fit();
 
-        const auto not_marked_begin =
-            std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto& control_block) { return control_block->marked; });
+        const auto not_marked_begin = std::partition(all_ptrs_.begin(), all_ptrs_.end(), [](const auto& control_block) {
+            return control_block->marked;
+        });
         std::for_each(not_marked_begin, all_ptrs_.end(), [&](const auto& control_block) {
             for (const auto& on_destroy_fn : on_destroy_ptr) {
                 on_destroy_fn(*control_block);

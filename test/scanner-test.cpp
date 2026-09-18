@@ -153,7 +153,9 @@ BOOST_AUTO_TEST_CASE(unterminated_strings_will_throw)
 BOOST_AUTO_TEST_CASE(some_identifiers_will_be_keywords)
 {
     std::ostringstream os;
-    motts::lox::Token_iterator token_iter{"and break class continue else false for fun if nil or print return super this true var while"};
+    motts::lox::Token_iterator token_iter{
+        "and break class continue else false for fun if nil or print return super this true var while"
+    };
     motts::lox::Token_iterator token_iter_end;
     for (; token_iter != token_iter_end; ++token_iter) {
         os << *token_iter << '\n';

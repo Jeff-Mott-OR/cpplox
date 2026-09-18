@@ -17,17 +17,21 @@ namespace motts::lox
                     throw std::logic_error{"Unexpected token type."};
                 }
 
-#define X(name) \
-    case Token_type::name: \
-        return std::string_view{#name};
-                    MOTTS_LOX_TOKEN_TYPE_NAMES
-#undef X
+                // clang-format off
+                #define X(name) \
+                    case Token_type::name: \
+                        return std::string_view{#name};
+                MOTTS_LOX_TOKEN_TYPE_NAMES
+                #undef X
+                    // clang-format on
             }
         }();
 
         // Names should print as uppercase without trailing underscores.
         const auto trimmed_end_iter = *(token_name.cend() - 1) == '_' ? token_name.cend() - 1 : token_name.cend();
-        std::transform(token_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) { return std::toupper(c); });
+        std::transform(token_name.cbegin(), trimmed_end_iter, std::ostream_iterator<char>{os}, [](auto c) {
+            return std::toupper(c);
+        });
 
         return os;
     }
@@ -108,7 +112,9 @@ namespace motts::lox
 
             switch (next_char) {
                 default:
-                    throw std::runtime_error{"[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."};
+                    throw std::runtime_error{
+                        "[Line " + std::to_string(line_) + "] Error: Unexpected character \"" + next_char + "\"."
+                    };
 
                 case '"':
                     return scan_string_token();
@@ -158,13 +164,29 @@ namespace motts::lox
                     return Token{Token_type::star, {token_begin_, token_end_}, line_};
 
                 case '!':
-                    return {scan_if_match('=') ? Token_type::bang_equal : Token_type::bang, {token_begin_, token_end_}, line_};
+                    return {
+                        scan_if_match('=') ? Token_type::bang_equal : Token_type::bang,
+                        {token_begin_, token_end_},
+                        line_
+                    };
                 case '=':
-                    return {scan_if_match('=') ? Token_type::equal_equal : Token_type::equal, {token_begin_, token_end_}, line_};
+                    return {
+                        scan_if_match('=') ? Token_type::equal_equal : Token_type::equal,
+                        {token_begin_, token_end_},
+                        line_
+                    };
                 case '>':
-                    return {scan_if_match('=') ? Token_type::greater_equal : Token_type::greater, {token_begin_, token_end_}, line_};
+                    return {
+                        scan_if_match('=') ? Token_type::greater_equal : Token_type::greater,
+                        {token_begin_, token_end_},
+                        line_
+                    };
                 case '<':
-                    return {scan_if_match('=') ? Token_type::less_equal : Token_type::less, {token_begin_, token_end_}, line_};
+                    return {
+                        scan_if_match('=') ? Token_type::less_equal : Token_type::less,
+                        {token_begin_, token_end_},
+                        line_
+                    };
             }
         }
 
@@ -215,7 +237,9 @@ namespace motts::lox
         }
 
         // Fractional part.
-        if (token_end_ != source_end_ && *token_end_ == '.' && (token_end_ + 1) != source_end_ && std::isdigit(*(token_end_ + 1))) {
+        if (token_end_ != source_end_ && *token_end_ == '.' && (token_end_ + 1) != source_end_
+            && std::isdigit(*(token_end_ + 1)))
+        {
             // Consume the "." and digit.
             token_end_ += 2;
 

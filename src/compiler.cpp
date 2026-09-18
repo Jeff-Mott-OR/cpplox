@@ -44,8 +44,8 @@ namespace motts::lox
         Interned_strings& interned_strings;
         Token_iterator token_iter;
         unsigned int scope_depth{0};
-        // The function chunk objects will be local variables that live on the stack,
-        // and this vector of pointers merely gives a convenient way to iterate through them.
+        // The function chunk objects will be local variables that live on the stack, and this vector of pointers merely
+        // gives a convenient way to iterate through them.
         std::vector<Function_chunk*> function_chunks;
 
         Compiler(GC_heap& gc_heap_arg, Interned_strings& interned_strings_arg, std::string_view source)
@@ -79,8 +79,8 @@ namespace motts::lox
             return false;
         }
 
-        // The work we do to get or set a variable is the same but for the opcodes we emit.
-        // And so a getter can instantiate this template with the getter opcodes, and a setter with the setter opcodes.
+        // The work we do to get or set a variable is the same but for the opcodes we emit. And so a getter can
+        // instantiate this template with the getter opcodes, and a setter with the setter opcodes.
         template<Opcode local_getset_opcode, Opcode upvalue_getset_opcode, Opcode global_getset_opcode>
         void emit_getter_setter(const Source_map_token& identifier_token)
         {
@@ -88,9 +88,10 @@ namespace motts::lox
             auto& chunk = fn_chunk.chunk;
             const auto& tracked_locals = fn_chunk.tracked_locals;
 
-            const auto maybe_local_iter = std::find_if(tracked_locals.crbegin(), tracked_locals.crend(), [&](const auto& tracked_local) {
-                return tracked_local.name == *identifier_token.lexeme;
-            });
+            const auto maybe_local_iter =
+                std::find_if(tracked_locals.crbegin(), tracked_locals.crend(), [&](const auto& tracked_local) {
+                    return tracked_local.name == *identifier_token.lexeme;
+                });
             if (maybe_local_iter != tracked_locals.crend()) {
                 const auto local_iter = maybe_local_iter.base() - 1;
 
@@ -157,9 +158,10 @@ namespace motts::lox
             auto& fn_chunk = *function_chunks.back();
             auto& tracked_locals = fn_chunk.tracked_locals;
 
-            const auto maybe_redeclared_iter = std::find_if(tracked_locals.cbegin(), tracked_locals.cend(), [&](const auto& tracked_local) {
-                return tracked_local.depth == scope_depth && tracked_local.name == *identifier_token.lexeme;
-            });
+            const auto maybe_redeclared_iter =
+                std::find_if(tracked_locals.cbegin(), tracked_locals.cend(), [&](const auto& tracked_local) {
+                    return tracked_local.depth == scope_depth && tracked_local.name == *identifier_token.lexeme;
+                });
             if (maybe_redeclared_iter != tracked_locals.cend()) {
                 std::ostringstream os;
                 os << "[Line " << identifier_token.line << "] Error at \"" << *identifier_token.lexeme
@@ -173,7 +175,9 @@ namespace motts::lox
         std::vector<Tracked_upvalue>::const_iterator track_upvalue(std::string_view identifier_name)
         {
             // Using a reverse iterator to start at the nearest parent function and work backward.
-            for (auto enclosing_fn_iter = function_chunks.rbegin() + 1; enclosing_fn_iter != function_chunks.rend(); ++enclosing_fn_iter) {
+            for (auto enclosing_fn_iter = function_chunks.rbegin() + 1; enclosing_fn_iter != function_chunks.rend();
+                 ++enclosing_fn_iter)
+            {
                 auto& enclosing_locals = (*enclosing_fn_iter)->tracked_locals;
 
                 const auto maybe_enclosing_local_iter =
@@ -192,22 +196,21 @@ namespace motts::lox
                 auto& directly_capturing_fn = **(enclosing_fn_iter - 1);
                 auto& tracked_upvalues = directly_capturing_fn.tracked_upvalues;
                 auto next_enclosing_upvalue_index = [&] {
-                    const auto maybe_existing_upvalue_iter = std::find(tracked_upvalues.cbegin(), tracked_upvalues.cend(), tracked_upvalue);
+                    const auto maybe_existing_upvalue_iter =
+                        std::find(tracked_upvalues.cbegin(), tracked_upvalues.cend(), tracked_upvalue);
                     if (maybe_existing_upvalue_iter != tracked_upvalues.cend()) {
-                        const auto upvalue_index = gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - tracked_upvalues.cbegin());
-
-                        return upvalue_index;
-                    } else {
-                        const auto upvalue_index = gsl::narrow<unsigned int>(tracked_upvalues.size());
-                        tracked_upvalues.push_back(tracked_upvalue);
-
+                        const auto upvalue_index =
+                            gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - tracked_upvalues.cbegin());
                         return upvalue_index;
                     }
+
+                    const auto upvalue_index = gsl::narrow<unsigned int>(tracked_upvalues.size());
+                    tracked_upvalues.push_back(tracked_upvalue);
+                    return upvalue_index;
                 }();
 
-                // Then walk back down the nested functions of indirect capture levels
-                // that point to an enclosing upvalue.
-                // Switch back to forward iterator through the nested functions.
+                // Then walk back down the nested functions of indirect capture levels that point to an enclosing
+                // upvalue. Switch back to forward iterator through the nested functions.
                 for (auto indirectly_capturing_fn_iter = (enclosing_fn_iter - 1).base();
                      indirectly_capturing_fn_iter != function_chunks.cend();
                      ++indirectly_capturing_fn_iter)
@@ -215,10 +218,14 @@ namespace motts::lox
                     auto& enclosing_fn_chunk = **indirectly_capturing_fn_iter;
                     auto& tracked_upvalues = enclosing_fn_chunk.tracked_upvalues;
 
-                    const Tracked_upvalue tracked_upvalue{UpUpvalue_index{gsl::narrow<unsigned int>(next_enclosing_upvalue_index)}};
-                    const auto maybe_existing_upvalue_iter = std::find(tracked_upvalues.cbegin(), tracked_upvalues.cend(), tracked_upvalue);
+                    const Tracked_upvalue tracked_upvalue{
+                        UpUpvalue_index{gsl::narrow<unsigned int>(next_enclosing_upvalue_index)}
+                    };
+                    const auto maybe_existing_upvalue_iter =
+                        std::find(tracked_upvalues.cbegin(), tracked_upvalues.cend(), tracked_upvalue);
                     if (maybe_existing_upvalue_iter != tracked_upvalues.cend()) {
-                        next_enclosing_upvalue_index = gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - tracked_upvalues.cbegin());
+                        next_enclosing_upvalue_index =
+                            gsl::narrow<unsigned int>(maybe_existing_upvalue_iter - tracked_upvalues.cbegin());
                     } else {
                         next_enclosing_upvalue_index = gsl::narrow<unsigned int>(tracked_upvalues.size());
                         tracked_upvalues.push_back(tracked_upvalue);
@@ -261,7 +268,9 @@ namespace motts::lox
                     const auto param_count = compile_function_rest(fun_token);
 
                     chunk.emit_closure(
-                        gc_heap.make<Function>({interned_strings.get(""), param_count, std::move(inner_function_chunk.chunk)}),
+                        gc_heap.make<Function>(
+                            {interned_strings.get(""), param_count, std::move(inner_function_chunk.chunk)}
+                        ),
                         inner_function_chunk.tracked_upvalues,
                         fun_token
                     );
@@ -296,7 +305,10 @@ namespace motts::lox
                 }
 
                 case Token_type::string: {
-                    const std::string_view quote_marks_trimmed{token_iter->lexeme.cbegin() + 1, token_iter->lexeme.cend() - 1};
+                    const std::string_view quote_marks_trimmed{
+                        token_iter->lexeme.cbegin() + 1,
+                        token_iter->lexeme.cend() - 1
+                    };
                     chunk.emit_constant(interned_strings.get(quote_marks_trimmed), source_map_token(*token_iter++));
 
                     break;
@@ -600,7 +612,9 @@ namespace motts::lox
                     if (property_name_tokens.empty()) {
                         if (variable_name_token.lexeme == "this") {
                             throw std::runtime_error{
-                                "[Line " + std::to_string(equal_token.line) + "] Error at \"=\": Invalid assignment target."};
+                                "[Line " + std::to_string(equal_token.line)
+                                + "] Error at \"=\": Invalid assignment target."
+                            };
                         }
 
                         emit_setter(source_map_token(variable_name_token));
@@ -608,8 +622,10 @@ namespace motts::lox
                         auto& chunk = function_chunks.back()->chunk;
 
                         emit_getter(source_map_token(variable_name_token));
-                        for (auto property_name_iter = property_name_tokens.cbegin(); property_name_iter != property_name_tokens.cend() - 1;
-                             ++property_name_iter) {
+                        for (auto property_name_iter = property_name_tokens.cbegin();
+                             property_name_iter != property_name_tokens.cend() - 1;
+                             ++property_name_iter)
+                        {
                             const auto property_name_token = source_map_token(*property_name_iter);
                             chunk.emit<Opcode::get_property>(property_name_token.lexeme, property_name_token);
                         }
@@ -631,7 +647,9 @@ namespace motts::lox
 
             // Improve the error message a user sees for an invalid assignment.
             if (token_iter->type == Token_type::equal) {
-                throw std::runtime_error{"[Line " + std::to_string(token_iter->line) + "] Error at \"=\": Invalid assignment target."};
+                throw std::runtime_error{
+                    "[Line " + std::to_string(token_iter->line) + "] Error at \"=\": Invalid assignment target."
+                };
             }
             ensure_token_is(*token_iter, Token_type::semicolon);
 
@@ -663,7 +681,10 @@ namespace motts::lox
 
             // A default return value.
             if (fn_chunk.is_class_init_method) {
-                chunk.emit<Opcode::get_local>(0, source_map_token(Token{Token_type::this_, "this", fun_source_map_token.line}));
+                chunk.emit<Opcode::get_local>(
+                    0,
+                    source_map_token(Token{Token_type::this_, "this", fun_source_map_token.line})
+                );
             } else {
                 chunk.emit<Opcode::nil>(fun_source_map_token);
             }
@@ -777,13 +798,18 @@ namespace motts::lox
                 case Token_type::return_: {
                     if (function_chunks.size() == 1) {
                         throw std::runtime_error{
-                            "[Line " + std::to_string(token_iter->line) + "] Error at \"return\": Can't return from top-level code."};
+                            "[Line " + std::to_string(token_iter->line)
+                            + "] Error at \"return\": Can't return from top-level code."
+                        };
                     }
 
                     const auto return_token = source_map_token(*token_iter++);
                     if (advance_if_match(Token_type::semicolon)) {
                         if (fn_chunk.is_class_init_method) {
-                            chunk.emit<Opcode::get_local>(0, source_map_token(Token{Token_type::this_, "this", return_token.line}));
+                            chunk.emit<Opcode::get_local>(
+                                0,
+                                source_map_token(Token{Token_type::this_, "this", return_token.line})
+                            );
                         } else {
                             chunk.emit<Opcode::nil>(return_token);
                         }
@@ -791,7 +817,8 @@ namespace motts::lox
                         if (fn_chunk.is_class_init_method) {
                             throw std::runtime_error{
                                 "[Line " + std::to_string(token_iter->line)
-                                + "] Error at \"return\": Can't return a value from an initializer."};
+                                + "] Error at \"return\": Can't return a value from an initializer."
+                            };
                         }
 
                         compile_assignment_precedence_expression();
@@ -852,14 +879,16 @@ namespace motts::lox
 
                         if (superclass_name_token.lexeme == class_name_token.lexeme) {
                             throw std::runtime_error{
-                                "[Line " + std::to_string(superclass_name_token.line) + "] Error: A class can't inherit from itself."};
+                                "[Line " + std::to_string(superclass_name_token.line)
+                                + "] Error: A class can't inherit from itself."
+                            };
                         }
 
                         if (scope_depth == 0) {
-                            // The new class object is on the stack, and it will be there while we setup inheritance and methods.
-                            // But on the global scope branch, we don't want to track that stack slot like a local,
-                            // but we do want to track later values on the stack as locals.
-                            // To make those slots line up, we need a placeholder to account for the stack slot that the class takes.
+                            // The new class object is on the stack, and it will be there while we setup inheritance and
+                            // methods. But on the global scope branch, we don't want to track that stack slot like a
+                            // local, but we do want to track later values on the stack as locals. To make those slots
+                            // line up, we need a placeholder to account for the stack slot that the class takes.
                             fn_chunk.tracked_locals.push_back({});
                         }
 
@@ -869,13 +898,15 @@ namespace motts::lox
                         chunk.emit<Opcode::inherit>(superclass_name_token);
 
                         maybe_pop_superclass_scope = [&, superclass_name_token] {
-                            // The inherit opcode puts the new class back on top of the stack,
-                            // so that the subsequent method opcodes will operate on the new class.
-                            // Now that we're done setting up the class, we need to pop that new class off.
+                            // The inherit opcode puts the new class back on top of the stack, so that the subsequent
+                            // method opcodes will operate on the new class. Now that we're done setting up the class,
+                            // we need to pop that new class off.
                             chunk.emit<Opcode::pop>(superclass_name_token);
 
                             // Super will either pop or close.
-                            pop_top_scope_depth(source_map_token(Token{Token_type::super, "super", superclass_name_token.line}));
+                            pop_top_scope_depth(
+                                source_map_token(Token{Token_type::super, "super", superclass_name_token.line})
+                            );
 
                             // Remove the placeholder tracked local.
                             if (scope_depth == 0) {
@@ -903,7 +934,9 @@ namespace motts::lox
                         const auto param_count = compile_function_rest(method_name_token);
 
                         chunk.emit_closure(
-                            gc_heap.make<Function>({method_name_token.lexeme, param_count, std::move(method_function_chunk.chunk)}),
+                            gc_heap.make<Function>(
+                                {method_name_token.lexeme, param_count, std::move(method_function_chunk.chunk)}
+                            ),
                             method_function_chunk.tracked_upvalues,
                             method_name_token
                         );
@@ -940,7 +973,9 @@ namespace motts::lox
                         const auto param_count = compile_function_rest(fun_token);
 
                         chunk.emit_closure(
-                            gc_heap.make<Function>({fun_name_token.lexeme, param_count, std::move(inner_function_chunk.chunk)}),
+                            gc_heap.make<Function>(
+                                {fun_name_token.lexeme, param_count, std::move(inner_function_chunk.chunk)}
+                            ),
                             inner_function_chunk.tracked_upvalues,
                             fun_token
                         );
@@ -986,7 +1021,8 @@ namespace motts::lox
     GC_ptr<Function> compile(GC_heap& gc_heap, Interned_strings& interned_strings, std::string_view source)
     {
         const auto root_script_fn =
-            gc_heap.make<Function>({interned_strings.get(""), 0, Compiler{gc_heap, interned_strings, source}.compile()});
+            gc_heap.make<Function>({interned_strings.get(""), 0, Compiler{gc_heap, interned_strings, source}.compile()}
+            );
         return root_script_fn;
     }
 }

@@ -920,7 +920,8 @@ BOOST_AUTO_TEST_CASE(return_will_jump_to_caller_and_pop_stack)
     fn_f->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_main = gc_heap.make<motts::lox::Function>({});
-    fn_main->chunk.emit<Opcode::nil>(Token{interned_strings.get("nil"), 1}); // Force the call frame's stack offset to matter.
+    fn_main->chunk.emit<Opcode::nil>(Token{interned_strings.get("nil"), 1}
+    ); // Force the call frame's stack offset to matter.
     fn_main->chunk.emit_closure(fn_f, {}, Token{interned_strings.get("fun"), 1});
     fn_main->chunk.emit_constant(42.0, Token{interned_strings.get("42"), 1});
     fn_main->chunk.emit_call(1, Token{interned_strings.get("f"), 1});
@@ -1060,20 +1061,29 @@ BOOST_AUTO_TEST_CASE(closure_get_set_upvalue_will_run)
     fn_inner_set->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_middle = gc_heap.make<motts::lox::Function>({});
-    fn_middle->chunk
-        .emit_closure(fn_inner_get, std::array<Tracked_upvalue, 1>{motts::lox::UpUpvalue_index{0}}, Token{interned_strings.get("fun"), 1});
+    fn_middle->chunk.emit_closure(
+        fn_inner_get,
+        std::array<Tracked_upvalue, 1>{motts::lox::UpUpvalue_index{0}},
+        Token{interned_strings.get("fun"), 1}
+    );
     fn_middle->chunk.emit<Opcode::set_global>(interned_strings.get("get"), Token{interned_strings.get("get"), 1});
     fn_middle->chunk.emit<Opcode::pop>(Token{interned_strings.get(";"), 1});
-    fn_middle->chunk
-        .emit_closure(fn_inner_set, std::array<Tracked_upvalue, 1>{motts::lox::UpUpvalue_index{0}}, Token{interned_strings.get("fun"), 1});
+    fn_middle->chunk.emit_closure(
+        fn_inner_set,
+        std::array<Tracked_upvalue, 1>{motts::lox::UpUpvalue_index{0}},
+        Token{interned_strings.get("fun"), 1}
+    );
     fn_middle->chunk.emit<Opcode::set_global>(interned_strings.get("set"), Token{interned_strings.get("set"), 1});
     fn_middle->chunk.emit<Opcode::pop>(Token{interned_strings.get(";"), 1});
     fn_middle->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_outer = gc_heap.make<motts::lox::Function>({});
     fn_outer->chunk.emit_constant(42.0, Token{interned_strings.get("42"), 1});
-    fn_outer->chunk
-        .emit_closure(fn_middle, std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{1}}, Token{interned_strings.get("fun"), 1});
+    fn_outer->chunk.emit_closure(
+        fn_middle,
+        std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{1}},
+        Token{interned_strings.get("fun"), 1}
+    );
     fn_outer->chunk.emit_call(0, Token{interned_strings.get("middle"), 1});
     fn_outer->chunk.emit<Opcode::pop>(Token{interned_strings.get(";"), 1});
     fn_outer->chunk.emit<Opcode::close_upvalue>(Token{interned_strings.get("}"), 1});
@@ -1151,8 +1161,11 @@ BOOST_AUTO_TEST_CASE(closure_early_return_will_close_upvalues)
 
     auto fn_outer = gc_heap.make<motts::lox::Function>({});
     fn_outer->chunk.emit_constant(42.0, Token{interned_strings.get("42"), 1});
-    fn_outer->chunk
-        .emit_closure(fn_inner_get, std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{1}}, Token{interned_strings.get("fun"), 1});
+    fn_outer->chunk.emit_closure(
+        fn_inner_get,
+        std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{1}},
+        Token{interned_strings.get("fun"), 1}
+    );
     fn_outer->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_main = gc_heap.make<motts::lox::Function>({});
@@ -1189,16 +1202,31 @@ BOOST_AUTO_TEST_CASE(class_will_run)
     fn_main->chunk.emit_call(0, Token{interned_strings.get("Klass"), 1});
     fn_main->chunk.emit<Opcode::define_global>(interned_strings.get("instance"), Token{interned_strings.get("var"), 1});
 
-    fn_main->chunk.emit<Opcode::get_global>(interned_strings.get("instance"), Token{interned_strings.get("instance"), 1});
+    fn_main->chunk.emit<Opcode::get_global>(
+        interned_strings.get("instance"),
+        Token{interned_strings.get("instance"), 1}
+    );
     fn_main->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
 
     fn_main->chunk.emit_constant(42.0, Token{interned_strings.get("42"), 1});
-    fn_main->chunk.emit<Opcode::get_global>(interned_strings.get("instance"), Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::set_property>(interned_strings.get("property"), Token{interned_strings.get("property"), 1});
+    fn_main->chunk.emit<Opcode::get_global>(
+        interned_strings.get("instance"),
+        Token{interned_strings.get("instance"), 1}
+    );
+    fn_main->chunk.emit<Opcode::set_property>(
+        interned_strings.get("property"),
+        Token{interned_strings.get("property"), 1}
+    );
     fn_main->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
 
-    fn_main->chunk.emit<Opcode::get_global>(interned_strings.get("instance"), Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("property"), Token{interned_strings.get("property"), 1});
+    fn_main->chunk.emit<Opcode::get_global>(
+        interned_strings.get("instance"),
+        Token{interned_strings.get("instance"), 1}
+    );
+    fn_main->chunk.emit<Opcode::get_property>(
+        interned_strings.get("property"),
+        Token{interned_strings.get("property"), 1}
+    );
     fn_main->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
 
     vm.run(fn_main);
@@ -1249,8 +1277,11 @@ BOOST_AUTO_TEST_CASE(this_can_be_captured_in_closure)
     fn_inner->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_method = gc_heap.make<motts::lox::Function>({});
-    fn_method->chunk
-        .emit_closure(fn_inner, std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{0}}, Token{interned_strings.get("fun"), 1});
+    fn_method->chunk.emit_closure(
+        fn_inner,
+        std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{0}},
+        Token{interned_strings.get("fun"), 1}
+    );
     fn_method->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
     auto fn_main = gc_heap.make<motts::lox::Function>({});
@@ -1276,7 +1307,10 @@ BOOST_AUTO_TEST_CASE(init_method_will_run_when_instance_created)
     auto fn_init = gc_heap.make<motts::lox::Function>({});
     fn_init->chunk.emit_constant(42.0, Token{interned_strings.get("42"), 1});
     fn_init->chunk.emit<Opcode::get_local>(0, Token{interned_strings.get("this"), 1});
-    fn_init->chunk.emit<Opcode::set_property>(interned_strings.get("property"), Token{interned_strings.get("property"), 1});
+    fn_init->chunk.emit<Opcode::set_property>(
+        interned_strings.get("property"),
+        Token{interned_strings.get("property"), 1}
+    );
     fn_init->chunk.emit<Opcode::get_local>(0, Token{interned_strings.get("this"), 1});
     fn_init->chunk.emit<Opcode::return_>(Token{interned_strings.get("return"), 1});
 
@@ -1285,7 +1319,10 @@ BOOST_AUTO_TEST_CASE(init_method_will_run_when_instance_created)
     fn_main->chunk.emit_closure(fn_init, {}, Token{interned_strings.get("init"), 1});
     fn_main->chunk.emit<Opcode::method>(interned_strings.get("init"), Token{interned_strings.get("init"), 1});
     fn_main->chunk.emit_call(0, Token{interned_strings.get("Klass"), 1});
-    fn_main->chunk.emit<Opcode::get_property>(interned_strings.get("property"), Token{interned_strings.get("property"), 1});
+    fn_main->chunk.emit<Opcode::get_property>(
+        interned_strings.get("property"),
+        Token{interned_strings.get("property"), 1}
+    );
     fn_main->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
 
     vm.run(fn_main);
@@ -1315,17 +1352,29 @@ BOOST_AUTO_TEST_CASE(class_methods_can_inherit)
     auto fn_main = gc_heap.make<motts::lox::Function>({});
     fn_main->chunk.emit<Opcode::class_>(interned_strings.get("Parent"), Token{interned_strings.get("class"), 1});
     fn_main->chunk.emit_closure(parent_method, {}, Token{interned_strings.get("parentMethod1"), 1});
-    fn_main->chunk.emit<Opcode::method>(interned_strings.get("parentMethod1"), Token{interned_strings.get("parentMethod1"), 1});
+    fn_main->chunk.emit<Opcode::method>(
+        interned_strings.get("parentMethod1"),
+        Token{interned_strings.get("parentMethod1"), 1}
+    );
     fn_main->chunk.emit_closure(parent_method, {}, Token{interned_strings.get("parentMethod2"), 1});
-    fn_main->chunk.emit<Opcode::method>(interned_strings.get("parentMethod2"), Token{interned_strings.get("parentMethod2"), 1});
+    fn_main->chunk.emit<Opcode::method>(
+        interned_strings.get("parentMethod2"),
+        Token{interned_strings.get("parentMethod2"), 1}
+    );
 
     fn_main->chunk.emit<Opcode::class_>(interned_strings.get("Child"), Token{interned_strings.get("class"), 1});
     fn_main->chunk.emit<Opcode::get_local>(0, Token{interned_strings.get("Parent"), 1});
     fn_main->chunk.emit<Opcode::inherit>(Token{interned_strings.get("Parent"), 1});
     fn_main->chunk.emit_closure(child_method, {}, Token{interned_strings.get("childMethod"), 1});
-    fn_main->chunk.emit<Opcode::method>(interned_strings.get("childMethod"), Token{interned_strings.get("childMethod"), 1});
+    fn_main->chunk.emit<Opcode::method>(
+        interned_strings.get("childMethod"),
+        Token{interned_strings.get("childMethod"), 1}
+    );
     fn_main->chunk.emit_closure(child_method, {}, Token{interned_strings.get("parentMethod2"), 1});
-    fn_main->chunk.emit<Opcode::method>(interned_strings.get("parentMethod2"), Token{interned_strings.get("parentMethod2"), 1});
+    fn_main->chunk.emit<Opcode::method>(
+        interned_strings.get("parentMethod2"),
+        Token{interned_strings.get("parentMethod2"), 1}
+    );
     fn_main->chunk.emit<Opcode::pop>(Token{interned_strings.get("Parent"), 1});
     fn_main->chunk.emit<Opcode::pop>(Token{interned_strings.get("Parent"), 1});
 
@@ -1333,9 +1382,11 @@ BOOST_AUTO_TEST_CASE(class_methods_can_inherit)
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
     fn_main->chunk.emit_invoke(interned_strings.get("childMethod"), 0, Token{interned_strings.get("childMethod"), 1});
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit_invoke(interned_strings.get("parentMethod1"), 0, Token{interned_strings.get("parentMethod1"), 1});
+    fn_main->chunk
+        .emit_invoke(interned_strings.get("parentMethod1"), 0, Token{interned_strings.get("parentMethod1"), 1});
     fn_main->chunk.emit<Opcode::get_local>(1, Token{interned_strings.get("instance"), 1});
-    fn_main->chunk.emit_invoke(interned_strings.get("parentMethod2"), 0, Token{interned_strings.get("parentMethod2"), 1});
+    fn_main->chunk
+        .emit_invoke(interned_strings.get("parentMethod2"), 0, Token{interned_strings.get("parentMethod2"), 1});
 
     vm.run(fn_main);
 
@@ -1379,7 +1430,10 @@ BOOST_AUTO_TEST_CASE(super_calls_will_run)
     child_method->chunk.emit_constant(interned_strings.get("Child"), Token{interned_strings.get("\"Child\""), 1});
     child_method->chunk.emit<Opcode::print>(Token{interned_strings.get("print"), 1});
     child_method->chunk.emit<Opcode::get_upvalue>(0, Token{interned_strings.get("super"), 1});
-    child_method->chunk.emit<Opcode::get_super>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
+    child_method->chunk.emit<Opcode::get_super>(
+        interned_strings.get("method"),
+        Token{interned_strings.get("method"), 1}
+    );
     child_method->chunk.emit_call(0, Token{interned_strings.get("method"), 1});
     child_method->chunk.emit<Opcode::nil>(Token{interned_strings.get("childMethod"), 1});
     child_method->chunk.emit<Opcode::return_>(Token{interned_strings.get("childMethod"), 1});
@@ -1392,8 +1446,11 @@ BOOST_AUTO_TEST_CASE(super_calls_will_run)
     fn_main->chunk.emit<Opcode::class_>(interned_strings.get("Child"), Token{interned_strings.get("class"), 1});
     fn_main->chunk.emit<Opcode::get_local>(0, Token{interned_strings.get("Parent"), 1});
     fn_main->chunk.emit<Opcode::inherit>(Token{interned_strings.get("Parent"), 1});
-    fn_main->chunk
-        .emit_closure(child_method, std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{2}}, Token{interned_strings.get("method"), 1});
+    fn_main->chunk.emit_closure(
+        child_method,
+        std::array<Tracked_upvalue, 1>{motts::lox::Upvalue_index{2}},
+        Token{interned_strings.get("method"), 1}
+    );
     fn_main->chunk.emit<Opcode::method>(interned_strings.get("method"), Token{interned_strings.get("method"), 1});
     fn_main->chunk.emit<Opcode::pop>(Token{interned_strings.get("Parent"), 1});
     fn_main->chunk.emit<Opcode::close_upvalue>(Token{interned_strings.get("Parent"), 1});

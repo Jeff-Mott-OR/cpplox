@@ -24,7 +24,7 @@ BraceWrapping:
     AfterExternBlock: true
 BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
-ColumnLimit: 140
+ColumnLimit: 120
 QualifierAlignment: Left
 PackConstructorInitializers: Never
 FixNamespaceComments: false

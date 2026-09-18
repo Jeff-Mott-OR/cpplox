@@ -151,8 +151,20 @@ BOOST_AUTO_TEST_CASE(can_print_class_name_across_interactive_repl_runs)
         BOOST_TEST(exit_code == EXPECTED_EXIT); \
     }
 
-MOTTS_LOX_MAKE_TEST_CASE(precedence_test, "precedence.lox", "14\n8\n4\n0\ntrue\ntrue\ntrue\ntrue\n0\n0\n0\n0\n4\n", "", 0)
-MOTTS_LOX_MAKE_TEST_CASE(unexpected_character_test, "unexpected_character.lox", "", "[Line 3] Error: Unexpected character \"|\".\n", 1)
+MOTTS_LOX_MAKE_TEST_CASE(
+    precedence_test,
+    "precedence.lox",
+    "14\n8\n4\n0\ntrue\ntrue\ntrue\ntrue\n0\n0\n0\n0\n4\n",
+    "",
+    0
+)
+MOTTS_LOX_MAKE_TEST_CASE(
+    unexpected_character_test,
+    "unexpected_character.lox",
+    "",
+    "[Line 3] Error: Unexpected character \"|\".\n",
+    1
+)
 
 MOTTS_LOX_MAKE_TEST_CASE(assignment_associativity_test, "assignment/associativity.lox", "c\nc\nc\n", "", 0)
 MOTTS_LOX_MAKE_TEST_CASE(assignment_global_test, "assignment/global.lox", "before\nafter\narg\narg\n", "", 0)
@@ -179,8 +191,20 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 )
 MOTTS_LOX_MAKE_TEST_CASE(assignment_syntax_test, "assignment/syntax.lox", "var\nvar\n", "", 0)
-MOTTS_LOX_MAKE_TEST_CASE(assignment_to_this_test, "assignment/to_this.lox", "", "[Line 3] Error at \"=\": Invalid assignment target.\n", 1)
-MOTTS_LOX_MAKE_TEST_CASE(assignment_undefined_test, "assignment/undefined.lox", "", "[Line 1] Error: Undefined variable \"unknown\".\n", 1)
+MOTTS_LOX_MAKE_TEST_CASE(
+    assignment_to_this_test,
+    "assignment/to_this.lox",
+    "",
+    "[Line 3] Error at \"=\": Invalid assignment target.\n",
+    1
+)
+MOTTS_LOX_MAKE_TEST_CASE(
+    assignment_undefined_test,
+    "assignment/undefined.lox",
+    "",
+    "[Line 1] Error: Undefined variable \"unknown\".\n",
+    1
+)
 
 MOTTS_LOX_MAKE_TEST_CASE(block_empty_test, "block/empty.lox", "ok\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(block_scope_test, "block/scope.lox", "inner\nouter\n", "", 0);
@@ -197,10 +221,34 @@ MOTTS_LOX_MAKE_TEST_CASE(
 );
 MOTTS_LOX_MAKE_TEST_CASE(bool_not_test, "bool/not.lox", "false\ntrue\ntrue\n", "", 0);
 
-MOTTS_LOX_MAKE_TEST_CASE(call_bool_test, "call/bool.lox", "", "[Line 1] Error at \"true\": Can only call functions and classes.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(call_nil_test, "call/nil.lox", "", "[Line 1] Error at \"nil\": Can only call functions and classes.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(call_num_test, "call/num.lox", "", "[Line 1] Error at \"123\": Can only call functions and classes.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(call_object_test, "call/object.lox", "", "[Line 4] Error at \"foo\": Can only call functions and classes.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    call_bool_test,
+    "call/bool.lox",
+    "",
+    "[Line 1] Error at \"true\": Can only call functions and classes.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    call_nil_test,
+    "call/nil.lox",
+    "",
+    "[Line 1] Error at \"nil\": Can only call functions and classes.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    call_num_test,
+    "call/num.lox",
+    "",
+    "[Line 1] Error at \"123\": Can only call functions and classes.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    call_object_test,
+    "call/object.lox",
+    "",
+    "[Line 4] Error at \"foo\": Can only call functions and classes.\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     call_string_test,
     "call/string.lox",
@@ -214,15 +262,63 @@ MOTTS_LOX_MAKE_TEST_CASE(class_inherited_method_test, "class/inherited_method.lo
 MOTTS_LOX_MAKE_TEST_CASE(class_local_reference_self_test, "class/local_reference_self.lox", "<class Foo>\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(class_reference_self_test, "class/reference_self.lox", "<class Foo>\n", "", 0);
 
-MOTTS_LOX_MAKE_TEST_CASE(closure_assign_to_closure_test, "closure/assign_to_closure.lox", "local\nafter f\nafter f\nafter g\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_assign_to_shadowed_later_test, "closure/assign_to_shadowed_later.lox", "inner\nassigned\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_close_over_function_parameter_test, "closure/close_over_function_parameter.lox", "param\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_close_over_method_parameter_test, "closure/close_over_method_parameter.lox", "param\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_close_over_later_variable_test, "closure/close_over_later_variable.lox", "b\na\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_closed_closure_in_function_test, "closure/closed_closure_in_function.lox", "local\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_assign_to_closure_test,
+    "closure/assign_to_closure.lox",
+    "local\nafter f\nafter f\nafter g\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_assign_to_shadowed_later_test,
+    "closure/assign_to_shadowed_later.lox",
+    "inner\nassigned\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_close_over_function_parameter_test,
+    "closure/close_over_function_parameter.lox",
+    "param\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_close_over_method_parameter_test,
+    "closure/close_over_method_parameter.lox",
+    "param\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_close_over_later_variable_test,
+    "closure/close_over_later_variable.lox",
+    "b\na\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_closed_closure_in_function_test,
+    "closure/closed_closure_in_function.lox",
+    "local\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(closure_nested_closure_test, "closure/nested_closure.lox", "a\nb\nc\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_open_closure_in_function_test, "closure/open_closure_in_function.lox", "local\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(closure_reference_closure_multiple_times_test, "closure/reference_closure_multiple_times.lox", "a\na\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_open_closure_in_function_test,
+    "closure/open_closure_in_function.lox",
+    "local\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    closure_reference_closure_multiple_times_test,
+    "closure/reference_closure_multiple_times.lox",
+    "a\na\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(closure_reuse_closure_slot_test, "closure/reuse_closure_slot.lox", "a\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
     closure_shadow_closure_with_local_test,
@@ -236,7 +332,13 @@ MOTTS_LOX_MAKE_TEST_CASE(closure_unused_later_closure_test, "closure/unused_late
 
 MOTTS_LOX_MAKE_TEST_CASE(comments_line_at_eof_test, "comments/line_at_eof.lox", "ok\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(comments_only_line_comment_test, "comments/only_line_comment.lox", "", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(comments_only_line_comment_and_line_test, "comments/only_line_comment_and_line.lox", "", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    comments_only_line_comment_and_line_test,
+    "comments/only_line_comment_and_line.lox",
+    "",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(comments_unicode_test, "comments/unicode.lox", "ok\n", "", 0);
 
 MOTTS_LOX_MAKE_TEST_CASE(constructor_arguments_test, "constructor/arguments.lox", "init\n1\n2\n", "", 0);
@@ -255,7 +357,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 3] Error at \"Foo\": Expected 0 arguments but got 3.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(constructor_early_return_test, "constructor/early_return.lox", "init\n<instance Foo>\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    constructor_early_return_test,
+    "constructor/early_return.lox",
+    "init\n<instance Foo>\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     constructor_extra_arguments_test,
     "constructor/extra_arguments.lox",
@@ -263,7 +371,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 8] Error at \"Foo\": Expected 2 arguments but got 4.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(constructor_init_not_method_test, "constructor/init_not_method.lox", "not initializer\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    constructor_init_not_method_test,
+    "constructor/init_not_method.lox",
+    "not initializer\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     constructor_missing_arguments_test,
     "constructor/missing_arguments.lox",
@@ -316,8 +430,20 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 3] Error at \"bar\": Only instances have fields.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(field_get_on_nil_test, "field/get_on_nil.lox", "", "[Line 1] Error at \"foo\": Only instances have fields.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(field_get_on_num_test, "field/get_on_num.lox", "", "[Line 1] Error at \"foo\": Only instances have fields.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_get_on_nil_test,
+    "field/get_on_nil.lox",
+    "",
+    "[Line 1] Error at \"foo\": Only instances have fields.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_get_on_num_test,
+    "field/get_on_num.lox",
+    "",
+    "[Line 1] Error at \"foo\": Only instances have fields.\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     field_get_on_string_test,
     "field/get_on_string.lox",
@@ -412,7 +538,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
 );
 MOTTS_LOX_MAKE_TEST_CASE(field_method_test, "field/method.lox", "got method\narg\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(field_method_binds_this_test, "field/method_binds_this.lox", "foo1\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(field_on_instance_test, "field/on_instance.lox", "bar value\nbaz value\nbar value\nbaz value\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_on_instance_test,
+    "field/on_instance.lox",
+    "bar value\nbaz value\nbar value\nbaz value\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     field_set_evaluation_order_test,
     "field/set_evaluation_order.lox",
@@ -420,7 +552,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 2] Error: Undefined variable \"undefined2\".\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(field_set_on_bool_test, "field/set_on_bool.lox", "", "[Line 1] Error at \"=\": Invalid assignment target.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_set_on_bool_test,
+    "field/set_on_bool.lox",
+    "",
+    "[Line 1] Error at \"=\": Invalid assignment target.\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     field_set_on_class_test,
     "field/set_on_class.lox",
@@ -435,8 +573,20 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 3] Error at \"bar\": Only instances have fields.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(field_set_on_nil_test, "field/set_on_nil.lox", "", "[Line 1] Error at \"=\": Invalid assignment target.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(field_set_on_num_test, "field/set_on_num.lox", "", "[Line 1] Error at \"=\": Invalid assignment target.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_set_on_nil_test,
+    "field/set_on_nil.lox",
+    "",
+    "[Line 1] Error at \"=\": Invalid assignment target.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_set_on_num_test,
+    "field/set_on_num.lox",
+    "",
+    "[Line 1] Error at \"=\": Invalid assignment target.\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     field_set_on_string_test,
     "field/set_on_string.lox",
@@ -444,15 +594,39 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 1] Error at \"=\": Invalid assignment target.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(field_undefined_test, "field/undefined.lox", "", "[Line 4] Error: Undefined property \"bar\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    field_undefined_test,
+    "field/undefined.lox",
+    "",
+    "[Line 4] Error: Undefined property \"bar\".\n",
+    1
+);
 
-MOTTS_LOX_MAKE_TEST_CASE(for_class_in_body_test, "for/class_in_body.lox", "", "[Line 2] Error: Unexpected token \"class\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    for_class_in_body_test,
+    "for/class_in_body.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"class\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(for_closure_in_body_test, "for/closure_in_body.lox", "1\n2\n3\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(for_return_closure_test, "for/return_closure.lox", "i\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(for_return_inside_test, "for/return_inside.lox", "i\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(for_scope_test, "for/scope.lox", "0\n-1\nafter\n0\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(for_statement_condition_test, "for/statement_condition.lox", "", "[Line 3] Error: Unexpected token \"{\".\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(for_statement_increment_test, "for/statement_increment.lox", "", "[Line 2] Error: Unexpected token \"{\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    for_statement_condition_test,
+    "for/statement_condition.lox",
+    "",
+    "[Line 3] Error: Unexpected token \"{\".\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    for_statement_increment_test,
+    "for/statement_increment.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"{\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     for_statement_initializer_test,
     "for/statement_initializer.lox",
@@ -461,7 +635,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 );
 MOTTS_LOX_MAKE_TEST_CASE(for_syntax_test, "for/syntax.lox", "1\n2\n3\n0\n1\n2\ndone\n0\n1\n0\n1\n2\n0\n1\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(for_var_in_body_test, "for/var_in_body.lox", "", "[Line 2] Error: Unexpected token \"var\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    for_var_in_body_test,
+    "for/var_in_body.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"var\".\n",
+    1
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(
     function_body_must_be_block_test,
@@ -501,18 +681,48 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 );
 MOTTS_LOX_MAKE_TEST_CASE(function_mutual_recursion_test, "function/mutual_recursion.lox", "true\ntrue\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(function_parameters_test, "function/parameters.lox", "0\n1\n3\n6\n10\n15\n21\n28\n36\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    function_parameters_test,
+    "function/parameters.lox",
+    "0\n1\n3\n6\n10\n15\n21\n28\n36\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(function_print_test, "function/print.lox", "<fn foo>\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(function_recursion_test, "function/recursion.lox", "21\n", "", 0);
 
-MOTTS_LOX_MAKE_TEST_CASE(if_class_in_else_test, "if/class_in_else.lox", "", "[Line 2] Error: Unexpected token \"class\".\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(if_class_in_then_test, "if/class_in_then.lox", "", "[Line 2] Error: Unexpected token \"class\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    if_class_in_else_test,
+    "if/class_in_else.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"class\".\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    if_class_in_then_test,
+    "if/class_in_then.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"class\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(if_dangling_else_test, "if/dangling_else.lox", "good\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(if_else_test, "if/else.lox", "good\ngood\nblock\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(if_if_test, "if/if.lox", "good\nblock\ntrue\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(if_truth_test, "if/truth.lox", "false\nnil\ntrue\n0\nempty\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(if_var_in_else_test, "if/var_in_else.lox", "", "[Line 2] Error: Unexpected token \"var\".\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(if_var_in_then_test, "if/var_in_then.lox", "", "[Line 2] Error: Unexpected token \"var\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    if_var_in_else_test,
+    "if/var_in_else.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"var\".\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    if_var_in_then_test,
+    "if/var_in_then.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"var\".\n",
+    1
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(
     inheritance_inherit_from_function_test,
@@ -551,10 +761,34 @@ MOTTS_LOX_MAKE_TEST_CASE(
     0
 );
 
-MOTTS_LOX_MAKE_TEST_CASE(logical_operator_and_test, "logical_operator/and.lox", "false\n1\nfalse\ntrue\n3\ntrue\nfalse\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(logical_operator_and_truth_test, "logical_operator/and_truth.lox", "false\nnil\nok\nok\nok\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(logical_operator_or_test, "logical_operator/or.lox", "1\n1\ntrue\nfalse\nfalse\nfalse\ntrue\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(logical_operator_or_truth_test, "logical_operator/or_truth.lox", "ok\nok\ntrue\n0\ns\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    logical_operator_and_test,
+    "logical_operator/and.lox",
+    "false\n1\nfalse\ntrue\n3\ntrue\nfalse\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    logical_operator_and_truth_test,
+    "logical_operator/and_truth.lox",
+    "false\nnil\nok\nok\nok\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    logical_operator_or_test,
+    "logical_operator/or.lox",
+    "1\n1\ntrue\nfalse\nfalse\nfalse\ntrue\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    logical_operator_or_truth_test,
+    "logical_operator/or_truth.lox",
+    "ok\nok\ntrue\n0\ns\n",
+    "",
+    0
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(method_arity_test, "method/arity.lox", "no args\n1\n3\n6\n10\n15\n21\n28\n36\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(method_empty_block_test, "method/empty_block.lox", "nil\n", "", 0);
@@ -572,8 +806,20 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 5] Error at \"method\": Expected 2 arguments but got 1.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(method_not_found_test, "method/not_found.lox", "", "[Line 3] Error: Undefined property \"unknown\".\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(method_refer_to_name_test, "method/refer_to_name.lox", "", "[Line 3] Error: Undefined variable \"method\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    method_not_found_test,
+    "method/not_found.lox",
+    "",
+    "[Line 3] Error: Undefined property \"unknown\".\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    method_refer_to_name_test,
+    "method/refer_to_name.lox",
+    "",
+    "[Line 3] Error: Undefined variable \"method\".\n",
+    1
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(nil_literal_test, "nil/literal.lox", "nil\n", "", 0);
 
@@ -584,9 +830,21 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 2] Error at \"EOF\": Expected IDENTIFIER.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(number_leading_dot_test, "number/leading_dot.lox", "", "[Line 2] Error: Unexpected token \".\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    number_leading_dot_test,
+    "number/leading_dot.lox",
+    "",
+    "[Line 2] Error: Unexpected token \".\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(number_literals_test, "number/literals.lox", "123\n987654\n0\n-0\n123.456\n-0.001\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(number_trailing_dot_test, "number/trailing_dot.lox", "", "[Line 2] Error at \";\": Expected IDENTIFIER.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    number_trailing_dot_test,
+    "number/trailing_dot.lox",
+    "",
+    "[Line 2] Error at \";\": Expected IDENTIFIER.\n",
+    1
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(operator_add_test, "operator/add.lox", "579\nstring\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
@@ -634,7 +892,8 @@ MOTTS_LOX_MAKE_TEST_CASE(
 MOTTS_LOX_MAKE_TEST_CASE(
     operator_comparison_test,
     "operator/comparison.lox",
-    "true\nfalse\nfalse\ntrue\ntrue\nfalse\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\nfalse\nfalse\nfalse\ntrue\ntrue\ntrue\ntrue\n",
+    "true\nfalse\nfalse\ntrue\ntrue\nfalse\nfalse\nfalse\ntrue\nfalse\ntrue\ntrue\nfalse\nfalse\nfalse\nfalse\ntrue\ntr"
+    "ue\ntrue\ntrue\n",
     "",
     0
 );
@@ -747,7 +1006,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 1] Error at \"-\": Operand must be a number.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(operator_not_test, "operator/not.lox", "false\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\nfalse\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    operator_not_test,
+    "operator/not.lox",
+    "false\ntrue\ntrue\nfalse\nfalse\ntrue\nfalse\nfalse\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(operator_not_class_test, "operator/not_class.lox", "false\nfalse\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
     operator_not_equals_test,
@@ -772,7 +1037,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 );
 
-MOTTS_LOX_MAKE_TEST_CASE(print_missing_argument_test, "print/missing_argument.lox", "", "[Line 2] Error: Unexpected token \";\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    print_missing_argument_test,
+    "print/missing_argument.lox",
+    "",
+    "[Line 2] Error: Unexpected token \";\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(regression_40_test, "regression/40.lox", "false\n", "", 0);
 
 MOTTS_LOX_MAKE_TEST_CASE(return_after_else_test, "return/after_else.lox", "ok\n", "", 0);
@@ -798,11 +1069,29 @@ MOTTS_LOX_MAKE_TEST_CASE(
 );
 MOTTS_LOX_MAKE_TEST_CASE(string_literals_test, "string/literals.lox", "()\na string\nA~¶Þॐஃ\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(string_multiline_test, "string/multiline.lox", "1\n2\n3\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(string_unterminated_test, "string/unterminated.lox", "", "[Line 2] Error: Unterminated string.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    string_unterminated_test,
+    "string/unterminated.lox",
+    "",
+    "[Line 2] Error: Unterminated string.\n",
+    1
+);
 
 MOTTS_LOX_MAKE_TEST_CASE(super_bound_method_test, "super/bound_method.lox", "A.method(arg)\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(super_call_other_method_test, "super/call_other_method.lox", "Derived.bar()\nBase.foo()\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(super_call_same_method_test, "super/call_same_method.lox", "Derived.foo()\nBase.foo()\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_call_other_method_test,
+    "super/call_other_method.lox",
+    "Derived.bar()\nBase.foo()\n",
+    "",
+    0
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_call_same_method_test,
+    "super/call_same_method.lox",
+    "Derived.foo()\nBase.foo()\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(super_closure_test, "super/closure.lox", "Base\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(super_constructor_test, "super/constructor.lox", "Derived.init()\nBase.init(a, b)\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
@@ -812,7 +1101,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 10] Error at \"super\": Expected 2 arguments but got 4.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(super_indirectly_inherited_test, "super/indirectly_inherited.lox", "C.foo()\nA.foo()\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_indirectly_inherited_test,
+    "super/indirectly_inherited.lox",
+    "C.foo()\nA.foo()\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     super_missing_arguments_test,
     "super/missing_arguments.lox",
@@ -841,8 +1136,20 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 5] Error: Undefined property \"doesNotExist\".\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(super_parenthesized_test, "super/parenthesized.lox", "", "[Line 8] Error at \")\": Expected DOT.\n", 1);
-MOTTS_LOX_MAKE_TEST_CASE(super_reassign_superclass_test, "super/reassign_superclass.lox", "Base.method()\nBase.method()\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_parenthesized_test,
+    "super/parenthesized.lox",
+    "",
+    "[Line 8] Error at \")\": Expected DOT.\n",
+    1
+);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_reassign_superclass_test,
+    "super/reassign_superclass.lox",
+    "Base.method()\nBase.method()\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     super_super_at_top_level_test,
     "super/super_at_top_level.lox",
@@ -850,7 +1157,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 1] Error: Undefined variable \"this\".\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(super_super_in_closure_in_inherited_method_test, "super/super_in_closure_in_inherited_method.lox", "A\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_super_in_closure_in_inherited_method_test,
+    "super/super_in_closure_in_inherited_method.lox",
+    "A\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(super_super_in_inherited_method_test, "super/super_in_inherited_method.lox", "A\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
     super_super_in_top_level_function_test,
@@ -859,7 +1172,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 2] Error: Undefined variable \"this\".\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(super_super_without_dot_test, "super/super_without_dot.lox", "", "[Line 6] Error at \";\": Expected DOT.\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    super_super_without_dot_test,
+    "super/super_without_dot.lox",
+    "",
+    "[Line 6] Error at \";\": Expected DOT.\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     super_super_without_name_test,
     "super/super_without_name.lox",
@@ -870,7 +1189,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
 MOTTS_LOX_MAKE_TEST_CASE(super_this_in_superclass_method_test, "super/this_in_superclass_method.lox", "a\nb\n", "", 0);
 
 MOTTS_LOX_MAKE_TEST_CASE(this_closure_test, "this/closure.lox", "Foo\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(this_nested_class_test, "this/nested_class.lox", "<instance Outer>\n<instance Outer>\n<instance Inner>\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    this_nested_class_test,
+    "this/nested_class.lox",
+    "<instance Outer>\n<instance Outer>\n<instance Inner>\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(this_nested_closure_test, "this/nested_closure.lox", "Foo\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(
     this_this_at_top_level_test,
@@ -910,7 +1235,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 );
 MOTTS_LOX_MAKE_TEST_CASE(variable_early_bound_test, "variable/early_bound.lox", "outer\nouter\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(variable_in_middle_of_block_test, "variable/in_middle_of_block.lox", "a\na b\na c\na b d\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    variable_in_middle_of_block_test,
+    "variable/in_middle_of_block.lox",
+    "a\na b\na c\na b d\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(variable_in_nested_block_test, "variable/in_nested_block.lox", "outer\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(variable_local_from_method_test, "variable/local_from_method.lox", "variable\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(variable_redeclare_global_test, "variable/redeclare_global.lox", "nil\n", "", 0);
@@ -948,7 +1279,13 @@ MOTTS_LOX_MAKE_TEST_CASE(
     "[Line 2] Error at \"false\": Expected IDENTIFIER.\n",
     1
 );
-MOTTS_LOX_MAKE_TEST_CASE(variable_use_global_in_initializer_test, "variable/use_global_in_initializer.lox", "value\n", "", 0);
+MOTTS_LOX_MAKE_TEST_CASE(
+    variable_use_global_in_initializer_test,
+    "variable/use_global_in_initializer.lox",
+    "value\n",
+    "",
+    0
+);
 MOTTS_LOX_MAKE_TEST_CASE(
     variable_use_local_in_initializer_test,
     "variable/use_local_in_initializer.lox",
@@ -971,9 +1308,21 @@ MOTTS_LOX_MAKE_TEST_CASE(
     1
 );
 
-MOTTS_LOX_MAKE_TEST_CASE(while_class_in_body_test, "while/class_in_body.lox", "", "[Line 2] Error: Unexpected token \"class\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    while_class_in_body_test,
+    "while/class_in_body.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"class\".\n",
+    1
+);
 MOTTS_LOX_MAKE_TEST_CASE(while_closure_in_body_test, "while/closure_in_body.lox", "1\n2\n3\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(while_return_closure_test, "while/return_closure.lox", "i\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(while_return_inside_test, "while/return_inside.lox", "i\n", "", 0);
 MOTTS_LOX_MAKE_TEST_CASE(while_syntax_test, "while/syntax.lox", "1\n2\n3\n0\n1\n2\n", "", 0);
-MOTTS_LOX_MAKE_TEST_CASE(while_var_in_body_test, "while/var_in_body.lox", "", "[Line 2] Error: Unexpected token \"var\".\n", 1);
+MOTTS_LOX_MAKE_TEST_CASE(
+    while_var_in_body_test,
+    "while/var_in_body.lox",
+    "",
+    "[Line 2] Error: Unexpected token \"var\".\n",
+    1
+);
