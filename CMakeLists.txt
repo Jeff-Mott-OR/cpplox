@@ -65,7 +65,11 @@ if(NOT DEPS_ONLY)
     # Define as a static library. This will let us link with our main REPL program or with a test harness program.
     add_library(cpploxbc_lib STATIC ${cpploxbc_sources})
     target_link_libraries(cpploxbc_lib PUBLIC Boost::algorithm Boost::convert Microsoft.GSL::GSL)
-    set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    # LTO will inline and remove the VM opcode functions,
+    # but the perf tool needs those function to exist to include them in the report.
+    if(NOT ENABLE_PERF)
+        set_property(TARGET cpploxbc_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+    endif()
     target_compile_features(cpploxbc_lib PUBLIC cxx_std_20)
     target_compile_options(cpploxbc_lib PUBLIC -Wall -Wextra -Werror)
 
@@ -113,6 +117,7 @@ if(ENABLE_TEST)
         # The main executable is statically linked, so we need a dynamic version to use with Valgrind.
         add_executable(cpploxbc_shared src/main.cpp)
         target_link_libraries(cpploxbc_shared PUBLIC cpploxbc_lib Boost::program_options)
+        set_property(TARGET cpploxbc_shared PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 
         add_test(
             NAME valgrind_test
@@ -123,6 +128,7 @@ if(ENABLE_TEST)
 
     add_executable(cli_test test/cli-test.cpp)
     target_link_libraries(cli_test PUBLIC Boost::process Boost::unit_test_framework)
+    set_property(TARGET cli_test PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
     add_test(NAME cli_test COMMAND cli_test)
 
     add_executable(compiler_test test/compiler-test.cpp)
