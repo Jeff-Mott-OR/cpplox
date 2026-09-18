@@ -1,7 +1,6 @@
 #pragma once
 
 #include <span>
-#include <unordered_map>
 #include <variant>
 
 #include "chunk.hpp"
@@ -22,7 +21,7 @@ namespace motts::lox
     struct Class
     {
         GC_ptr<const std::string> name;
-        std::unordered_map<GC_ptr<const std::string>, GC_ptr<Closure>> methods;
+        std::vector<std::pair<GC_ptr<const std::string>, GC_ptr<Closure>>> methods;
 
         Class(GC_ptr<const std::string> name);
     };
@@ -58,7 +57,7 @@ namespace motts::lox
     struct Instance
     {
         GC_ptr<Class> klass;
-        std::unordered_map<GC_ptr<const std::string>, Dynamic_type_value> fields;
+        std::vector<std::pair<GC_ptr<const std::string>, Dynamic_type_value>> fields;
 
         Instance(GC_ptr<Class>);
     };

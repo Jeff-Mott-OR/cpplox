@@ -352,8 +352,13 @@ namespace motts::lox
             maybe_collect_garbage();
 
             const auto& klass = *maybe_class;
-            const auto maybe_init_iter = klass->methods.find(interned_strings_.get("init"));
-            const auto arity = maybe_init_iter != klass->methods.cend() ? maybe_init_iter->second->function->arity : 0;
+            const auto& methods = klass->methods;
+
+            const auto interned_init_name = interned_strings_.get("init");
+            const auto maybe_init_iter = std::find_if(methods.cbegin(), methods.cend(), [&](const auto& key_value) {
+                return key_value.first == interned_init_name;
+            });
+            const auto arity = maybe_init_iter != methods.cend() ? maybe_init_iter->second->function->arity : 0;
 
             if (arity != arg_count) {
                 std::ostringstream os;
@@ -369,7 +374,7 @@ namespace motts::lox
             // Either way, the instance ends up in the same slot where the class was.
             *(stack_.end() - arg_count - 1) = gc_heap_.make<Instance>({klass});
 
-            if (maybe_init_iter != klass->methods.cend()) {
+            if (maybe_init_iter != methods.cend()) {
                 run(maybe_init_iter->second, stack_.size() - arg_count - 1);
             }
 
@@ -578,13 +583,20 @@ namespace motts::lox
         }
         const auto& instance = *maybe_instance;
 
-        const auto maybe_field_iter = instance->fields.find(field_name);
+        const auto maybe_field_iter =
+            std::find_if(instance->fields.cbegin(), instance->fields.cend(), [&](const auto& key_value) {
+                return key_value.first == field_name;
+            });
         if (maybe_field_iter != instance->fields.cend()) {
             stack_.back() = maybe_field_iter->second;
             return;
         }
 
-        const auto maybe_method_iter = instance->klass->methods.find(field_name);
+        const auto maybe_method_iter = std::find_if(
+            instance->klass->methods.cbegin(),
+            instance->klass->methods.cend(),
+            [&](const auto& key_value) { return key_value.first == field_name; }
+        );
         if (maybe_method_iter != instance->klass->methods.cend()) {
             const auto new_bound_method = gc_heap_.make<Bound_method>({instance, maybe_method_iter->second});
             stack_.back() = new_bound_method;
@@ -612,7 +624,10 @@ namespace motts::lox
         const auto& superclass = std::get<GC_ptr<Class>>(*(stack_.cend() - 1));
         const auto& instance = std::get<GC_ptr<Instance>>(*(stack_.cend() - 2));
 
-        const auto maybe_method_iter = superclass->methods.find(method_name);
+        const auto maybe_method_iter =
+            std::find_if(superclass->methods.cbegin(), superclass->methods.cend(), [&](const auto& key_value) {
+                return key_value.first == method_name;
+            });
         if (maybe_method_iter == superclass->methods.cend()) {
             throw std::runtime_error{
                 "[Line " + std::to_string(source_map_tokens[bytecode_index].line) + "] Error: Undefined property \""
@@ -667,7 +682,7 @@ namespace motts::lox
         const auto& parent = *maybe_parent_class;
 
         auto& child = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
-        child->methods.insert(parent->methods.cbegin(), parent->methods.cend());
+        child->methods.insert(child->methods.cend(), parent->methods.cbegin(), parent->methods.cend());
 
         // The stack has parent above the child for inheritance,
         // but now we push child back on top again so that the subsequent method opcodes will operate on child.
@@ -688,7 +703,10 @@ namespace motts::lox
             reinterpret_cast<const GC_ptr<const std::string>&>(constants[field_name_constant_index]);
         auto& instance = std::get<GC_ptr<Instance>>(*(stack_.end() - arg_count - 1));
 
-        const auto maybe_field_iter = instance->fields.find(field_name);
+        const auto maybe_field_iter =
+            std::find_if(instance->fields.cbegin(), instance->fields.cend(), [&](const auto& key_value) {
+                return key_value.first == field_name;
+            });
         if (maybe_field_iter != instance->fields.cend()) {
             const auto maybe_closure = std::get_if<GC_ptr<Closure>>(&maybe_field_iter->second);
             if (maybe_closure) {
@@ -713,7 +731,11 @@ namespace motts::lox
             throw std::runtime_error{os.str()};
         }
 
-        const auto maybe_method_iter = instance->klass->methods.find(field_name);
+        const auto maybe_method_iter = std::find_if(
+            instance->klass->methods.cbegin(),
+            instance->klass->methods.cend(),
+            [&](const auto& key_value) { return key_value.first == field_name; }
+        );
         if (maybe_method_iter != instance->klass->methods.cend()) {
             const auto& method = maybe_method_iter->second;
             if (method->function->arity != arg_count) {
@@ -794,7 +816,15 @@ namespace motts::lox
         const auto& closure = std::get<GC_ptr<Closure>>(*(stack_.cend() - 1));
         auto& klass = std::get<GC_ptr<Class>>(*(stack_.end() - 2));
 
-        klass->methods[method_name] = closure;
+        const auto maybe_inherited_method_iter =
+            std::find_if(klass->methods.begin(), klass->methods.end(), [&](const auto& key_value) {
+                return key_value.first == method_name;
+            });
+        if (maybe_inherited_method_iter != klass->methods.cend()) {
+            maybe_inherited_method_iter->second = closure;
+        } else {
+            klass->methods.push_back({method_name, closure});
+        }
         stack_.pop_back();
     }
 
@@ -911,7 +941,15 @@ namespace motts::lox
         }
         auto& instance = *maybe_instance;
 
-        instance->fields[field_name] = *(stack_.cend() - 2);
+        const auto field_iter =
+            std::find_if(instance->fields.begin(), instance->fields.end(), [&](const auto& key_value) {
+                return key_value.first == field_name;
+            });
+        if (field_iter != instance->fields.cend()) {
+            field_iter->second = *(stack_.cend() - 2);
+        } else {
+            instance->fields.push_back({field_name, *(stack_.cend() - 2)});
+        }
         stack_.pop_back();
     }
 
