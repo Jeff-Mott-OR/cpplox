@@ -44,7 +44,8 @@ FROM build AS bench
 
     RUN apt update && apt install -y nodejs default-jdk vim
     WORKDIR /project/build/_deps/crafting_interpreters-src
-    RUN make jlox clox
+    RUN make clox
+    # RUN make jlox # Comes pre-compiled now, I guess.
     WORKDIR /project/build
 
     COPY test /project/src/test

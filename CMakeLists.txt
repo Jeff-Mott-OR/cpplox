@@ -17,27 +17,27 @@ set(BOOST_INCLUDE_LIBRARIES algorithm convert process program_options test)
 set(BOOST_ENABLE_CMAKE ON)
 FetchContent_Declare(
     Boost
-    URL https://github.com/boostorg/boost/releases/download/boost-1.83.0/boost-1.83.0.tar.xz
+    URL https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-cmake.tar.xz
 )
 
 set(BENCHMARK_ENABLE_TESTING FALSE)
 FetchContent_Declare(
     Google_Benchmark
     GIT_REPOSITORY https://github.com/google/benchmark.git
-    GIT_TAG v1.8.3
+    GIT_TAG v1.9.5
     GIT_SHALLOW ON
 )
 
 FetchContent_Declare(
     Microsoft_GSL
     GIT_REPOSITORY https://github.com/microsoft/GSL
-    GIT_TAG v4.0.0
+    GIT_TAG v5.0.0
     GIT_SHALLOW ON
 )
 
 FetchContent_Declare(
     Crafting_Interpreters
-    URL https://github.com/munificent/craftinginterpreters/archive/01e6f5b8f3e5dfa65674c2f9cf4700d73ab41cf8.zip
+    URL https://github.com/munificent/craftinginterpreters/archive/4a840f70f69c6ddd17cfef4f6964f8e1bcd8c3d4.zip
 )
 
 FetchContent_MakeAvailable(Boost Google_Benchmark Microsoft_GSL Crafting_Interpreters)

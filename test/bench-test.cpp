@@ -1,7 +1,7 @@
 #include <sstream>
 
 #include <benchmark/benchmark.h>
-#include <boost/process.hpp>
+#include <boost/process/v1.hpp>
 
 #include "../src/lox.hpp"
 
@@ -9,12 +9,12 @@
     static void TEST_NAME(benchmark::State& state) \
     { \
         for (auto _ : state) { \
-            boost::process::ipstream out; \
-            boost::process::ipstream err; \
-            boost::process::system( \
+            boost::process::v1::ipstream out; \
+            boost::process::v1::ipstream err; \
+            boost::process::v1::system( \
                 EXECUTABLE " ../src/test/lox/" TEST_FILE, \
-                boost::process::std_out > out, \
-                boost::process::std_err > err \
+                boost::process::v1::std_out > out, \
+                boost::process::v1::std_err > err \
             ); \
         } \
     } \

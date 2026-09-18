@@ -3,17 +3,17 @@
 #include <iterator>
 #include <string>
 
-#include <boost/process.hpp>
+#include <boost/process/v1.hpp>
 #include <boost/test/unit_test.hpp>
 
 BOOST_AUTO_TEST_CASE(script_file_as_positional_argument_will_run)
 {
-    boost::process::ipstream cpplox_out;
-    boost::process::ipstream cpplox_err;
-    const auto exit_code = boost::process::system(
+    boost::process::v1::ipstream cpplox_out;
+    boost::process::v1::ipstream cpplox_err;
+    const auto exit_code = boost::process::v1::system(
         "cpploxbc ../src/test/lox/hello.lox",
-        boost::process::std_out > cpplox_out,
-        boost::process::std_err > cpplox_err
+        boost::process::v1::std_out > cpplox_out,
+        boost::process::v1::std_err > cpplox_err
     );
     std::string actual_out{std::istreambuf_iterator<char>{cpplox_out}, {}};
     std::string actual_err{std::istreambuf_iterator<char>{cpplox_err}, {}};
@@ -25,12 +25,12 @@ BOOST_AUTO_TEST_CASE(script_file_as_positional_argument_will_run)
 
 BOOST_AUTO_TEST_CASE(debug_option_will_print_bytecode_and_stack)
 {
-    boost::process::ipstream cpplox_out;
-    boost::process::ipstream cpplox_err;
-    const auto exit_code = boost::process::system(
+    boost::process::v1::ipstream cpplox_out;
+    boost::process::v1::ipstream cpplox_err;
+    const auto exit_code = boost::process::v1::system(
         "cpploxbc ../src/test/lox/hello.lox --debug",
-        boost::process::std_out > cpplox_out,
-        boost::process::std_err > cpplox_err
+        boost::process::v1::std_out > cpplox_out,
+        boost::process::v1::std_err > cpplox_err
     );
     std::string actual_out{std::istreambuf_iterator<char>{cpplox_out}, {}};
     std::string actual_err{std::istreambuf_iterator<char>{cpplox_err}, {}};
@@ -61,12 +61,12 @@ BOOST_AUTO_TEST_CASE(debug_option_will_print_bytecode_and_stack)
 
 BOOST_AUTO_TEST_CASE(invalid_syntax_will_print_to_stderr_and_set_exit_code)
 {
-    boost::process::ipstream cpplox_out;
-    boost::process::ipstream cpplox_err;
-    const auto exit_code = boost::process::system(
+    boost::process::v1::ipstream cpplox_out;
+    boost::process::v1::ipstream cpplox_err;
+    const auto exit_code = boost::process::v1::system(
         "cpploxbc ../src/test/lox/unexpected_character.lox",
-        boost::process::std_out > cpplox_out,
-        boost::process::std_err > cpplox_err
+        boost::process::v1::std_out > cpplox_out,
+        boost::process::v1::std_err > cpplox_err
     );
     std::string actual_out{std::istreambuf_iterator<char>{cpplox_out}, {}};
     std::string actual_err{std::istreambuf_iterator<char>{cpplox_err}, {}};
@@ -78,14 +78,14 @@ BOOST_AUTO_TEST_CASE(invalid_syntax_will_print_to_stderr_and_set_exit_code)
 
 BOOST_AUTO_TEST_CASE(no_script_file_will_start_interactive_repl)
 {
-    boost::process::ipstream cpplox_out;
-    boost::process::ipstream cpplox_err;
-    boost::process::opstream cpplox_in;
-    const auto child_process = boost::process::child(
+    boost::process::v1::ipstream cpplox_out;
+    boost::process::v1::ipstream cpplox_err;
+    boost::process::v1::opstream cpplox_in;
+    const auto child_process = boost::process::v1::child(
         "cpploxbc",
-        boost::process::std_out > cpplox_out,
-        boost::process::std_err > cpplox_err,
-        boost::process::std_in < cpplox_in
+        boost::process::v1::std_out > cpplox_out,
+        boost::process::v1::std_err > cpplox_err,
+        boost::process::v1::std_in < cpplox_in
     );
     std::string line;
 
@@ -106,14 +106,14 @@ BOOST_AUTO_TEST_CASE(no_script_file_will_start_interactive_repl)
 
 BOOST_AUTO_TEST_CASE(can_print_class_name_across_interactive_repl_runs)
 {
-    boost::process::ipstream cpplox_out;
-    boost::process::ipstream cpplox_err;
-    boost::process::opstream cpplox_in;
-    const auto child_process = boost::process::child(
+    boost::process::v1::ipstream cpplox_out;
+    boost::process::v1::ipstream cpplox_err;
+    boost::process::v1::opstream cpplox_in;
+    const auto child_process = boost::process::v1::child(
         "cpploxbc",
-        boost::process::std_out > cpplox_out,
-        boost::process::std_err > cpplox_err,
-        boost::process::std_in < cpplox_in
+        boost::process::v1::std_out > cpplox_out,
+        boost::process::v1::std_err > cpplox_err,
+        boost::process::v1::std_in < cpplox_in
     );
     std::string line;
 
@@ -136,12 +136,12 @@ BOOST_AUTO_TEST_CASE(can_print_class_name_across_interactive_repl_runs)
 #define MOTTS_LOX_MAKE_TEST_CASE(TEST_NAME, TEST_FILE, EXPECTED_OUT, EXPECTED_ERR, EXPECTED_EXIT) \
     BOOST_AUTO_TEST_CASE(TEST_NAME) \
     { \
-        boost::process::ipstream cpplox_out; \
-        boost::process::ipstream cpplox_err; \
-        const auto exit_code = boost::process::system( \
+        boost::process::v1::ipstream cpplox_out; \
+        boost::process::v1::ipstream cpplox_err; \
+        const auto exit_code = boost::process::v1::system( \
             "cpploxbc ../src/test/lox/" TEST_FILE, \
-            boost::process::std_out > cpplox_out, \
-            boost::process::std_err > cpplox_err \
+            boost::process::v1::std_out > cpplox_out, \
+            boost::process::v1::std_err > cpplox_err \
         ); \
         std::string actual_out{std::istreambuf_iterator<char>{cpplox_out}, {}}; \
         std::string actual_err{std::istreambuf_iterator<char>{cpplox_err}, {}}; \
