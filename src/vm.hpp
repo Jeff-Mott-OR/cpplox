@@ -17,7 +17,7 @@ namespace motts::lox
         std::ostream& os_;
         GC_heap& gc_heap_;
         Interned_strings& interned_strings_;
-        std::size_t gc_heap_last_collect_size_{0};
+        std::size_t gc_heap_next_collect_size_{1024 * 1024};
 
         std::vector<Dynamic_type_value> stack_;
         std::vector<GC_ptr<Closure>> call_frames_;

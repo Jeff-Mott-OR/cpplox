@@ -248,16 +248,18 @@ namespace motts::lox
     void VM::maybe_collect_garbage()
     {
         // Run the garbage collector only occassionally based on how fast the allocation size grows.
-        if (gc_heap_.size() - gc_heap_last_collect_size_ > 1024 * 1024) {
+        if (gc_heap_.size() > gc_heap_next_collect_size_) {
             if (debug_) {
                 os_ << "# Collecting garbage: " << gc_heap_.size() << " bytes -> ";
             }
 
             gc_heap_.collect_garbage();
-            gc_heap_last_collect_size_ = gc_heap_.size();
+
+            // Scale the next collect size exponentially, so that the collector doesn't re-run too often.
+            gc_heap_next_collect_size_ = gc_heap_.size() * 2;
 
             if (debug_) {
-                os_ << gc_heap_last_collect_size_ << '\n';
+                os_ << gc_heap_.size() << '\n';
             }
         }
     }
